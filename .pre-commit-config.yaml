@@ -1,0 +1,54 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        entry: arch -arm64 bash -c 'cd backend && source .venv/bin/activate && mypy .'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      - id: pytest-fast
+        name: pytest (backend, fast unit tests only)
+        entry: arch -arm64 bash -c 'cd backend && source .venv/bin/activate && pytest -m "not slow" -q'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npm run lint --silent'
+        language: system
+        files: ^frontend/.*\.tsx?$
+        pass_filenames: false
+
+      - id: prettier-check
+        name: prettier --check (frontend)
+        entry: bash -c 'cd frontend && npm run format:check --silent'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+
+      - id: vitest
+        name: vitest (frontend)
+        entry: bash -c 'cd frontend && npm run test --silent'
+        language: system
+        files: ^frontend/.*\.tsx?$
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
