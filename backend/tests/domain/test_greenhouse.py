@@ -1,7 +1,18 @@
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
-from domain.greenhouse import Plant
+from domain.enums import SourceType
+from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+
+FORBIDDEN_SIMULATION_FIELDS = {
+    "status",
+    "current_step",
+    "total_steps",
+    "scenario_definition",
+    "random_seed",
+}
 
 
 def test_plant_constructs_with_required_fields() -> None:
@@ -43,3 +54,38 @@ def test_plant_accepts_optional_spatial_fields() -> None:
 def test_plant_requires_plant_id() -> None:
     with pytest.raises(ValidationError):
         Plant(variety="cherry_tomato", row=1, position_in_row=1)  # type: ignore[call-arg]
+
+
+def _make_greenhouse(**overrides: object) -> Greenhouse:
+    defaults: dict[str, object] = dict(
+        greenhouse_id="gh_001",
+        name="Simulation Greenhouse 001",
+        description="Primary demo greenhouse",
+        source_type=SourceType.SIMULATION,
+        layout=GreenhouseLayout(rows=4, columns=10),
+        plants=[Plant(plant_id="plant_001", variety="cherry_tomato", row=1, position_in_row=1)],
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    defaults.update(overrides)
+    return Greenhouse(**defaults)  # type: ignore[arg-type]
+
+
+def test_greenhouse_constructs_with_required_fields() -> None:
+    greenhouse = _make_greenhouse()
+
+    assert greenhouse.greenhouse_id == "gh_001"
+    assert greenhouse.source_type == SourceType.SIMULATION
+    assert greenhouse.layout.rows == 4
+    assert greenhouse.layout.columns == 10
+    assert len(greenhouse.plants) == 1
+
+
+def test_greenhouse_state_timestamps_default_to_none() -> None:
+    greenhouse = _make_greenhouse()
+
+    assert greenhouse.current_state_timestamp is None
+    assert greenhouse.latest_available_timestamp is None
+
+
+def test_greenhouse_model_has_no_simulation_specific_fields() -> None:
+    assert set(Greenhouse.model_fields).isdisjoint(FORBIDDEN_SIMULATION_FIELDS)
