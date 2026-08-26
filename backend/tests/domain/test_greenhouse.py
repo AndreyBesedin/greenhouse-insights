@@ -67,7 +67,7 @@ def _make_greenhouse(**overrides: object) -> Greenhouse:
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     defaults.update(overrides)
-    return Greenhouse(**defaults)  # type: ignore[arg-type]
+    return Greenhouse(**defaults)
 
 
 def test_greenhouse_constructs_with_required_fields() -> None:
