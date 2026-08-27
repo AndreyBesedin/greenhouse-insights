@@ -162,4 +162,47 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.getByText('Day 1 / 28')).toBeInTheDocument()
     expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
   })
+
+  it('navigating to a past day updates the KPI bar and returning restores the current day', async () => {
+    const COMPLETED_DETAIL = {
+      ...DETAIL,
+      simulation: { ...DETAIL.simulation, status: 'COMPLETED', current_step: 28 },
+    } as const
+    const STATE_DAY_28 = {
+      ...STATE_DAY_1,
+      simulated_day: 28,
+      plant_states: [{ ...STATE_DAY_1.plant_states[0], health: 'ACTION_REQUIRED' }],
+      plants_healthy: 0,
+      plants_action_required: 1,
+    }
+
+    mockedGet.mockImplementation(
+      (path: string, options?: { params?: { query?: { day?: number } } }) => {
+        if (path === '/greenhouses/{greenhouse_id}') return Promise.resolve(ok(COMPLETED_DETAIL))
+        if (path === '/greenhouses/{greenhouse_id}/state') {
+          const day = options?.params?.query?.day
+          return Promise.resolve(ok(day === 14 ? STATE_DAY_1 : STATE_DAY_28))
+        }
+        return mockGetImplementation(path)
+      },
+    )
+
+    renderDashboard()
+    await screen.findByText('Day 28 / 28')
+    expect(screen.getByText('0 healthy | 0 monitor | 1 action required')).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Day'), { target: { value: '14' } })
+    })
+
+    expect(await screen.findByText(/viewing day 14/i)).toBeInTheDocument()
+    expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /return to current day/i }))
+    })
+
+    expect(screen.queryByText(/viewing day/i)).not.toBeInTheDocument()
+    expect(await screen.findByText('0 healthy | 0 monitor | 1 action required')).toBeInTheDocument()
+  })
 })

@@ -72,6 +72,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/plants/{plant_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plant History */
+        get: operations["get_plant_history_greenhouses__greenhouse_id__plants__plant_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/greenhouses/{greenhouse_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Timeline */
+        get: operations["get_timeline_greenhouses__greenhouse_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/run": {
         parameters: {
             query?: never;
@@ -279,6 +313,13 @@ export interface components {
          * @enum {string}
          */
         SourceType: "SIMULATION" | "REAL_SENSORS" | "EXTERNAL_API" | "IMPORTED_DATA";
+        /** TimelineSummary */
+        TimelineSummary: {
+            /** Total Days */
+            total_days: number;
+            /** Current Day */
+            current_day: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -406,6 +447,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlantDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plant_history_greenhouses__greenhouse_id__plants__plant_id__history_get: {
+        parameters: {
+            query: {
+                up_to_day: number;
+            };
+            header?: never;
+            path: {
+                greenhouse_id: string;
+                plant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantState"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_timeline_greenhouses__greenhouse_id__timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineSummary"];
                 };
             };
             /** @description Validation Error */
