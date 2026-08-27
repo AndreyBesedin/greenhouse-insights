@@ -1,8 +1,14 @@
+import { Route, Routes } from 'react-router-dom'
+
+import { GreenhouseDashboardPage } from './pages/GreenhouseDashboardPage'
+import { GreenhouseListPage } from './pages/GreenhouseListPage'
+
 function App() {
   return (
-    <main>
-      <h1>Greenhouse Insights</h1>
-    </main>
+    <Routes>
+      <Route path="/" element={<GreenhouseListPage />} />
+      <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
+    </Routes>
   )
 }
 

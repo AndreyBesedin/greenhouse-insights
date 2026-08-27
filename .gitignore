@@ -14,7 +14,10 @@ htmlcov/
 node_modules/
 frontend/dist/
 frontend/build/
-frontend/generated/
+# frontend/generated/ is committed: it's produced by `npm run generate:api`
+# from the backend's OpenAPI schema and needed for the app to type-check
+# without running the backend first.
+frontend/openapi.json
 
 # Env
 .env
