@@ -3,8 +3,10 @@ from sqlalchemy import Engine
 
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.simulation_repository import SimulationRepository
+from application.persistence.state_repository import StateRepository
 from domain.enums import SimulationStatus, SourceType
-from domain.greenhouse import Greenhouse
+from domain.greenhouse import Greenhouse, Plant
+from domain.state import GreenhouseState, PlantState
 from simulation.definitions import SimulationDefinition
 
 
@@ -32,10 +34,16 @@ class GreenhouseDetail(BaseModel):
     simulation: SimulationSummary
 
 
+class PlantDetail(BaseModel):
+    plant: Plant
+    state: PlantState | None
+
+
 class GreenhouseService:
     def __init__(self, engine: Engine) -> None:
         self._greenhouses = GreenhouseRepository(engine)
         self._simulations = SimulationRepository(engine)
+        self._states = StateRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         return [
@@ -57,6 +65,29 @@ class GreenhouseService:
                 total_steps=simulation.total_steps,
             ),
         )
+
+    def get_state(self, greenhouse_id: str, *, day: int | None) -> GreenhouseState | None:
+        if day is not None:
+            return self._states.get(greenhouse_id, day=day)
+        return self._states.get_latest(greenhouse_id)
+
+    def get_plant_detail(
+        self, greenhouse_id: str, plant_id: str, *, day: int | None
+    ) -> PlantDetail | None:
+        greenhouse = self._greenhouses.get(greenhouse_id)
+        if greenhouse is None:
+            return None
+        plant = next((p for p in greenhouse.plants if p.plant_id == plant_id), None)
+        if plant is None:
+            return None
+
+        greenhouse_state = self.get_state(greenhouse_id, day=day)
+        plant_state = None
+        if greenhouse_state is not None:
+            plant_state = next(
+                (s for s in greenhouse_state.plant_states if s.plant_id == plant_id), None
+            )
+        return PlantDetail(plant=plant, state=plant_state)
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition:
         simulation = self._simulations.get(f"sim_{greenhouse_id}")
