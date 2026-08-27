@@ -43,3 +43,10 @@ class PlantHealth(StrEnum):
     MONITOR = "MONITOR"
     ACTION_REQUIRED = "ACTION_REQUIRED"
     UNKNOWN = "UNKNOWN"
+
+
+class SimulationStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
