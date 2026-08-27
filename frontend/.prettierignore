@@ -2,3 +2,4 @@ dist
 coverage
 generated
 node_modules
+openapi.json
