@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
+import { useSimulationStatus } from '../hooks/useSimulationStatus'
 import type { components } from '../../generated/schema'
 
 type GreenhouseDetail = components['schemas']['GreenhouseDetail']
@@ -25,16 +26,21 @@ export function GreenhouseDashboardPage() {
 
   if (detail === null) return <p>Loading greenhouse…</p>
 
+  return <DashboardContent detail={detail} />
+}
+
+function DashboardContent({ detail }: { detail: GreenhouseDetail }) {
   const { greenhouse, simulation } = detail
+  const { status, isPolling, run } = useSimulationStatus(simulation.simulation_id, simulation)
+  const isFinished = status.status === 'COMPLETED' || status.status === 'FAILED'
 
   return (
     <main>
       <Link to="/">← Greenhouses</Link>
       <h1>{greenhouse.name}</h1>
-      <p>
-        Day {simulation.current_step} / {simulation.total_steps}
-      </p>
-      <button type="button" disabled>
+      <p>{`Day ${status.current_step} / ${status.total_steps}`}</p>
+      <progress value={status.current_step} max={status.total_steps} />
+      <button type="button" onClick={run} disabled={isPolling || isFinished}>
         Run Simulation
       </button>
     </main>
