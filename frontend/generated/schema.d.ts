@@ -38,6 +38,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get State */
+        get: operations["get_state_greenhouses__greenhouse_id__state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/greenhouses/{greenhouse_id}/plants/{plant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plant */
+        get: operations["get_plant_greenhouses__greenhouse_id__plants__plant_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/run": {
         parameters: {
             query?: never;
@@ -76,6 +110,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * EventType
+         * @enum {string}
+         */
+        EventType: "WATERING" | "HARVEST" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION";
         /** Greenhouse */
         Greenhouse: {
             /** Greenhouse Id */
@@ -135,6 +174,26 @@ export interface components {
             /** Total Steps */
             total_steps: number;
         };
+        /** GreenhouseState */
+        GreenhouseState: {
+            /** Greenhouse Id */
+            greenhouse_id: string;
+            /** Simulated Day */
+            simulated_day: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Plant States */
+            plant_states: components["schemas"]["PlantState"][];
+            /** Plants Healthy */
+            plants_healthy: number;
+            /** Plants Monitor */
+            plants_monitor: number;
+            /** Plants Action Required */
+            plants_action_required: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -159,6 +218,47 @@ export interface components {
             /** Tray Id */
             tray_id?: string | null;
         };
+        /** PlantDetail */
+        PlantDetail: {
+            plant: components["schemas"]["Plant"];
+            state: components["schemas"]["PlantState"] | null;
+        };
+        /**
+         * PlantHealth
+         * @enum {string}
+         */
+        PlantHealth: "HEALTHY" | "MONITOR" | "ACTION_REQUIRED" | "UNKNOWN";
+        /** PlantState */
+        PlantState: {
+            /** Plant Id */
+            plant_id: string;
+            /** Greenhouse Id */
+            greenhouse_id: string;
+            /** Simulated Day */
+            simulated_day: number;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            health: components["schemas"]["PlantHealth"];
+            /** Latest Soil Moisture Pct */
+            latest_soil_moisture_pct?: number | null;
+            /** Latest Visible Fruit Count */
+            latest_visible_fruit_count?: number | null;
+            /** Latest Ripe Fruit Count */
+            latest_ripe_fruit_count?: number | null;
+            last_event_type?: components["schemas"]["EventType"] | null;
+            /** Last Event Timestamp */
+            last_event_timestamp?: string | null;
+            /** @default DETERMINISTICALLY_DERIVED */
+            provenance: components["schemas"]["Provenance"];
+        };
+        /**
+         * Provenance
+         * @enum {string}
+         */
+        Provenance: "OBSERVED" | "REPORTED" | "DETERMINISTICALLY_DERIVED" | "INFERRED";
         /**
          * SimulationStatus
          * @enum {string}
@@ -239,6 +339,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GreenhouseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_greenhouses__greenhouse_id__state_get: {
+        parameters: {
+            query?: {
+                day?: number | null;
+            };
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreenhouseState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plant_greenhouses__greenhouse_id__plants__plant_id__get: {
+        parameters: {
+            query?: {
+                day?: number | null;
+            };
+            header?: never;
+            path: {
+                greenhouse_id: string;
+                plant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantDetail"];
                 };
             };
             /** @description Validation Error */

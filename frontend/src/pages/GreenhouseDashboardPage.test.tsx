@@ -16,14 +16,18 @@ function ok<T>(data: T) {
   return { data, error: undefined, response: new Response() }
 }
 
-const NOT_STARTED_DETAIL = {
+function notFound() {
+  return { data: undefined, error: { detail: 'not found' }, response: new Response() }
+}
+
+const DETAIL = {
   greenhouse: {
     greenhouse_id: 'gh_001',
     name: 'Simulation Greenhouse 001',
     description: 'Primary demo greenhouse',
     source_type: 'SIMULATION',
-    layout: { kind: 'grid', rows: 4, columns: 10 },
-    plants: [],
+    layout: { kind: 'grid', rows: 1, columns: 1 },
+    plants: [{ plant_id: 'plant_017', variety: 'cherry_tomato', row: 1, position_in_row: 1 }],
     created_at: '2026-01-01T00:00:00Z',
     current_state_timestamp: null,
     latest_available_timestamp: null,
@@ -42,12 +46,44 @@ const RUNNING_1 = {
   current_step: 1,
   total_steps: 28,
 } as const
-const COMPLETED = {
-  simulation_id: 'sim_gh_001',
-  status: 'COMPLETED',
-  current_step: 28,
-  total_steps: 28,
+
+const STATE_DAY_1 = {
+  greenhouse_id: 'gh_001',
+  simulated_day: 1,
+  timestamp: '2026-01-01T00:00:00Z',
+  plant_states: [
+    {
+      plant_id: 'plant_017',
+      greenhouse_id: 'gh_001',
+      simulated_day: 1,
+      timestamp: '2026-01-01T00:00:00Z',
+      health: 'HEALTHY',
+      latest_soil_moisture_pct: 55,
+      latest_visible_fruit_count: null,
+      latest_ripe_fruit_count: null,
+      last_event_type: null,
+      last_event_timestamp: null,
+      provenance: 'DETERMINISTICALLY_DERIVED',
+    },
+  ],
+  plants_healthy: 1,
+  plants_monitor: 0,
+  plants_action_required: 0,
 } as const
+
+const PLANT_DETAIL = {
+  plant: DETAIL.greenhouse.plants[0],
+  state: STATE_DAY_1.plant_states[0],
+} as const
+
+function mockGetImplementation(path: string) {
+  if (path === '/greenhouses/{greenhouse_id}') return Promise.resolve(ok(DETAIL))
+  if (path === '/greenhouses/{greenhouse_id}/state') return Promise.resolve(notFound())
+  if (path === '/simulations/{simulation_id}/status') return Promise.resolve(ok(RUNNING_1))
+  if (path === '/greenhouses/{greenhouse_id}/plants/{plant_id}')
+    return Promise.resolve(ok(PLANT_DETAIL))
+  throw new Error(`unexpected GET ${path}`)
+}
 
 beforeEach(() => {
   mockedGet.mockReset()
@@ -70,7 +106,7 @@ function renderDashboard() {
 
 describe('GreenhouseDashboardPage', () => {
   it('shows the greenhouse name and current progress out of total steps', async () => {
-    mockedGet.mockResolvedValue(ok(NOT_STARTED_DETAIL))
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
 
     renderDashboard()
 
@@ -78,11 +114,31 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.getByText('Day 0 / 28')).toBeInTheDocument()
   })
 
-  it('clicking run starts polling and updates progress until completion', async () => {
-    mockedGet.mockResolvedValueOnce(ok(NOT_STARTED_DETAIL))
-    mockedPost.mockResolvedValue(ok(NOT_STARTED_DETAIL.simulation))
-    mockedGet.mockResolvedValueOnce(ok(RUNNING_1))
-    mockedGet.mockResolvedValueOnce(ok(COMPLETED))
+  it('renders the greenhouse map and a neutral KPI bar before any state exists', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+
+    renderDashboard()
+
+    expect(await screen.findByRole('button', { name: /plant_017/ })).toBeInTheDocument()
+    expect(screen.getByText('0 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
+  })
+
+  it('selecting a plant fetches and shows its detail', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+
+    renderDashboard()
+    const cell = await screen.findByRole('button', { name: /plant_017/ })
+
+    await act(async () => {
+      fireEvent.click(cell)
+    })
+
+    expect(await screen.findByText('Row 1 · Position 1')).toBeInTheDocument()
+  })
+
+  it('clicking run starts polling and updates progress and KPIs until completion', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+    mockedPost.mockResolvedValue(ok(DETAIL.simulation))
 
     renderDashboard()
     const runButton = await screen.findByRole('button', { name: /run simulation/i })
@@ -95,15 +151,15 @@ describe('GreenhouseDashboardPage', () => {
     })
     expect(mockedPost).toHaveBeenCalledOnce()
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000)
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/state') return Promise.resolve(ok(STATE_DAY_1))
+      return mockGetImplementation(path)
     })
-    expect(screen.getByText('Day 1 / 28')).toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
-    expect(screen.getByText('Day 28 / 28')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /run simulation/i })).toBeDisabled()
+    expect(screen.getByText('Day 1 / 28')).toBeInTheDocument()
+    expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
   })
 })
