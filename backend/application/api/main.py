@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from application.api.routers import greenhouses, simulations
 from application.bootstrap import bootstrap_greenhouses
@@ -18,6 +19,11 @@ def _step_delay_seconds() -> float:
     return float(os.environ.get("GREENHOUSE_STEP_DELAY_SECONDS", "1.0"))
 
 
+def _allowed_origins() -> list[str]:
+    origins = os.environ.get("GREENHOUSE_ALLOWED_ORIGINS", "http://localhost:5173")
+    return [origin.strip() for origin in origins.split(",") if origin.strip()]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_engine_and_tables(_database_url())
@@ -31,5 +37,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Greenhouse Insights API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(greenhouses.router)
 app.include_router(simulations.router)
