@@ -29,3 +29,12 @@ def test_create_engine_and_tables_is_idempotent(tmp_path: Path) -> None:
 
     table_names = set(inspect(engine).get_table_names())
     assert EXPECTED_TABLES <= table_names
+
+
+def test_create_engine_and_tables_creates_missing_parent_directories(tmp_path: Path) -> None:
+    nested_db_path = tmp_path / "data" / "nested" / "greenhouse.db"
+
+    engine = create_engine_and_tables(f"sqlite:///{nested_db_path}")
+
+    assert nested_db_path.exists()
+    assert EXPECTED_TABLES <= set(inspect(engine).get_table_names())
