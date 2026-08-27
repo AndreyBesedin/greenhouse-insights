@@ -39,6 +39,11 @@ class PlantDetail(BaseModel):
     state: PlantState | None
 
 
+class TimelineSummary(BaseModel):
+    total_days: int
+    current_day: int
+
+
 class GreenhouseService:
     def __init__(self, engine: Engine) -> None:
         self._greenhouses = GreenhouseRepository(engine)
@@ -88,6 +93,31 @@ class GreenhouseService:
                 (s for s in greenhouse_state.plant_states if s.plant_id == plant_id), None
             )
         return PlantDetail(plant=plant, state=plant_state)
+
+    def get_plant_history(
+        self, greenhouse_id: str, plant_id: str, *, up_to_day: int
+    ) -> list[PlantState] | None:
+        greenhouse = self._greenhouses.get(greenhouse_id)
+        if greenhouse is None:
+            return None
+        if not any(p.plant_id == plant_id for p in greenhouse.plants):
+            return None
+
+        states = self._states.list_up_to_day(greenhouse_id, max_day=up_to_day)
+        return [
+            plant_state
+            for greenhouse_state in states
+            for plant_state in greenhouse_state.plant_states
+            if plant_state.plant_id == plant_id
+        ]
+
+    def get_timeline(self, greenhouse_id: str) -> TimelineSummary | None:
+        if self._greenhouses.get(greenhouse_id) is None:
+            return None
+        simulation = self._simulation_for(greenhouse_id)
+        return TimelineSummary(
+            total_days=simulation.total_steps, current_day=simulation.current_step
+        )
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition:
         simulation = self._simulations.get(f"sim_{greenhouse_id}")

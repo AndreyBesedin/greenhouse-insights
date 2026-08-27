@@ -7,8 +7,9 @@ from application.greenhouse_service import (
     GreenhouseListItem,
     GreenhouseService,
     PlantDetail,
+    TimelineSummary,
 )
-from domain.state import GreenhouseState
+from domain.state import GreenhouseState, PlantState
 
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
 
@@ -57,3 +58,26 @@ def get_plant(
     if detail is None:
         raise HTTPException(status_code=404, detail="plant not found")
     return detail
+
+
+@router.get("/{greenhouse_id}/plants/{plant_id}/history")
+def get_plant_history(
+    greenhouse_id: str,
+    plant_id: str,
+    up_to_day: int,
+    service: GreenhouseService = Depends(_get_service),
+) -> list[PlantState]:
+    history = service.get_plant_history(greenhouse_id, plant_id, up_to_day=up_to_day)
+    if history is None:
+        raise HTTPException(status_code=404, detail="plant not found")
+    return history
+
+
+@router.get("/{greenhouse_id}/timeline")
+def get_timeline(
+    greenhouse_id: str, service: GreenhouseService = Depends(_get_service)
+) -> TimelineSummary:
+    timeline = service.get_timeline(greenhouse_id)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail="greenhouse not found")
+    return timeline

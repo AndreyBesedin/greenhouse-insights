@@ -43,3 +43,16 @@ class StateRepository:
         with self._engine.connect() as connection:
             state_json = connection.execute(statement).scalar_one_or_none()
         return None if state_json is None else GreenhouseState.model_validate_json(state_json)
+
+    def list_up_to_day(self, greenhouse_id: str, *, max_day: int) -> list[GreenhouseState]:
+        statement = (
+            select(greenhouse_state_snapshots.c.state_json)
+            .where(
+                greenhouse_state_snapshots.c.greenhouse_id == greenhouse_id,
+                greenhouse_state_snapshots.c.simulated_day <= max_day,
+            )
+            .order_by(greenhouse_state_snapshots.c.simulated_day)
+        )
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).scalars().all()
+        return [GreenhouseState.model_validate_json(state_json) for state_json in rows]

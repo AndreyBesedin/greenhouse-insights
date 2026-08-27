@@ -55,3 +55,30 @@ def test_get_latest_returns_none_when_nothing_saved(engine: Engine) -> None:
     repo = StateRepository(engine)
 
     assert repo.get_latest("gh_001") is None
+
+
+def test_list_up_to_day_returns_states_in_ascending_day_order(engine: Engine) -> None:
+    repo = StateRepository(engine)
+    repo.save(_make_state(3))
+    repo.save(_make_state(1))
+    repo.save(_make_state(2))
+
+    states = repo.list_up_to_day("gh_001", max_day=3)
+
+    assert [s.simulated_day for s in states] == [1, 2, 3]
+
+
+def test_list_up_to_day_never_returns_days_beyond_max_day(engine: Engine) -> None:
+    repo = StateRepository(engine)
+    for day in range(1, 6):
+        repo.save(_make_state(day))
+
+    states = repo.list_up_to_day("gh_001", max_day=3)
+
+    assert [s.simulated_day for s in states] == [1, 2, 3]
+
+
+def test_list_up_to_day_returns_empty_list_when_nothing_saved(engine: Engine) -> None:
+    repo = StateRepository(engine)
+
+    assert repo.list_up_to_day("gh_001", max_day=10) == []

@@ -128,3 +128,37 @@ def test_get_plant_detail_returns_404_for_unknown_greenhouse(client: TestClient)
     response = client.get("/greenhouses/does_not_exist/plants/plant_001")
 
     assert response.status_code == 404
+
+
+def test_get_plant_history_never_returns_days_beyond_up_to_day(
+    client: TestClient, engine: Engine
+) -> None:
+    for day in range(1, 6):
+        _save_state(engine, "gh_001", day)
+
+    response = client.get("/greenhouses/gh_001/plants/gh_001_plant_001/history?up_to_day=3")
+
+    assert response.status_code == 200
+    days = [s["simulated_day"] for s in response.json()]
+    assert days == [1, 2, 3]
+
+
+def test_get_plant_history_returns_404_for_unknown_plant(client: TestClient) -> None:
+    response = client.get("/greenhouses/gh_001/plants/does_not_exist/history?up_to_day=5")
+
+    assert response.status_code == 404
+
+
+def test_get_timeline_reports_total_and_current_day(client: TestClient) -> None:
+    response = client.get("/greenhouses/gh_001/timeline")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_days"] == 28
+    assert body["current_day"] == 0
+
+
+def test_get_timeline_returns_404_for_unknown_greenhouse(client: TestClient) -> None:
+    response = client.get("/greenhouses/does_not_exist/timeline")
+
+    assert response.status_code == 404

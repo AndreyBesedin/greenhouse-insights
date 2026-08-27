@@ -142,3 +142,54 @@ def test_get_plant_detail_includes_that_plants_state_once_it_exists(engine: Engi
     assert detail.state is not None
     assert detail.state.simulated_day == 5
     assert detail.state.health == PlantHealth.HEALTHY
+
+
+def test_get_plant_history_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    assert service.get_plant_history("does_not_exist", "plant_001", up_to_day=10) is None
+
+
+def test_get_plant_history_returns_none_for_unknown_plant(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    service = GreenhouseService(engine)
+
+    assert service.get_plant_history("gh_001", "does_not_exist", up_to_day=10) is None
+
+
+def test_get_plant_history_never_returns_days_beyond_up_to_day(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    for day in range(1, 6):
+        _save_state(engine, "gh_001", day)
+    service = GreenhouseService(engine)
+
+    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to_day=3)
+
+    assert history is not None
+    assert [s.simulated_day for s in history] == [1, 2, 3]
+
+
+def test_get_plant_history_is_empty_before_any_state_exists(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    service = GreenhouseService(engine)
+
+    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to_day=10)
+
+    assert history == []
+
+
+def test_get_timeline_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    assert service.get_timeline("does_not_exist") is None
+
+
+def test_get_timeline_reports_total_and_current_day(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    service = GreenhouseService(engine)
+
+    timeline = service.get_timeline("gh_001")
+
+    assert timeline is not None
+    assert timeline.total_days == 28
+    assert timeline.current_day == 0
