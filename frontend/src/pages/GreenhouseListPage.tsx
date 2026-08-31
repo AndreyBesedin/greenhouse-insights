@@ -19,12 +19,14 @@ const STATUS_BADGE: Record<SimulationStatus, { label: string; cls: string }> = {
   FAILED: { label: 'Failed', cls: 'bg-terra/10 text-terra outline-terra/30' },
 }
 
+const NO_SOURCE_BADGE = { label: 'No data source', cls: 'bg-ink-800 text-mist outline-white/15' }
+
 function GreenhouseCard({ greenhouse }: { greenhouse: GreenhouseListItem }) {
-  const badge = STATUS_BADGE[greenhouse.status]
-  const pct =
-    greenhouse.total_steps > 0
-      ? Math.round((greenhouse.current_step / greenhouse.total_steps) * 100)
-      : 0
+  const hasSimulation = greenhouse.status !== null
+  const badge = greenhouse.status !== null ? STATUS_BADGE[greenhouse.status] : NO_SOURCE_BADGE
+  const totalSteps = greenhouse.total_steps ?? 0
+  const currentStep = greenhouse.current_step ?? 0
+  const pct = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0
 
   return (
     <Link
@@ -40,7 +42,7 @@ function GreenhouseCard({ greenhouse }: { greenhouse: GreenhouseListItem }) {
             <div className="font-display text-base font-medium">{greenhouse.name}</div>
             <div className="text-xs text-mist">
               {formatCropLabel(greenhouse.crop)} · {greenhouse.plant_count.toLocaleString()} plants
-              · {greenhouse.total_steps} simulated days
+              {hasSimulation ? ` · ${totalSteps} simulated days` : ''}
             </div>
           </div>
         </div>
@@ -55,23 +57,27 @@ function GreenhouseCard({ greenhouse }: { greenhouse: GreenhouseListItem }) {
         </span>
       </div>
 
-      <div className="mt-4">
-        <div className="mb-1.5 flex justify-between text-[11px] text-mist">
-          <span>
-            Day {greenhouse.current_step} of {greenhouse.total_steps}
-          </span>
-          <span>{pct}%</span>
+      {hasSimulation ? (
+        <div className="mt-4">
+          <div className="mb-1.5 flex justify-between text-[11px] text-mist">
+            <span>
+              Day {currentStep} of {totalSteps}
+            </span>
+            <span>{pct}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-ink-600">
+            <div
+              className={cn(
+                'h-full rounded-full',
+                greenhouse.status === 'NOT_STARTED' ? 'bg-amber' : 'bg-brand',
+              )}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
-        <div className="h-1 rounded-full bg-ink-600">
-          <div
-            className={cn(
-              'h-full rounded-full',
-              greenhouse.status === 'NOT_STARTED' ? 'bg-amber' : 'bg-brand',
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
+      ) : (
+        <p className="mt-4 text-[11px] text-mist">Not yet connected to a live data source.</p>
+      )}
 
       <div className="mt-4 text-xs font-medium text-brand">Open greenhouse →</div>
     </Link>
@@ -104,6 +110,12 @@ export function GreenhouseListPage() {
               {greenhouses ? ` · ${greenhouses.length} greenhouses` : ''}
             </p>
           </div>
+          <Link
+            to="/greenhouses/new"
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90"
+          >
+            New greenhouse
+          </Link>
         </div>
 
         {greenhouses === null ? (

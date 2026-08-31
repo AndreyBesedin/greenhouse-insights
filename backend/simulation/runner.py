@@ -6,15 +6,20 @@ from sqlalchemy import Engine
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
+from application.persistence.world_repository import WorldRepository
 from domain.enums import SimulationStatus
+from domain.event import Event
 from intelligence.state_reconstruction import (
     reconstruct_greenhouse_state,
     reconstruct_plant_state,
 )
-from simulation.generator import generate_day
-from simulation.scenarios import SCENARIO_REGISTRY
+from simulation.actions import apply_action, validate_action
+from simulation.observations import generate_observations
+from simulation.policy import DeterministicPolicy
+from simulation.world_builder import advance_world, initialize_world
 
 
 class SimulationRunner:
@@ -26,6 +31,9 @@ class SimulationRunner:
         self._observations = ObservationRepository(engine)
         self._events = EventRepository(engine)
         self._states = StateRepository(engine)
+        self._worlds = WorldRepository(engine)
+        self._scenario_configs = ScenarioConfigRepository(engine)
+        self._policy = DeterministicPolicy()
 
     async def run_to_completion(self, simulation_id: str) -> None:
         while True:
@@ -51,16 +59,32 @@ class SimulationRunner:
         if greenhouse is None:
             raise LookupError(f"no greenhouse found for {definition.greenhouse_id!r}")
 
-        config = SCENARIO_REGISTRY[definition.scenario_definition]
+        config = self._scenario_configs.get(definition.scenario_definition)
+        if config is None:
+            raise LookupError(f"no scenario config found for {definition.scenario_definition!r}")
         plant_ids = [plant.plant_id for plant in greenhouse.plants]
         timestamp = datetime.combine(definition.start_date, datetime.min.time(), tzinfo=UTC)
         timestamp += timedelta(days=day - 1)
 
-        generation = generate_day(
-            config, greenhouse.greenhouse_id, plant_ids, day=day, timestamp=timestamp
-        )
+        world = self._worlds.get_latest(greenhouse.greenhouse_id)
+        if world is None:
+            world = initialize_world(config, plant_ids, greenhouse_id=greenhouse.greenhouse_id)
+        world = advance_world(world, config, day)
+
+        generation = generate_observations(world, config, day=day, timestamp=timestamp)
+
+        actions = self._policy.decide(world, config)
+        action_events: list[Event] = []
+        for action in actions:
+            result = validate_action(world, action)
+            if not result.accepted:
+                continue
+            world, event = apply_action(world, action, config, day=day, timestamp=timestamp)
+            action_events.append(event)
+
         self._observations.save_many(generation.observations)
-        self._events.save_many(generation.events)
+        self._events.save_many(action_events)
+        self._worlds.save(world)
 
         plant_states = [
             reconstruct_plant_state(
@@ -69,8 +93,8 @@ class SimulationRunner:
                 day=day,
                 timestamp=timestamp,
                 observations=generation.observations,
-                events=generation.events,
-            )
+                events=action_events,
+            ).model_copy(update={"harvested_total_g": world.plant(plant_id).cumulative_harvest_g})
             for plant_id in plant_ids
         ]
         greenhouse_state = reconstruct_greenhouse_state(

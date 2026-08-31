@@ -24,6 +24,7 @@ def reconstruct_plant_state(
     soil_moisture = _latest_value(plant_observations, ObservationType.SOIL_MOISTURE_PCT)
     visible_fruit_count = _latest_value(plant_observations, ObservationType.VISIBLE_FRUIT_COUNT)
     ripe_fruit_count = _latest_value(plant_observations, ObservationType.RIPE_FRUIT_COUNT)
+    ripe_mass_g = _latest_value(plant_observations, ObservationType.ESTIMATED_RIPE_MASS_G)
     last_event = max(plant_events, key=lambda event: event.timestamp, default=None)
 
     return PlantState(
@@ -37,6 +38,7 @@ def reconstruct_plant_state(
         if visible_fruit_count is not None
         else None,
         latest_ripe_fruit_count=int(ripe_fruit_count) if ripe_fruit_count is not None else None,
+        latest_estimated_ripe_mass_g=ripe_mass_g,
         last_event_type=last_event.event_type if last_event else None,
         last_event_timestamp=last_event.timestamp if last_event else None,
     )

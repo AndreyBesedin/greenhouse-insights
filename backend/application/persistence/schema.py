@@ -66,3 +66,18 @@ greenhouse_state_snapshots = Table(
     Column("timestamp", String, nullable=False),
     Column("state_json", String, nullable=False),
 )
+
+greenhouse_world_snapshots = Table(
+    "greenhouse_world_snapshots",
+    metadata,
+    Column("greenhouse_id", String, primary_key=True),
+    Column("simulated_day", Integer, primary_key=True),
+    Column("world_json", String, nullable=False),
+)
+
+scenario_configs = Table(
+    "scenario_configs",
+    metadata,
+    Column("greenhouse_id", String, primary_key=True),
+    Column("config_json", String, nullable=False),
+)

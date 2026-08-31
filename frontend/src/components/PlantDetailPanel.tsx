@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import type { components } from '../../generated/schema'
+import { formatMass } from '../lib/format'
 import { healthToStatus } from '../lib/status'
 import { StatusBadge } from './StatusBadge'
 
@@ -90,6 +91,18 @@ export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
                   }
                 />
               )}
+              {state.latest_estimated_ripe_mass_g != null && (
+                <MetricTile
+                  label="Ripe mass"
+                  value={formatMass(state.latest_estimated_ripe_mass_g)}
+                  hint="ready to harvest"
+                />
+              )}
+              <MetricTile
+                label="Harvested total"
+                value={formatMass(state.harvested_total_g)}
+                hint="cumulative this cycle"
+              />
               {state.last_event_type && (
                 <MetricTile label="Last event" value={state.last_event_type} />
               )}

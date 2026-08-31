@@ -3,6 +3,7 @@ from sqlalchemy import Engine
 
 from application.api.dependencies import get_engine
 from application.greenhouse_service import (
+    CreateGreenhouseRequest,
     GreenhouseDetail,
     GreenhouseListItem,
     GreenhouseService,
@@ -23,6 +24,13 @@ def list_greenhouses(
     service: GreenhouseService = Depends(_get_service),
 ) -> list[GreenhouseListItem]:
     return service.list_greenhouses()
+
+
+@router.post("", status_code=201)
+def create_greenhouse(
+    request: CreateGreenhouseRequest, service: GreenhouseService = Depends(_get_service)
+) -> GreenhouseDetail:
+    return service.create_greenhouse(request)
 
 
 @router.get("/{greenhouse_id}")

@@ -10,11 +10,13 @@ from sqlalchemy import Engine
 from application.api.dependencies import get_engine, get_simulation_service
 from application.api.main import app
 from application.persistence.greenhouse_repository import GreenhouseRepository
+from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.simulation_service import SimulationService
 from domain.enums import SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from simulation.definitions import SimulationDefinition
+from simulation.scenarios import SCENARIO_REGISTRY
 
 
 def _seed(engine: Engine) -> None:
@@ -30,6 +32,7 @@ def _seed(engine: Engine) -> None:
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     GreenhouseRepository(engine).save(greenhouse)
+    ScenarioConfigRepository(engine).save(SCENARIO_REGISTRY["gh_002"])
     SimulationRepository(engine).save(
         SimulationDefinition(
             simulation_id="sim_test",

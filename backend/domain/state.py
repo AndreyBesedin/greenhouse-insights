@@ -14,6 +14,8 @@ class PlantState(BaseModel):
     latest_soil_moisture_pct: float | None = None
     latest_visible_fruit_count: int | None = None
     latest_ripe_fruit_count: int | None = None
+    latest_estimated_ripe_mass_g: float | None = None
+    harvested_total_g: float = 0.0
     last_event_type: EventType | None = None
     last_event_timestamp: datetime | None = None
     provenance: Provenance = Provenance.DETERMINISTICALLY_DERIVED
@@ -27,6 +29,8 @@ class GreenhouseState(BaseModel):
     plants_healthy: int
     plants_monitor: int
     plants_action_required: int
+    total_ripe_mass_g: float = 0.0
+    total_harvested_g: float = 0.0
 
     @classmethod
     def aggregate(
@@ -47,4 +51,6 @@ class GreenhouseState(BaseModel):
             plants_action_required=sum(
                 1 for s in plant_states if s.health == PlantHealth.ACTION_REQUIRED
             ),
+            total_ripe_mass_g=sum(s.latest_estimated_ripe_mass_g or 0.0 for s in plant_states),
+            total_harvested_g=sum(s.harvested_total_g for s in plant_states),
         )

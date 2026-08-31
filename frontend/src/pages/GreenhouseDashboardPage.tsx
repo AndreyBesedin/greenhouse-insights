@@ -10,11 +10,12 @@ import { useGreenhouseState } from '../hooks/useGreenhouseState'
 import { usePlantDetail } from '../hooks/usePlantDetail'
 import { usePlantHistory } from '../hooks/usePlantHistory'
 import { useSimulationStatus } from '../hooks/useSimulationStatus'
-import { formatCropLabel } from '../lib/format'
+import { formatCropLabel, formatMass } from '../lib/format'
 import { cn } from '../lib/utils'
 import type { components } from '../../generated/schema'
 
 type GreenhouseDetail = components['schemas']['GreenhouseDetail']
+type SimulationSummary = components['schemas']['SimulationSummary']
 type PlantHealth = components['schemas']['PlantState']['health']
 type SimulationStatus = components['schemas']['SimulationStatus']
 
@@ -62,12 +63,85 @@ export function GreenhouseDashboardPage() {
     )
   }
 
-  return <DashboardContent detail={detail} />
+  if (detail.simulation === null) {
+    return <NoDataSourceDashboard detail={detail} />
+  }
+
+  return <DashboardContent detail={detail} simulation={detail.simulation} />
 }
 
-function DashboardContent({ detail }: { detail: GreenhouseDetail }) {
-  const { greenhouse, simulation } = detail
-  const { status, isPolling, run } = useSimulationStatus(simulation.simulation_id, simulation)
+function NoDataSourceDashboard({ detail }: { detail: GreenhouseDetail }) {
+  const { greenhouse } = detail
+  const crop = greenhouse.plants[0]?.variety ?? 'tomato'
+  const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null)
+  const selectedPlant = greenhouse.plants.find((p) => p.plant_id === selectedPlantId) ?? null
+
+  return (
+    <AppShell>
+      <main className="mx-auto max-w-[1440px] px-6 py-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="mb-2 text-xs text-mist">
+              <Link to="/" className="transition-colors hover:text-paper">
+                ← Greenhouses
+              </Link>
+              <span className="mx-1 opacity-50">/</span>
+              <span className="text-paper">{greenhouse.name}</span>
+            </div>
+            <h1 className="max-w-[28ch] text-balance font-display text-2xl font-medium tracking-tight">
+              {greenhouse.name} · {formatCropLabel(crop)}
+            </h1>
+            <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-ink-800 px-3 py-1 text-xs outline-1 -outline-offset-1 outline-white/[0.07]">
+              <span className="size-1.5 rounded-full bg-mist" />
+              <span className="font-medium text-paper">No data source connected</span>
+            </span>
+          </div>
+          <div className="text-right text-xs text-mist">
+            {greenhouse.plants.length.toLocaleString()} plants · {greenhouse.layout.rows} row
+            {greenhouse.layout.rows > 1 ? 's' : ''}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
+          <section className="rounded-lg bg-ink-850 p-5 outline-1 -outline-offset-1 outline-white/[0.06]">
+            <GreenhouseMap
+              plants={greenhouse.plants}
+              healthByPlantId={new Map()}
+              selectedPlantId={selectedPlantId}
+              onSelectPlant={setSelectedPlantId}
+            />
+          </section>
+
+          <aside className="grid place-items-center rounded-lg bg-ink-850 p-10 text-center outline-1 -outline-offset-1 outline-white/[0.06]">
+            <div>
+              <div className="font-display text-sm font-medium text-paper">
+                No data source connected yet
+              </div>
+              <p className="mt-1 text-xs text-mist">
+                {selectedPlant
+                  ? `Plant ${selectedPlant.plant_id} · Row ${selectedPlant.row}, position ${selectedPlant.position_in_row}. Connect live sensors or an external feed to see its state.`
+                  : "This greenhouse doesn't have a simulation or live data source connected yet."}
+              </p>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </AppShell>
+  )
+}
+
+function DashboardContent({
+  detail,
+  simulation: initialSimulation,
+}: {
+  detail: GreenhouseDetail
+  simulation: SimulationSummary
+}) {
+  const { greenhouse } = detail
+  const { status, isPolling, run } = useSimulationStatus(
+    initialSimulation.simulation_id,
+    initialSimulation,
+  )
   const isFinished = status.status === 'COMPLETED' || status.status === 'FAILED'
   const statusMeta = STATUS_META[status.status]
   const crop = greenhouse.plants[0]?.variety ?? 'tomato'
@@ -140,7 +214,7 @@ function DashboardContent({ detail }: { detail: GreenhouseDetail }) {
           />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
           <Kpi
             label="Plants"
             value={greenhouse.plants.length.toLocaleString()}
@@ -149,6 +223,16 @@ function DashboardContent({ detail }: { detail: GreenhouseDetail }) {
           <Kpi label="Healthy" value={String(state?.plants_healthy ?? 0)} />
           <Kpi label="Monitor" value={String(state?.plants_monitor ?? 0)} />
           <Kpi label="Need action" value={String(state?.plants_action_required ?? 0)} />
+          <Kpi
+            label="Ready to harvest"
+            value={formatMass(state?.total_ripe_mass_g ?? 0)}
+            hint={(state?.total_ripe_mass_g ?? 0) > 0 ? 'ripe and waiting' : 'nothing ripe yet'}
+          />
+          <Kpi
+            label="Harvested total"
+            value={formatMass(state?.total_harvested_g ?? 0)}
+            hint="cumulative this cycle"
+          />
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">

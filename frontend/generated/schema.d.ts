@@ -14,7 +14,8 @@ export interface paths {
         /** List Greenhouses */
         get: operations["list_greenhouses_greenhouses_get"];
         put?: never;
-        post?: never;
+        /** Create Greenhouse */
+        post: operations["create_greenhouse_greenhouses_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -144,11 +145,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CreateGreenhouseRequest */
+        CreateGreenhouseRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            source_type: components["schemas"]["SourceType"];
+            /** Crop */
+            crop: string;
+            /** Rows */
+            rows: number;
+            /** Columns */
+            columns: number;
+            /** Duration Days */
+            duration_days?: number | null;
+            /** Random Seed */
+            random_seed?: number | null;
+        };
         /**
          * EventType
          * @enum {string}
          */
-        EventType: "WATERING" | "HARVEST" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION";
+        EventType: "WATERING" | "HARVEST" | "LOWERING" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION";
         /** Greenhouse */
         Greenhouse: {
             /** Greenhouse Id */
@@ -174,7 +196,7 @@ export interface components {
         /** GreenhouseDetail */
         GreenhouseDetail: {
             greenhouse: components["schemas"]["Greenhouse"];
-            simulation: components["schemas"]["SimulationSummary"];
+            simulation: components["schemas"]["SimulationSummary"] | null;
         };
         /** GreenhouseLayout */
         GreenhouseLayout: {
@@ -202,11 +224,11 @@ export interface components {
             crop: string;
             /** Plant Count */
             plant_count: number;
-            status: components["schemas"]["SimulationStatus"];
+            status: components["schemas"]["SimulationStatus"] | null;
             /** Current Step */
-            current_step: number;
+            current_step: number | null;
             /** Total Steps */
-            total_steps: number;
+            total_steps: number | null;
         };
         /** GreenhouseState */
         GreenhouseState: {
@@ -227,6 +249,16 @@ export interface components {
             plants_monitor: number;
             /** Plants Action Required */
             plants_action_required: number;
+            /**
+             * Total Ripe Mass G
+             * @default 0
+             */
+            total_ripe_mass_g: number;
+            /**
+             * Total Harvested G
+             * @default 0
+             */
+            total_harvested_g: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -282,6 +314,13 @@ export interface components {
             latest_visible_fruit_count?: number | null;
             /** Latest Ripe Fruit Count */
             latest_ripe_fruit_count?: number | null;
+            /** Latest Estimated Ripe Mass G */
+            latest_estimated_ripe_mass_g?: number | null;
+            /**
+             * Harvested Total G
+             * @default 0
+             */
+            harvested_total_g: number;
             last_event_type?: components["schemas"]["EventType"] | null;
             /** Last Event Timestamp */
             last_event_timestamp?: string | null;
@@ -358,6 +397,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GreenhouseListItem"][];
+                };
+            };
+        };
+    };
+    create_greenhouse_greenhouses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGreenhouseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreenhouseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

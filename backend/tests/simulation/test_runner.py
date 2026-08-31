@@ -6,12 +6,14 @@ from sqlalchemy import Engine
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from domain.enums import SimulationStatus, SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
+from simulation.scenarios import SCENARIO_REGISTRY
 
 
 def _seed_greenhouse_and_simulation(
@@ -29,6 +31,7 @@ def _seed_greenhouse_and_simulation(
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
     GreenhouseRepository(engine).save(greenhouse)
+    ScenarioConfigRepository(engine).save(SCENARIO_REGISTRY["gh_002"])
 
     definition = SimulationDefinition(
         simulation_id="sim_test",

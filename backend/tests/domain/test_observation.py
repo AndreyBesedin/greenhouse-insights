@@ -51,4 +51,5 @@ def test_observation_type_has_expected_members() -> None:
         "air_temperature_c",
         "visible_fruit_count",
         "ripe_fruit_count",
+        "estimated_ripe_mass_g",
     }

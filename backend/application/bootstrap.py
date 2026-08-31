@@ -3,9 +3,10 @@ from datetime import UTC, datetime
 from sqlalchemy import Engine
 
 from application.persistence.greenhouse_repository import GreenhouseRepository
+from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from domain.enums import SourceType
-from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.greenhouse import Greenhouse, GreenhouseLayout, build_grid_plants
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios import SCENARIO_REGISTRY
 from simulation.scenarios.config import ScenarioConfig
@@ -14,8 +15,10 @@ from simulation.scenarios.config import ScenarioConfig
 def bootstrap_greenhouses(engine: Engine) -> None:
     greenhouse_repo = GreenhouseRepository(engine)
     simulation_repo = SimulationRepository(engine)
+    scenario_config_repo = ScenarioConfigRepository(engine)
 
     for config in SCENARIO_REGISTRY.values():
+        scenario_config_repo.save(config)
         if greenhouse_repo.get(config.greenhouse_id) is not None:
             continue
 
@@ -30,26 +33,9 @@ def _greenhouse_from_config(config: ScenarioConfig) -> Greenhouse:
         description=config.description,
         source_type=SourceType.SIMULATION,
         layout=GreenhouseLayout(rows=config.rows, columns=config.columns),
-        plants=_plants_from_config(config),
+        plants=build_grid_plants(config.greenhouse_id, config.variety, config.rows, config.columns),
         created_at=datetime.now(UTC),
     )
-
-
-def _plants_from_config(config: ScenarioConfig) -> list[Plant]:
-    plants = []
-    index = 0
-    for row in range(1, config.rows + 1):
-        for position_in_row in range(1, config.columns + 1):
-            index += 1
-            plants.append(
-                Plant(
-                    plant_id=f"{config.greenhouse_id}_plant_{index:03d}",
-                    variety=config.variety,
-                    row=row,
-                    position_in_row=position_in_row,
-                )
-            )
-    return plants
 
 
 def _simulation_definition_from_config(config: ScenarioConfig) -> SimulationDefinition:

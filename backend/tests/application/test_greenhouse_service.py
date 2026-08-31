@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import Engine
 
 from application.bootstrap import bootstrap_greenhouses
-from application.greenhouse_service import GreenhouseService
+from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseService
 from application.persistence.state_repository import StateRepository
 from domain.enums import PlantHealth, SimulationStatus, SourceType
 from domain.state import GreenhouseState, PlantState
@@ -51,6 +53,7 @@ def test_get_greenhouse_detail_embeds_full_greenhouse_and_simulation_summary(
 
     assert detail is not None
     assert len(detail.greenhouse.plants) == 40
+    assert detail.simulation is not None
     assert detail.simulation.simulation_id == "sim_gh_001"
     assert detail.simulation.status == SimulationStatus.NOT_STARTED
     assert detail.simulation.total_steps == 28
@@ -193,3 +196,68 @@ def test_get_timeline_reports_total_and_current_day(engine: Engine) -> None:
     assert timeline is not None
     assert timeline.total_days == 28
     assert timeline.current_day == 0
+
+
+def test_create_greenhouse_with_simulation_source_creates_a_runnable_simulation(
+    engine: Engine,
+) -> None:
+    service = GreenhouseService(engine)
+
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Test Greenhouse",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=2,
+            columns=3,
+            duration_days=10,
+        )
+    )
+
+    assert len(detail.greenhouse.plants) == 6
+    assert detail.simulation is not None
+    assert detail.simulation.status == SimulationStatus.NOT_STARTED
+    assert detail.simulation.total_steps == 10
+
+    # It's a real, listable, gettable, runnable greenhouse.
+    listed = {item.greenhouse_id: item for item in service.list_greenhouses()}
+    assert listed[detail.greenhouse.greenhouse_id].total_steps == 10
+    assert service.get_greenhouse_detail(detail.greenhouse.greenhouse_id) is not None
+
+
+def test_create_greenhouse_without_duration_days_is_rejected_for_simulation_source(
+    engine: Engine,
+) -> None:
+    service = GreenhouseService(engine)
+
+    with pytest.raises(ValidationError):
+        CreateGreenhouseRequest(
+            name="Test Greenhouse",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+        )
+    assert service.list_greenhouses() == []
+
+
+def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Live Greenhouse",
+            source_type=SourceType.REAL_SENSORS,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+        )
+    )
+
+    assert detail.simulation is None
+    listed = {item.greenhouse_id: item for item in service.list_greenhouses()}
+    item = listed[detail.greenhouse.greenhouse_id]
+    assert item.status is None
+    assert item.current_step is None
+    assert item.total_steps is None
+    assert service.get_timeline(detail.greenhouse.greenhouse_id) is None

@@ -19,6 +19,20 @@ observation restatement + one health threshold) — real reasoning, event
 inference, recommendations, and the evaluation harness are Milestone 2+, per
 the build order in `DEVELOPMENT_GUIDELINES.md`.
 
+**Simulation engine (V0) — implemented**, per
+`docs/design/greenhouse_simulation_design.md`. The simulator now maintains a
+real hidden world per greenhouse (plants, trusses, individual fruits with
+growth/ripening curves, a soil-water reservoir and water stress) that evolves
+day over day, rather than generating independent random values each day. A
+built-in deterministic policy automatically waters, harvests, and lowers
+plants once per simulated day through a validated action boundary
+(`WATER_PLANT` / `HARVEST_PLANT` / `LOWER_PLANT` / `SCHEDULE_INSPECTION`), and
+sensor/vision observations are derived from that hidden state with
+configurable noise. This is what powers the harvest-mass KPIs on the
+dashboard and per-plant detail panel. The full spatial climate model,
+streamed progress events, and the agentic management policy (a separate
+design doc) remain out of scope for now.
+
 ## Running locally
 
 Requires Python 3.12+ and Node 22+ (see `frontend/.nvmrc`).

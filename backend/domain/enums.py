@@ -13,11 +13,13 @@ class ObservationType(StrEnum):
     AIR_TEMPERATURE_C = "air_temperature_c"
     VISIBLE_FRUIT_COUNT = "visible_fruit_count"
     RIPE_FRUIT_COUNT = "ripe_fruit_count"
+    ESTIMATED_RIPE_MASS_G = "estimated_ripe_mass_g"
 
 
 class EventType(StrEnum):
     WATERING = "WATERING"
     HARVEST = "HARVEST"
+    LOWERING = "LOWERING"
     PRUNING = "PRUNING"
     FERTILISATION = "FERTILISATION"
     MANUAL_INSPECTION = "MANUAL_INSPECTION"
@@ -29,6 +31,29 @@ class EventSource(StrEnum):
     CONTROL_SYSTEM = "CONTROL_SYSTEM"
     INFERRED_FROM_OBSERVATIONS = "INFERRED_FROM_OBSERVATIONS"
     SIMULATION = "SIMULATION"
+    RULE_BASED_POLICY = "RULE_BASED_POLICY"
+
+
+class FruitStatus(StrEnum):
+    GROWING = "GROWING"
+    RIPE = "RIPE"
+    HARVESTED = "HARVESTED"
+
+
+class RipenessStage(StrEnum):
+    FRUIT_SET = "FRUIT_SET"
+    IMMATURE_GREEN = "IMMATURE_GREEN"
+    MATURE_GREEN = "MATURE_GREEN"
+    TURNING = "TURNING"
+    RIPE = "RIPE"
+    OVERRIPE = "OVERRIPE"
+
+
+class TrussStage(StrEnum):
+    INITIATED = "INITIATED"
+    FRUITING = "FRUITING"
+    HARVESTABLE = "HARVESTABLE"
+    INACTIVE = "INACTIVE"
 
 
 class Provenance(StrEnum):

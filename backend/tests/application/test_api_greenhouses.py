@@ -162,3 +162,81 @@ def test_get_timeline_returns_404_for_unknown_greenhouse(client: TestClient) -> 
     response = client.get("/greenhouses/does_not_exist/timeline")
 
     assert response.status_code == 404
+
+
+def test_create_greenhouse_with_simulation_source_returns_a_runnable_greenhouse(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "New Greenhouse",
+            "source_type": "SIMULATION",
+            "crop": "cherry_tomato",
+            "rows": 2,
+            "columns": 3,
+            "duration_days": 10,
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert len(body["greenhouse"]["plants"]) == 6
+    assert body["simulation"]["status"] == "NOT_STARTED"
+    assert body["simulation"]["total_steps"] == 10
+
+    greenhouse_id = body["greenhouse"]["greenhouse_id"]
+    get_response = client.get(f"/greenhouses/{greenhouse_id}")
+    assert get_response.status_code == 200
+    assert get_response.json()["simulation"]["simulation_id"] == f"sim_{greenhouse_id}"
+
+
+def test_create_greenhouse_with_real_sensors_source_has_null_simulation(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "Live Greenhouse",
+            "source_type": "REAL_SENSORS",
+            "crop": "cherry_tomato",
+            "rows": 1,
+            "columns": 1,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["simulation"] is None
+
+
+def test_create_greenhouse_without_duration_days_is_rejected_for_simulation_source(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "New Greenhouse",
+            "source_type": "SIMULATION",
+            "crop": "cherry_tomato",
+            "rows": 1,
+            "columns": 1,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_greenhouse_rejects_an_oversized_grid(client: TestClient) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "New Greenhouse",
+            "source_type": "SIMULATION",
+            "crop": "cherry_tomato",
+            "rows": 1000,
+            "columns": 1,
+            "duration_days": 10,
+        },
+    )
+
+    assert response.status_code == 422
