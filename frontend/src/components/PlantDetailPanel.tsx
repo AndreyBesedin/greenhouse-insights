@@ -1,8 +1,10 @@
 import { useState } from 'react'
 
 import type { components } from '../../generated/schema'
+import { cropIconVariant } from '../lib/crop'
 import { formatMass } from '../lib/format'
 import { healthToStatus } from '../lib/status'
+import { CropIcon } from './CropIcon'
 import { StatusBadge } from './StatusBadge'
 
 type PlantDetail = components['schemas']['PlantDetail']
@@ -24,7 +26,7 @@ function MetricTile({ label, value, hint }: { label: string; value: string; hint
 }
 
 export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
-  const [tab, setTab] = useState<'overview' | 'history' | 'raw'>('overview')
+  const [tab, setTab] = useState<'overview' | 'history' | 'acquisitions' | 'raw'>('overview')
 
   if (detail === null) {
     return (
@@ -57,6 +59,7 @@ export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
               [
                 ['overview', 'Overview'],
                 ['history', 'History'],
+                ['acquisitions', 'Acquisitions'],
                 ['raw', 'Raw state'],
               ] as const
             ).map(([key, label]) => (
@@ -127,6 +130,16 @@ export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {tab === 'acquisitions' && (
+            <div className="mt-4 grid place-items-center rounded-md bg-ink-800 p-8 text-center outline-1 -outline-offset-1 outline-white/[0.05]">
+              <CropIcon crop={cropIconVariant(plant.variety)} size="xl" className="text-mist" />
+              <p className="mt-3 text-xs text-paper">No image acquisitions yet.</p>
+              <p className="mt-1 text-[11px] text-mist">
+                Vision captures will appear here once a camera feed is connected.
+              </p>
             </div>
           )}
 

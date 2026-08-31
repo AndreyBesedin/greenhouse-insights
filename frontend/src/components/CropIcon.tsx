@@ -1,7 +1,7 @@
 import type { CropType } from '../lib/crop'
 import { cn } from '../lib/utils'
 
-const SIZES = { sm: 12, md: 16, lg: 22 } as const
+const SIZES = { sm: 12, md: 16, lg: 22, xl: 40 } as const
 
 export function CropIcon({
   crop,
