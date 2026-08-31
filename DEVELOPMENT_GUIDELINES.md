@@ -1,8 +1,12 @@
 # Greenhouse Intelligence POC — Development Guidelines
 
 This document defines how we build this project day to day. The product scope lives in
-`Greenhouse Intelligence POC — Project & Implementation Brief.md`; this doc is about *how*
-we write and ship the code that implements it.
+`docs/design/greenhouse_intelligence_poc_brief.md`; this doc is about *how* we write and
+ship the code that implements it. See `docs/design/` for all design documents, currently:
+
+- `docs/design/greenhouse_intelligence_poc_brief.md` — overall product scope and vision.
+- `docs/design/greenhouse_simulation_design.md` — design of the simulation engine (hidden
+  world model, observation generation, scenario evolution).
 
 ---
 
@@ -39,6 +43,8 @@ Monorepo, single git repository:
 
 ```text
 greenhouse-insights/
+├── docs/
+│   └── design/             # all design docs (product brief, subsystem designs, ...)
 ├── backend/
 │   ├── domain/            # greenhouse, plants, observations, events, state
 │   ├── simulation/        # definitions, scenarios, runner, evolution, ground truth

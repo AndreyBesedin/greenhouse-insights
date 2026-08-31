@@ -1,8 +1,9 @@
 # Greenhouse Insights
 
 A greenhouse intelligence and operational support platform POC. See
-`Greenhouse Intelligence POC — Project & Implementation Brief.md` for the full
-product scope, and `DEVELOPMENT_GUIDELINES.md` for how this project is built.
+`docs/design/greenhouse_intelligence_poc_brief.md` for
+the full product scope, `docs/design/` for all design documents, and
+`DEVELOPMENT_GUIDELINES.md` for how this project is built.
 
 ## Status
 
