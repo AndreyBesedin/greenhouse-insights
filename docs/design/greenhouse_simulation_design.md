@@ -1,185 +1,206 @@
-# Greenhouse Simulation Engine — Design Document
+# Greenhouse Simulation — Design Document
 
 ## 1. Purpose
 
-This document defines the design of the **logical greenhouse simulation engine** used by the Greenhouse Intelligence POC.
+This document defines the logical simulation used by the Greenhouse Intelligence Platform.
 
-The simulator is not a playback of hand-written scenarios. It is a **generative world model**: a simplified hidden representation of a greenhouse evolves one simulated day at a time according to deterministic and probabilistic rules. Sensors and a hypothetical computer-vision system then produce noisy observations from that hidden state.
+The simulator is a **generative world model**, not a scripted scenario player.
 
-The main objective is to produce coherent longitudinal greenhouse data that can later be consumed by the intelligence platform exactly as real greenhouse observations would be.
+Its job is to maintain a hidden representation of greenhouse reality, advance that reality one simulation step at a time, apply actions, and emit noisy observations similar to what a future real system would receive from sensors, cameras, operators, and automation systems.
 
-The simulator should be simple enough to understand and modify, but rich enough to generate meaningful temporal relationships such as:
-
-- plants growing over time;
-- new trusses and fruits appearing;
-- fruits increasing in size and ripening;
-- watering affecting substrate moisture;
-- hot days increasing water demand;
-- harvesting causing fruits to disappear from later observations;
-- lowering a vine changing its management state;
-- noisy observations differing slightly from ground truth.
-
-The simulator is therefore an **input generator for the platform**, not the intelligence layer itself.
-
----
-
-## 2. Core Principle: Hidden World vs Observed World
-
-The simulator must maintain a strict separation between:
+The current simulation step is:
 
 ```text
-HIDDEN WORLD STATE
-    ↓
-DAILY DYNAMICS
-    ↓
-OPERATOR / AUTOMATION ACTIONS
-    ↓
-UPDATED HIDDEN WORLD STATE
-    ↓
-OBSERVATION MODEL
-    ↓
-PLATFORM INPUT
+1 simulation step = 1 day
 ```
 
-The hidden world is the simulator's ground truth.
+The simulator should be deterministic for a given random seed while still producing probabilistic variation.
 
-The platform should never consume this state directly.
+The design must support a later management-policy layer, including an agentic greenhouse assistant. The simulator itself must remain independent from any LLM or agent framework.
 
-Instead, the simulator generates the same categories of information that a future physical greenhouse could produce:
+Core principle:
 
-- environmental sensor observations;
-- soil-moisture observations;
-- structured outputs from a future vision pipeline;
-- reported operational events.
-
-This separation allows the simulator to later test whether the intelligence layer can correctly reconstruct reality from incomplete or noisy evidence.
+> The simulator models what happens.
+> A management policy decides what should happen.
+> The agent is one possible implementation of that policy.
 
 ---
 
-## 3. Time Model
+# 2. Main Architectural Separation
 
-The initial simulator works at **daily resolution**.
+The simulator owns the hidden world state.
 
-One simulation step represents one day.
+The application and management systems operate only through observable state and explicit actions.
 
 ```text
-Day 0
-  ↓
-Day 1
-  ↓
-Day 2
-  ↓
-...
-  ↓
-Day N
+Hidden greenhouse world
+        ↓
+Daily world transition
+        ↓
+Observation generation
+        ↓
+Reconstructed / observable state
+        ↓
+Management policy
+        ↓
+Requested actions
+        ↓
+Validation
+        ↓
+Accepted actions
+        ↓
+Simulator applies actions
+        ↓
+Next simulation step
 ```
 
-This is intentionally coarse.
-
-The POC does not need second-by-second irrigation, climate control or biological processes.
-
-Internally, some daily quantities may represent aggregated values, for example:
-
-- average temperature;
-- maximum temperature;
-- hours above a threshold;
-- total irrigation volume;
-- estimated evapotranspiration.
-
-The architecture should not make higher-frequency simulation impossible later, but no effort should be spent supporting it in the first version.
-
----
-
-## 4. Simulation Determinism
-
-Every simulation run must be reproducible from a random seed.
-
-Example:
+The management policy may initially be:
 
 ```text
-seed = 42
+No management
+Rule-based management
+Agentic management
 ```
 
-Running the same simulation configuration with the same seed should produce the same hidden world and the same noisy observations.
-
-This is essential for:
-
-- debugging;
-- evaluation;
-- regression testing;
-- demonstrations;
-- comparing reasoning implementations.
-
-All stochastic behaviour should therefore use an explicitly controlled random-number generator.
+The simulator must not care which policy generated an action.
 
 ---
 
-## 5. Main Domain Hierarchy
+# 3. Simulation Goals
 
-The hidden simulation world is organized approximately as:
+The first simulator should support:
+
+- configurable greenhouse grids;
+- vine / cherry tomato plants;
+- daily plant development;
+- truss creation;
+- individual fruit creation and tracking;
+- fruit growth;
+- fruit ripening;
+- soil-water dynamics;
+- greenhouse temperature and humidity;
+- simple spatial climate variation;
+- watering;
+- harvesting;
+- plant lowering;
+- inspections;
+- noisy sensor observations;
+- noisy vision-derived observations;
+- deterministic seeded execution;
+- persisted world history;
+- persisted observations;
+- persisted actions;
+- compatibility with a future agentic management layer.
+
+The simulator is not intended to be a scientifically calibrated crop model.
+
+It should be biologically plausible enough to generate coherent longitudinal data.
+
+---
+
+# 4. Non-Goals
+
+The first simulator does not attempt to provide:
+
+- second-by-second dynamics;
+- detailed greenhouse HVAC physics;
+- scientifically accurate tomato yield prediction;
+- detailed plant geometry;
+- raw image rendering;
+- computer vision;
+- disease epidemiology;
+- nutrient chemistry;
+- full hydroponic modelling;
+- robotics;
+- motion planning;
+- automatic climate optimization;
+- sophisticated labour planning.
+
+These may be added later.
+
+---
+
+# 5. Time Model
+
+Simulation time is discrete.
 
 ```text
-SimulationWorld
-    │
-    └── Greenhouse
-          ├── Environment
-          ├── ClimateField
-          └── Plants[]
-                ├── Root / substrate state
-                ├── Stem / management state
-                └── Trusses[]
-                      └── Fruits[]
+1 step = 1 day
 ```
 
-The first POC greenhouse contains cherry-tomato or vine-tomato plants, but the simulator should avoid unnecessary assumptions that make other crops impossible later.
+A run may contain, for example:
 
----
+```text
+28 days
+40 days
+90 days
+```
 
-# 6. Greenhouse Model
+depending on the simulation definition.
 
-A greenhouse is a spatial container for plants and environmental conditions.
+The simulator should not assume that all runs have the same duration.
 
-Conceptual structure:
+Conceptually:
 
 ```python
-Greenhouse
-    id
-    name
-    width_m
-    length_m
-    plants
-    heating_sources
-    environment_state
+for day in simulation_days:
+    advance_world(day)
+    generate_observations(day)
+    reconstruct_observable_state(day)
+    run_management_policy(day)
+    validate_actions(day)
+    apply_actions(day)
+    persist(day)
 ```
 
-Example:
-
-```json
-{
-  "id": "greenhouse_001",
-  "name": "Simulation Greenhouse 001",
-  "width_m": 8.0,
-  "length_m": 20.0
-}
-```
-
-The exact dimensions are configuration values and should not be hard-coded into biological logic.
+The exact order may be refined during implementation, but management must occur once per simulation step.
 
 ---
 
-## 7. Plant Placement
+# 6. Hidden World Model
 
-Plants have stable positions in the greenhouse.
+The simulator owns the true state of the greenhouse.
 
-At minimum:
+This hidden state is not directly exposed to the intelligence system or agent.
+
+Conceptually:
 
 ```text
-plant_id
-row
-position_in_row
-x
- y
+GreenhouseWorld
+    ├── environment
+    ├── climate field
+    ├── plants
+    ├── soil / substrate state
+    ├── historical actions
+    └── simulation metadata
 ```
+
+---
+
+# 7. Greenhouse
+
+A greenhouse has:
+
+```text
+greenhouse_id
+name
+
+width
+length
+
+rows
+plants
+
+crop_type
+
+environment_model
+climate_model
+
+simulation_seed
+simulation_day
+```
+
+Plants must have stable identities and positions.
 
 Example:
 
@@ -188,1655 +209,1323 @@ Example:
   "plant_id": "plant_017",
   "row": 2,
   "position_in_row": 7,
-  "x": 5.8,
-  "y": 8.2
+  "x": 6.0,
+  "y": 2.0
 }
 ```
 
-For the main POC:
+Position is initially used for organization and climate sampling.
 
-```text
-40 plants
-4 rows × 10 plants
-```
-
-Positions serve two purposes:
-
-1. rendering the greenhouse dashboard;
-2. allowing environmental values to vary spatially.
-
-The simulator does **not** model detailed plant geometry.
+Detailed geometry is not required.
 
 ---
 
 # 8. Plant Model
 
-The plant represents the hidden biological and operational state of one indeterminate vine tomato.
+A vine tomato plant should be represented structurally rather than geometrically.
 
-Conceptual fields:
+Conceptual model:
 
-```python
+```text
 Plant
     id
-    variety
     position
 
     age_days
-    physiological_age
 
     stem_length_cm
     lowered_length_cm
 
     development_stage
 
-    substrate_state
-    water_stress
-    heat_stress
+    water_status
     health_state
 
-    trusses
+    trusses[]
 
     cumulative_harvest_g
-    cumulative_fruit_count_harvested
-
-    last_watered_at
-    last_lowered_at
-    last_harvest_at
 ```
 
-The plant should represent **meaningful operational state**, not a geometrically accurate tomato vine.
+Derived vertical height may be:
+
+```text
+visible_vertical_height
+=
+stem_length_cm - lowered_length_cm
+```
+
+This is sufficient for the POC.
 
 ---
 
-## 9. Plant Development Stage
+# 9. Truss Model
 
-An initial enum could be:
+Vine tomatoes naturally lend themselves to truss-level modelling.
 
-```text
-VEGETATIVE
-FLOWERING
-FRUITING
-MATURE
-DECLINING
-```
-
-For the first simulation, most interesting behaviour happens during `FRUITING` and `MATURE`.
-
-Development stage can be derived primarily from plant age and the presence/state of trusses rather than managed as an independent random variable.
-
----
-
-# 10. Stem Growth
-
-Indeterminate greenhouse tomatoes continue growing vertically throughout production.
-
-The simulator should track:
+A plant contains a sequence of trusses.
 
 ```text
-stem_length_cm
-lowered_length_cm
-```
-
-Daily stem growth can be represented as:
-
-```text
-daily_stem_growth
-    = base_growth_rate
-    × temperature_factor
-    × water_factor
-    × plant_variation
-```
-
-For example:
-
-```python
-plant.stem_length_cm += daily_stem_growth_cm
-```
-
-The exact constants are **tunable simulation parameters**, not claims of biological accuracy.
-
----
-
-# 11. Plant Lowering
-
-Commercial indeterminate tomatoes are periodically lowered as the stem continues growing.
-
-The POC models lowering as an operational action rather than detailed physical geometry.
-
-Example action:
-
-```python
-LowerPlant(
-    plant_id="plant_017",
-    lowered_by_cm=35,
-)
-```
-
-Its effect is primarily:
-
-```python
-plant.lowered_length_cm += lowered_by_cm
-plant.last_lowered_at = current_day
-```
-
-A useful derived quantity is:
-
-```text
-effective_vertical_height
-    = stem_length_cm - lowered_length_cm
-```
-
-No spiral geometry, clips, strings or physical collision model is required.
-
----
-
-# 12. Truss Model
-
-Fruit should not appear independently at arbitrary positions.
-
-Tomato production is represented through **trusses**.
-
-Conceptual structure:
-
-```python
 Truss
     id
     plant_id
     index
 
     age_days
-    physiological_age
+    developmental_stage
 
-    status
-
-    flowering_progress
-    fruit_set_complete
-
-    fruits
+    fruits[]
 ```
 
-Possible status values:
+Possible stages:
 
 ```text
-FORMING
-FLOWERING
-FRUIT_SETTING
-FRUITING
-HARVESTABLE
-HARVESTED
-INACTIVE
+initiated
+flowering
+fruit-setting
+fruiting
+harvestable
+inactive
 ```
 
-A plant creates new trusses as it accumulates physiological development.
+A new truss may appear after a configurable number of effective growing days.
 
 ---
 
-# 13. Truss Appearance
+# 10. Fruit Model
 
-New trusses should be initiated according to **effective development**, not purely random daily spawning.
-
-Conceptually:
+Each fruit has a stable hidden identity.
 
 ```text
-physiological_age += temperature_factor × stress_factor
-```
-
-When enough development has accumulated since the previous truss:
-
-```text
-create new truss
-```
-
-Each plant can have a small individual multiplier so that all 40 plants are not synchronized perfectly.
-
-For example:
-
-```text
-truss_interval_effective_days
-    ~ Normal(base_interval, variation)
-```
-
-Exact parameters should be easy to tune in configuration.
-
----
-
-# 14. Fruit Model
-
-Individual fruits exist in hidden world state.
-
-Conceptual fields:
-
-```python
 Fruit
     id
     plant_id
     truss_id
 
     age_days
-    physiological_age
-
-    status
-    ripeness_stage
 
     diameter_mm
     mass_g
 
+    ripeness
+    status
+
     target_diameter_mm
-    target_mass_g
-
     development_speed
-
-    set_day
-    harvested_day
 ```
 
-Fruit IDs are **ground-truth simulation IDs**.
+Possible statuses:
 
-A future simulated computer-vision tracker may expose different observation track IDs.
+```text
+growing
+ripe
+harvested
+aborted
+```
+
+Fruit identity belongs to hidden simulation truth.
+
+Future computer-vision observations may have their own tracking identifiers.
 
 ---
 
-# 15. Fruit Lifecycle
+# 11. Fruit Growth
 
-A simple lifecycle is sufficient:
-
-```text
-FLOWER
-   ↓
-FRUIT_SET
-   ↓
-IMMATURE_GREEN
-   ↓
-MATURE_GREEN
-   ↓
-BREAKER
-   ↓
-TURNING
-   ↓
-RED
-   ↓
-OVERRIPE
-   ↓
-HARVESTED / LOST
-```
-
-For the first implementation, `FLOWER` may live primarily at truss level and fruits can be instantiated at `FRUIT_SET`.
-
----
-
-# 16. Fruit Set
-
-Once a truss enters fruit-setting stage, it creates a probabilistic number of fruits over several days.
-
-Example model:
-
-```text
-potential_fruit_count
-    ~ bounded distribution
-```
-
-Each potential fruit has a probability of successful set depending on:
-
-```text
-base fruit-set probability
-× heat factor
-× water factor
-× plant health factor
-```
-
-This naturally makes severe stress reduce future yield without requiring explicit scenario scripting.
-
-The first version may simplify this further by sampling the final fruit count once per truss.
-
----
-
-# 17. Fruit Growth
-
-Fruit size should follow a bounded growth curve rather than a constant daily increment.
+Fruit growth should use a bounded growth curve rather than a constant increment.
 
 Conceptually:
 
 ```text
 diameter(age)
-    = target_diameter × sigmoid(development_age)
+=
+target_diameter
+×
+growth_curve(effective_age)
 ```
 
-or another simple saturating growth function.
+The curve may initially be implemented using a simple sigmoid or other bounded function.
 
-The important qualitative behaviour is:
+Mass can be approximated as:
 
 ```text
-small initial growth
-        ↓
-rapid middle growth
-        ↓
-slower growth near mature size
+mass ≈ k × diameter³
 ```
 
-Each fruit should sample individual properties when created:
+Each fruit samples slightly different parameters at creation:
 
 ```text
-target_diameter_mm
-target_mass_g
-development_speed
-ripening_threshold
+target diameter
+growth rate multiplier
+ripening threshold
+final mass variation
 ```
 
-This produces natural variation within and between trusses.
+This creates natural variability while preserving deterministic replay through the simulation seed.
 
 ---
 
-# 18. Fruit Mass
+# 12. Fruit Ripening
 
-Fruit mass can initially be derived from diameter.
+Ripening should primarily depend on fruit developmental age rather than an independent daily probability.
 
-A simple approximation is:
+Possible conceptual stages:
 
 ```text
-mass_g = mass_coefficient × diameter_mm³
+fruit_set
+    ↓
+immature_green
+    ↓
+mature_green
+    ↓
+breaker
+    ↓
+turning
+    ↓
+ripe
+    ↓
+overripe
 ```
 
-The coefficient is a configurable calibration constant.
+Temperature may modify effective developmental speed.
 
-Alternatively, target mass may be sampled directly and interpolated using the same growth curve.
+Thresholds should contain seeded individual variation.
 
-The model should prioritize internal consistency over botanical precision.
+Example conceptual parameters:
+
+```text
+ripening_start_day ~ distribution
+full_ripe_day ~ distribution
+```
+
+Exact biological values remain configurable and should not be treated as scientifically calibrated constants.
 
 ---
 
-# 19. Ripening
+# 13. Plant Stem Growth
 
-Ripening should be based primarily on accumulated physiological development.
-
-It should **not** be modeled as an unrelated coin flip every day.
-
-A fruit might have thresholds such as:
+Each day the plant gains stem length according to:
 
 ```text
-mature_green_threshold
-breaker_threshold
-turning_threshold
-red_threshold
-overripe_threshold
+base growth
+×
+temperature factor
+×
+water-status factor
+×
+plant-specific variation
 ```
 
-Daily development advances according to:
+The initial implementation may keep this simple.
 
-```text
-ripening_progress
-    += temperature_factor
-     × stress_factor
-     × fruit_development_speed
-```
-
-Small stochastic variation should be sampled when the fruit is created rather than introducing large independent randomness every day.
-
-This creates smooth and reproducible fruit development.
+Stem growth contributes to truss initiation.
 
 ---
 
-# 20. Harvestability
+# 14. Plant Lowering
 
-A fruit is considered harvestable when it reaches an acceptable ripeness stage.
+Commercial vine tomatoes are progressively lowered as the stem grows.
 
-For example:
-
-```text
-TURNING or RED
-```
-
-depending on configuration.
-
-A truss may be considered harvestable when:
+Represent this as a management action.
 
 ```text
-harvestable fruit mass >= threshold
+LowerPlant
+    plant_id
+    amount_cm
 ```
 
-or:
+Applying it changes:
 
 ```text
-fraction of ripe fruits >= threshold
+lowered_length_cm
 ```
 
-These values should be configurable because harvesting strategies differ.
+It does not remove trusses or fruits and does not reset biological age.
+
+The first implementation does not need detailed stem geometry on the ground.
 
 ---
 
-# 21. Harvest Action
+# 15. Soil / Substrate Water Model
 
-Harvest is a world-state-changing action.
-
-Example:
-
-```python
-Harvest(
-    plant_id="plant_017",
-    fruit_ids=[...]
-)
-```
-
-or at a higher level:
-
-```python
-HarvestRipeFruit(
-    plant_id="plant_017",
-    minimum_stage="RED"
-)
-```
-
-The action:
-
-```text
-marks fruits HARVESTED
-records harvest day
-adds fruit mass to cumulative harvest
-updates truss state if appropriate
-```
-
-Harvested fruits no longer exist in subsequent visual observations.
-
-This is a crucial consistency requirement.
-
-The simulator must never keep reporting harvested fruits merely because a scenario fixture says they existed previously.
-
----
-
-# 22. Substrate / Soil Water Model
-
-The first version uses a simplified water reservoir for each plant.
+Each plant should have a simplified water reservoir.
 
 Conceptually:
-
-```python
-SubstrateState
-    water_content
-    water_capacity
-    drainage_rate
-```
-
-Daily water balance:
 
 ```text
 water(t+1)
-    = water(t)
-    + irrigation
-    - evapotranspiration
-    - drainage
+=
+water(t)
++ irrigation
+- plant_water_use
+- evaporation
+- drainage
 ```
 
-Values are bounded by:
+Plant water use may depend on:
 
 ```text
-0 <= water <= capacity
+temperature
+humidity
+plant size
+fruit load
 ```
 
-No detailed soil physics is required.
+The exact physical units may remain approximate for the POC.
 
----
-
-# 23. Evapotranspiration Approximation
-
-Daily water consumption can depend on:
-
-```text
-base consumption
-× plant_size_factor
-× temperature_factor
-× humidity_factor
-```
-
-Conceptually:
-
-```text
-hotter + drier air
-    → higher water loss
-
-larger plant
-    → higher water loss
-```
-
-A small plant-specific stochastic multiplier may be used.
-
----
-
-# 24. Water Stress
-
-Water stress should emerge from latent substrate state.
+The important behaviour is causal consistency.
 
 For example:
 
 ```text
-adequate water
-    → stress ≈ 0
-
-moderately low water
-    → stress increases gradually
-
-very low water
-    → strong stress
+hot day
+→ increased water demand
+→ substrate moisture falls
+→ prolonged deficit
+→ latent water stress rises
+→ wilting observation rises
 ```
 
-The relationship should be smooth rather than binary.
+Watering changes hidden reservoir state rather than directly setting a sensor reading.
+
+---
+
+# 16. Plant Water Stress
+
+Each plant maintains a latent water-stress value.
 
 Conceptually:
 
-```python
-water_stress = stress_curve(substrate_water_fraction)
+```text
+water_stress ∈ [0, 1]
 ```
 
-Water stress can affect:
+It should increase when substrate moisture remains below an effective threshold and recover when water availability improves.
+
+Water stress can influence:
 
 - stem growth;
-- fruit development speed;
-- fruit-set probability;
+- fruit development;
 - wilting;
-- potentially fruit loss under severe conditions.
+- health status.
+
+Do not make water stress flip instantly from healthy to stressed based on one reading.
+
+Temporal persistence is preferred.
 
 ---
 
-# 25. Watering Action
+# 17. Greenhouse Climate Model
 
-Watering modifies hidden substrate state.
+The climate model should remain simple but spatially correlated.
 
-Example:
-
-```python
-WaterPlant(
-    plant_id="plant_017",
-    volume_ml=700
-)
-```
-
-The simulator converts irrigation volume into reservoir replenishment.
-
-The action should **not directly set the soil-moisture sensor output**.
-
-Instead:
-
-```text
-watering action
-    ↓
-latent substrate water increases
-    ↓
-next sensor observation reflects higher moisture + noise
-```
-
-This preserves causal consistency.
-
----
-
-# 26. Greenhouse Climate Model
-
-The climate model should be deliberately simple but spatially coherent.
-
-The greenhouse has a two-dimensional coordinate system:
+Represent the greenhouse as a two-dimensional coordinate system.
 
 ```text
 x ∈ [0, width]
 y ∈ [0, length]
 ```
 
-Each day has global environmental drivers such as:
+Each day define greenhouse-level drivers such as:
 
 ```text
-outside_temperature_c
+outside_temperature
 solar_gain
 heating_power
-ventilation_factor
+ventilation_level
 outside_humidity
 ```
 
-These drivers produce greenhouse-level and spatial climate values.
-
----
-
-# 27. Outside Temperature
-
-Outside temperature may follow a smooth stochastic time series rather than independent daily samples.
-
-Example:
-
-```text
-T_out(day+1)
-    = seasonal / baseline term
-    + autocorrelated variation
-    + random noise
-```
-
-For a 28-day POC, a simple autoregressive model is sufficient.
-
-This should naturally create several-day warm and cool periods.
-
----
-
-# 28. Greenhouse Base Temperature
-
-A simplified greenhouse mean temperature can be derived as:
-
-```text
-T_greenhouse_base
-    = outside_temperature
-    + solar_gain
-    + heating_gain
-    - ventilation_loss
-```
-
-The exact coefficients are simulation parameters.
-
-The goal is plausible temporal behaviour rather than thermodynamic accuracy.
-
----
-
-# 29. Spatial Temperature Field
-
-Instead of giving every plant the same temperature, the simulator produces a smooth spatial field.
+Then derive a spatial temperature field.
 
 Conceptually:
 
 ```text
 T(x, y)
-    = base_temperature
-    + heater_effect(x, y)
-    - wall_loss(x, y)
-    + spatial_noise(x, y)
+=
+base_temperature
++ heater_effect(x, y)
++ solar_effect(x, y)
+- wall_loss(x, y)
++ spatial_noise(x, y)
 ```
 
-This produces correlated differences between plants.
+This does not need to be physically rigorous.
 
-Example effects:
-
-- plants closer to heating pipes are slightly warmer;
-- plants near greenhouse walls are slightly cooler;
-- neighbouring plants have similar temperatures.
-
-The POC does not attempt CFD or realistic greenhouse thermodynamics.
+Its purpose is to create meaningful spatial correlations.
 
 ---
 
-# 30. Heating Sources
+# 18. Heating Model
 
-Heating sources can be represented geometrically.
+For the POC, represent one or more virtual heat sources.
+
+Possible configuration:
+
+```text
+heater pipes
+heating lines
+central heating source
+```
+
+Each heat source has:
+
+```text
+position
+strength
+falloff
+```
+
+Plants closer to the source may be modestly warmer.
+
+The model should be configurable rather than hard-coded.
+
+---
+
+# 19. Greenhouse Walls
+
+Plants closer to greenhouse boundaries may experience greater thermal loss.
+
+A simplified wall-loss function can depend on distance to the nearest greenhouse boundary.
+
+Example conceptual relationship:
+
+```text
+wall_loss
+∝
+1 / distance_to_wall
+```
+
+Use bounded values.
+
+Do not attempt full heat-transfer physics.
+
+---
+
+# 20. Humidity
+
+Greenhouse-level relative humidity should vary with:
+
+```text
+outside humidity
+temperature
+plant transpiration
+ventilation
+```
+
+A simple stochastic model is sufficient.
+
+Plant-level humidity can initially be sampled from the greenhouse climate field with small local variation.
+
+---
+
+# 21. Environmental Evolution
+
+Daily outside conditions should evolve smoothly rather than independently randomizing every day.
+
+Possible approach:
+
+```text
+today_temperature
+=
+yesterday_temperature
++ small random drift
++ occasional weather pattern
+```
+
+The same applies to humidity.
+
+This creates coherent weather periods.
+
+---
+
+# 22. Actions
+
+Actions are first-class domain objects.
+
+Initial V1-compatible action set:
+
+```text
+WATER_PLANT
+HARVEST_PLANT
+LOWER_PLANT
+SCHEDULE_INSPECTION
+```
+
+The simulator is responsible for defining how accepted actions alter the world.
+
+---
+
+# 23. Water Plant Action
+
+Conceptual schema:
+
+```text
+WaterPlant
+    plant_id
+    amount_ml
+```
+
+Effects:
+
+- increases plant substrate-water reservoir;
+- may create drainage if excessive;
+- affects future plant stress;
+- is persisted in action history.
+
+---
+
+# 24. Harvest Plant Action
+
+Harvesting operates at plant level for the POC.
+
+Conceptual request:
+
+```text
+HarvestPlant
+    plant_id
+    target = ripe
+```
+
+The simulator determines which eligible fruits are removed.
+
+Effects:
+
+- eligible ripe fruits become `harvested`;
+- visible fruit count decreases;
+- ripe mass decreases;
+- cumulative harvest increases;
+- action is recorded.
+
+The management policy does not need to select individual fruits or trusses.
+
+---
+
+# 25. Lower Plant Action
+
+Conceptual schema:
+
+```text
+LowerPlant
+    plant_id
+    amount_cm
+```
+
+Effects:
+
+- increases `lowered_length_cm`;
+- preserves plant biological state;
+- creates an operational event.
+
+---
+
+# 26. Schedule Inspection Action
+
+Conceptual schema:
+
+```text
+ScheduleInspection
+    plant_id
+    reason
+```
+
+For the simulation POC, this may simply generate a recorded operational event.
+
+Later it may interact with:
+
+- human workflows;
+- labour scheduling;
+- additional observations.
+
+---
+
+# 27. Action Provenance
+
+Every action must preserve its source.
+
+Possible sources:
+
+```text
+HUMAN
+RULE_BASED_POLICY
+AGENT
+SIMULATION_INTERNAL
+ROBOT
+```
+
+Agent-generated actions should therefore be persisted with:
+
+```text
+source = AGENT
+```
+
+This allows the UI and evaluations to distinguish them.
+
+---
+
+# 28. Action Boundary
+
+The simulator should expose an explicit action interface.
+
+Conceptually:
+
+```python
+available_actions(...)
+validate_action(...)
+apply_action(...)
+```
+
+The simulator must not invoke an agent directly.
+
+Bad architecture:
+
+```python
+simulation.ask_agent_what_to_do()
+```
+
+Preferred architecture:
+
+```python
+actions = management_policy.decide(context)
+
+for action in actions:
+    validated = action_validator.validate(action)
+
+    if validated:
+        simulation.apply_action(action)
+```
+
+---
+
+# 29. Action Validation
+
+All policy-generated actions pass through a validation layer.
+
+Validation is outside the LLM prompt.
+
+Examples:
+
+```text
+plant must exist
+water amount must be positive
+water amount must remain below configured maximum
+lowering amount must be physically allowed
+unsupported actions are rejected
+```
+
+Hard operational constraints should be enforced in code.
+
+Soft preferences may additionally be included in management-policy configuration or prompts.
+
+---
+
+# 30. Management Policy Compatibility
+
+The simulator should support a policy interface from the beginning.
+
+Conceptually:
+
+```python
+class ManagementPolicy(Protocol):
+    def decide(
+        self,
+        context: GreenhouseManagementContext,
+    ) -> list[RequestedAction]:
+        ...
+```
+
+Initial implementations may include:
+
+```text
+NoOpPolicy
+DeterministicPolicy
+AgenticPolicy
+```
+
+The `AgenticPolicy` belongs to a separate module and design document.
+
+---
+
+# 31. Policy Timing
+
+The management policy runs once per simulation step.
+
+For the current POC:
+
+```text
+once per day
+```
+
+Conceptual daily flow:
+
+```text
+START DAY
+    ↓
+advance environment
+    ↓
+advance biological state
+    ↓
+generate observations
+    ↓
+derive / reconstruct observable state
+    ↓
+management policy evaluates current state
+    ↓
+policy requests zero or more actions
+    ↓
+validate actions
+    ↓
+apply accepted actions
+    ↓
+persist world + observations + actions
+    ↓
+END DAY
+```
+
+Actions affect subsequent world state and observations.
+
+---
+
+# 32. Observable State
+
+The agent or deterministic management policy must not receive hidden simulation truth.
+
+It receives the same kind of information a production system could plausibly provide.
+
+Examples:
+
+```text
+greenhouse metadata
+greenhouse summary
+plant state
+plant history
+recent observations
+recent actions
+active alerts
+derived trends
+```
+
+Private simulator values remain inaccessible.
+
+Example hidden truth:
+
+```text
+true fruit diameter = 27.328 mm
+true latent water stress = 0.417
+```
+
+Possible observable values:
+
+```text
+estimated fruit diameter = 28.1 mm
+soil moisture sensor = 31%
+wilting score = 0.36
+water stress = moderate
+```
+
+---
+
+# 33. Observation Model
+
+The simulator generates observations from hidden world state.
+
+This is a separate stage.
+
+```text
+Hidden world
+    ↓
+Observation model
+    ↓
+Platform input
+```
+
+The observation model introduces:
+
+```text
+measurement noise
+missing observations
+detection uncertainty
+tracking uncertainty
+```
+
+The first implementation may only require measurement noise.
+
+---
+
+# 34. Sensor Observations
+
+Initial sensor outputs:
+
+```text
+air_temperature_c
+relative_humidity_pct
+soil_moisture_pct
+```
 
 Example:
 
-```python
-HeatingPipe
-    start_position
-    end_position
-    power
-    influence_radius
+```json
+{
+  "plant_id": "plant_017",
+  "day": 12,
+  "air_temperature_c": 29.1,
+  "relative_humidity_pct": 67.4,
+  "soil_moisture_pct": 34.7
+}
 ```
 
-Temperature contribution may simply decay with distance from the pipe.
+Noise should be sampled deterministically from the simulation random generator.
+
+---
+
+# 35. Vision-Derived Observations
+
+No raw images are generated.
+
+Instead, simulate the output of a future perception system.
+
+Possible observations:
+
+```text
+visible_fruit_count
+green_fruit_count
+ripening_fruit_count
+ripe_fruit_count
+average_fruit_diameter_mm
+estimated_visible_fruit_mass_g
+wilting_score
+leaf_discoloration_score
+```
+
+These should be noisy approximations of hidden truth.
+
+---
+
+# 36. Hidden Fruit IDs vs Observed Tracking IDs
+
+Hidden fruits have stable simulator IDs.
+
+Example:
+
+```text
+fruit_017_06_04
+```
+
+Future visual observations may instead expose tracking IDs.
+
+Example:
+
+```text
+vision_track_938
+```
+
+The first POC does not need to simulate tracking errors.
+
+However, do not make hidden fruit IDs part of the public observation contract.
+
+This preserves the ability to add realistic matching problems later.
+
+---
+
+# 37. Observation Noise
+
+Noise should be configurable by sensor type.
+
+Example:
+
+```text
+temperature noise: small Gaussian
+soil moisture noise: larger Gaussian
+fruit count: occasional ±1 detection error
+diameter: bounded measurement noise
+```
+
+Do not hard-code noise directly inside plant models.
+
+Use an explicit observation-model layer.
+
+---
+
+# 38. Simulation Determinism
+
+Given:
+
+```text
+same simulation configuration
+same random seed
+same management policy
+same external actions
+```
+
+the simulator should produce the same run.
+
+This is critical for:
+
+- debugging;
+- evaluation;
+- comparing management policies;
+- demonstrations.
+
+All stochastic behaviour should derive from an explicit seeded random generator.
+
+---
+
+# 39. Persistence
+
+Persist enough information to reconstruct and inspect a run.
+
+Recommended persisted concepts:
+
+```text
+simulation_definition
+simulation_run
+world snapshots
+observations
+actions
+observable state snapshots
+simulation progress
+```
+
+World snapshots may initially be stored once per simulated day.
+
+The persistence implementation can later be optimized.
+
+---
+
+# 40. Simulation Runs
+
+A greenhouse simulation should distinguish the simulation definition from an execution.
+
+Example:
+
+```text
+SimulationDefinition
+    greenhouse configuration
+    duration
+    seed
+    biological parameters
+    climate parameters
+```
+
+and:
+
+```text
+SimulationRun
+    run_id
+    definition_id
+    status
+    current_day
+    started_at
+    completed_at
+```
+
+This makes policy comparisons possible later.
+
+---
+
+# 41. Policy Comparison Runs
+
+Eventually, the same simulation definition may be executed under:
+
+```text
+No management
+Deterministic baseline
+Agentic policy
+```
+
+Using the same seed makes comparisons meaningful.
+
+The architecture should allow this even if the first UI only exposes one run.
+
+---
+
+# 42. Progressive Execution
+
+Simulation should support progressive rather than instantaneous execution.
+
+Recommended demo behaviour:
+
+```text
+1 simulated day ≈ 1 second
+```
+
+This delay is presentation-oriented and configurable.
+
+Backend logic should not fundamentally depend on sleeping between steps.
+
+---
+
+# 43. Simulation Progress Events
+
+The backend should expose progress while a run is executing.
+
+At minimum:
+
+```text
+simulation_started
+day_started
+observations_generated
+state_updated
+management_started
+management_progress
+actions_selected
+actions_applied
+day_completed
+simulation_completed
+simulation_failed
+```
+
+Not every event needs to be persisted forever.
+
+Some may exist only for UI streaming.
+
+---
+
+# 44. Agent / Management Latency
+
+Agentic management may introduce latency greater than the normal simulation-step duration.
+
+The simulation execution model must tolerate this.
 
 For example:
 
 ```text
-heater_effect
-    = heating_power × exp(-distance / decay_length)
+Day 12 / 28
+
+Generating observations...
+Analysing plants...
+Selecting management actions...
+Applying 2 actions...
+Day completed
 ```
 
-One or two virtual pipes are sufficient for the primary simulation.
+The simulation should wait for the management policy to finish before advancing to the next day.
 
-The exact placement is a configuration detail.
+A timeout / failure policy can be added later.
 
 ---
 
-# 31. Wall Loss
+# 45. Streamed UI Feedback
 
-A plant's temperature may be slightly lower near greenhouse boundaries.
+The backend should expose enough state for the UI to explain why a simulation step is taking time.
 
-A simple model can derive:
+The first agentic version does not need to expose private chain-of-thought.
+
+Instead stream operational progress such as:
 
 ```text
-distance_to_nearest_wall
+Analysing greenhouse summary
+Inspecting Plant 17
+Inspecting Plant 31
+Evaluating harvest opportunities
+2 management actions selected
+Applying actions
 ```
 
-and apply a smooth boundary effect.
-
-This creates a useful spatial gradient with very little complexity.
+The UI should display high-level process events, not hidden model reasoning.
 
 ---
 
-# 32. Relative Humidity
+# 46. UI Progress Contract
 
-Relative humidity can initially be modeled at greenhouse level with modest spatial variation.
-
-It may depend approximately on:
-
-```text
-outside humidity
-ventilation
-internal temperature
-crop transpiration
-```
-
-The first version can simplify this substantially.
-
-What matters is that humidity varies smoothly over time and is not an independent random number at every plant every day.
-
----
-
-# 33. Heat Stress
-
-Plant heat stress should derive from experienced temperature.
-
-Conceptually:
-
-```text
-comfortable range
-    → no heat stress
-
-above threshold
-    → stress increases with magnitude and duration
-```
-
-At daily resolution, useful derived quantities can include:
-
-```text
-daily_mean_temperature
-max_temperature
-estimated_hours_above_threshold
-```
-
-Heat stress may affect:
-
-- fruit set;
-- plant growth;
-- water use;
-- fruit development;
-- wilting.
-
----
-
-# 34. Daily Simulation Order
-
-The exact ordering matters for causal consistency.
-
-Recommended daily sequence:
-
-```text
-1. Advance simulation clock
-
-2. Generate daily external climate drivers
-
-3. Build greenhouse spatial climate field
-
-4. Apply scheduled morning actions if any
-   - watering
-   - harvesting
-   - lowering
-   - pruning
-
-5. Update substrate water balance
-
-6. Compute plant water / heat stress
-
-7. Advance plant physiological development
-
-8. Advance stem growth
-
-9. Create new trusses where appropriate
-
-10. Advance truss development
-
-11. Set new fruits where appropriate
-
-12. Advance existing fruit growth
-
-13. Advance fruit ripening
-
-14. Apply biological consequences / losses
-
-15. Apply later operational actions if required
-
-16. Finalize hidden end-of-day ground truth
-
-17. Generate sensor observations
-
-18. Generate simulated vision observations
-
-19. Generate externally visible operational events
-
-20. Persist hidden truth separately from platform-facing data
-```
-
-The implementation may adjust exact ordering if tests show a cleaner interpretation, but it should remain explicit and documented.
-
----
-
-# 35. Actions
-
-The first simulator should support the following action types.
-
-## Water
-
-```text
-WATER
-```
-
-Effects:
-
-- increases substrate water;
-- records intervention;
-- indirectly influences future stress and observations.
-
-## Harvest
-
-```text
-HARVEST
-```
-
-Effects:
-
-- removes selected harvestable fruits from active plant state;
-- increments cumulative harvest;
-- changes subsequent visual observations.
-
-## Lower Plant
-
-```text
-LOWER_PLANT
-```
-
-Effects:
-
-- increases lowered stem length;
-- records management event;
-- does not reset biological growth.
-
-## Prune
-
-```text
-PRUNE
-```
-
-Initial effects may be minimal:
-
-- reduce modeled leaf-area factor;
-- record management event.
-
-Pruning can remain optional in the first milestone.
-
----
-
-# 36. Action Sources
-
-Actions may have a source:
-
-```text
-SIMULATION_OPERATOR
-HUMAN
-ROBOT
-AUTOMATION
-```
-
-For the initial world model, actions are generated by the simulator's management policy.
-
-Later, some can deliberately be hidden from the platform-facing event stream to evaluate event inference.
-
----
-
-# 37. Management Policy
-
-The simulation needs a basic policy for deciding when actions happen.
-
-This policy represents the simulated grower/operator, not the intelligence platform being evaluated.
-
-Examples:
-
-### Irrigation
-
-```text
-if latent substrate water < management threshold:
-    water plant
-```
-
-or watering can be scheduled by greenhouse zone.
-
-### Harvest
-
-```text
-if harvestable fruit mass > threshold:
-    harvest ripe fruit
-```
-
-### Lowering
-
-```text
-if effective vertical height > management threshold:
-    lower plant by configured amount
-```
-
-The policy should be deliberately simple and deterministic given world state + random seed.
-
-Later versions can generate imperfect management behaviour such as missed watering or delayed harvest.
-
----
-
-# 38. Observation Model
-
-After the hidden world has advanced, the simulator generates **platform-facing observations**.
-
-There should be at least three categories:
-
-```text
-environmental sensor observations
-plant-level soil observations
-visual plant observations
-```
-
-Operational events are emitted separately.
-
----
-
-# 39. Environmental Sensor Observation
-
-Example:
+Possible event payload:
 
 ```json
 {
-  "greenhouse_id": "greenhouse_001",
-  "timestamp": "day_14",
-  "air_temperature_c": 27.4,
-  "relative_humidity_pct": 68.2
-}
-```
-
-Sensor output should differ slightly from hidden true climate values.
-
-Example:
-
-```text
-observed_temperature
-    = true_temperature_at_sensor
-    + measurement_noise
-```
-
----
-
-# 40. Soil-Moisture Observation
-
-Example:
-
-```json
-{
+  "type": "management_progress",
+  "simulation_run_id": "run_001",
+  "day": 12,
+  "status": "inspecting_plant",
   "plant_id": "plant_017",
-  "timestamp": "day_14",
-  "soil_moisture_pct": 43.1
+  "message": "Reviewing Plant 17"
 }
 ```
 
-This is derived from hidden substrate state plus sensor noise and optional calibration bias.
-
-Conceptually:
-
-```text
-measurement
-    = transform(hidden_water_fraction)
-    + sensor_bias
-    + daily_noise
-```
-
-Each sensor can sample a small persistent bias when created.
-
-That is preferable to completely independent noise every day.
-
----
-
-# 41. Simulated Vision Observation
-
-No images are generated or analyzed in this POC.
-
-Instead, the simulator generates structured values representing what a future CV pipeline might output.
-
-Example:
+Another:
 
 ```json
 {
-  "plant_id": "plant_017",
-  "timestamp": "day_14",
-
-  "visible_fruit_count": 41,
-  "green_fruit_count": 22,
-  "ripening_fruit_count": 9,
-  "ripe_fruit_count": 10,
-
-  "average_fruit_diameter_mm": 19.4,
-  "estimated_visible_fruit_mass_g": 1740,
-
-  "leaf_wilting_score": 0.16,
-  "leaf_discoloration_score": 0.04
+  "type": "actions_selected",
+  "simulation_run_id": "run_001",
+  "day": 12,
+  "action_count": 2
 }
 ```
 
-The observation should be generated from hidden plant state, not independently.
+Transport may use:
+
+```text
+polling
+Server-Sent Events
+WebSocket
+```
+
+Implementation should prefer the simplest reliable solution.
 
 ---
 
-# 42. Vision Noise
+# 47. Simulation Status
 
-The visual observation model should introduce plausible imperfections.
+Possible run statuses:
+
+```text
+NOT_STARTED
+RUNNING
+COMPLETED
+FAILED
+```
+
+Optional future status:
+
+```text
+PAUSED
+```
+
+While `RUNNING`, expose:
+
+```text
+current_day
+total_days
+current_phase
+current_progress_message
+```
+
+---
+
+# 48. Ground Truth
+
+The simulator may retain private ground truth.
+
+This can later support evaluations.
 
 Examples:
 
 ```text
-some fruits are missed
-fruit count has small error
-size estimates have measurement noise
-ripeness classification is occasionally off by one stage
-wilting estimate has noise
+true plant stress
+true fruit count
+true intervention need
+true harvestable mass
 ```
 
-The first implementation should keep these errors modest.
+The management policy must not access this data.
 
-The goal is to prevent the platform from receiving perfect ground truth while keeping evaluation understandable.
+Ground truth is evaluation-only.
 
 ---
 
-# 43. Fruit Tracking IDs
+# 49. Evaluation Hooks
 
-Ground truth contains stable `fruit_id` values.
+Detailed policy evaluation belongs to the agentic-management phase.
 
-The first platform-facing observation does **not need to expose individual fruit tracks**.
+However, simulator architecture should support it.
 
-Aggregate counts are enough for the first milestone.
-
-A later extension may generate:
+Useful hooks:
 
 ```text
-vision_track_id
+expected management state
+acceptable action ranges
+true outcome metrics
+water usage
+harvest mass
+health trajectory
 ```
 
-with imperfect persistence across days.
-
-This would enable evaluation of fruit tracking without requiring actual images.
+These should be optional rather than mandatory for every simulator feature.
 
 ---
 
-# 44. Wilting Observation
-
-Wilting is derived primarily from water and heat stress.
-
-Conceptually:
-
-```text
-true_wilting
-    = f(water_stress, heat_stress)
-```
-
-Then:
-
-```text
-observed_wilting
-    = true_wilting + vision_noise
-```
-
-The output should be normalized, for example:
-
-```text
-0.0 = no visible wilting
-1.0 = severe wilting
-```
-
----
-
-# 45. Hidden Ground Truth
-
-For evaluation, the simulator should retain a detailed daily snapshot of hidden world state.
-
-Example information:
-
-```text
-true plant water state
-true stress values
-true fruit identities
-true fruit sizes
-true ripeness stages
-true harvested fruits
-true actions
-true temperature at plant position
-```
-
-This store is strictly separate from platform-facing data.
-
-It should never be accessible to the intelligence layer under evaluation.
-
----
-
-# 46. Persistence Outputs
-
-A simulation run may produce two conceptual outputs.
-
-## Simulation Ground Truth
-
-```text
-ground_truth/
-```
-
-Used by:
-
-- simulator tests;
-- evaluation;
-- debugging.
-
-## Platform Input
-
-```text
-observations/
-events/
-```
-
-Used by:
-
-- state reconstruction;
-- intelligence;
-- dashboard;
-- later chatbot analytics.
-
-This boundary should remain explicit in code.
-
----
-
-# 47. Parameterization
-
-Simulation behaviour should be defined through configuration rather than scattered magic numbers.
-
-Conceptual configuration groups:
-
-```text
-greenhouse
-climate
-plant
-truss
-fruit
-water
-management
-observation_noise
-```
-
-Example:
-
-```yaml
-plant:
-  base_stem_growth_cm_per_day: 2.4
-  truss_interval_effective_days: 6.5
-
-fruit:
-  target_diameter_mean_mm: 24
-  target_diameter_std_mm: 2
-  ripening_start_effective_day: 32
-
-water:
-  substrate_capacity: 1.0
-  irrigation_threshold: 0.35
-
-simulation:
-  seed: 42
-  duration_days: 28
-```
-
-Numbers above are examples only.
-
-The final values should be clearly labeled as simulator parameters rather than validated agronomic constants.
-
----
-
-# 48. Individual Variation
-
-Plants should not be clones.
-
-At initialization, each plant can sample persistent multipliers such as:
-
-```text
-growth_rate_multiplier
-water_consumption_multiplier
-fruit_set_multiplier
-fruit_size_multiplier
-ripening_speed_multiplier
-```
-
-Example:
-
-```text
-plant 01 growth multiplier = 0.96
-plant 02 growth multiplier = 1.04
-```
-
-These values stay fixed throughout the simulation.
-
-This creates believable diversity while maintaining temporal consistency.
-
----
-
-# 49. Correlated Randomness
-
-Avoid generating independent random values everywhere.
-
-Prefer persistent or autocorrelated variation.
-
-Examples:
-
-- hot weather lasts several days;
-- a sensor's calibration bias persists;
-- a slower-growing plant remains somewhat slower;
-- neighbouring plants experience similar temperature;
-- fruit development varies by fruit but remains smooth.
-
-This is one of the most important properties for producing useful longitudinal data.
-
----
-
-# 50. No Scenario Scripting Required for Normal Behaviour
-
-The baseline simulator should naturally generate healthy greenhouse development without explicit scenarios.
-
-A normal run should emerge from:
-
-```text
-climate dynamics
-+
-plant dynamics
-+
-management policy
-+
-observation noise
-```
-
-rather than commands such as:
-
-```text
-Day 7: Plant 4 becomes stressed
-Day 9: Plant 8 grows fruit
-```
-
-Explicit scenario injections may later modify model parameters or actions, but should not replace the generative model.
-
----
-
-# 51. Future Scenario Injection
-
-Once baseline dynamics work, abnormal scenarios should preferably be introduced by changing causes rather than directly setting outcomes.
-
-Example: heat wave
-
-```text
-raise outside temperature for 4 days
-```
-
-not:
-
-```text
-set heat_stress = true
-```
-
-Example: irrigation failure
-
-```text
-disable watering for Zone 2
-```
-
-not:
-
-```text
-set plants 11–20 to water_stressed
-```
-
-Example: delayed harvest
-
-```text
-suppress harvest action for 3 days
-```
-
-not:
-
-```text
-set fruit_count high
-```
-
-This keeps causal relationships meaningful.
-
----
-
-# 52. Disease — Deferred
-
-Disease is explicitly excluded from the first simulator milestone.
-
-The healthy / abiotic-stress baseline should work first.
-
-Later, disease can be introduced as a latent process that affects existing plant properties such as:
-
-```text
-leaf discoloration
-leaf area
-growth rate
-fruit development
-fruit loss
-water use
-```
-
-This is preferable to a simple:
-
-```text
-disease = true
-```
-
-flag.
-
----
-
-# 53. Minimal First Milestone
-
-The first useful version of the simulator should support:
-
-```text
-1. Create configurable greenhouse grid.
-
-2. Create 40 individual plants.
-
-3. Simulate 28 daily steps.
-
-4. Generate smooth outside / greenhouse temperatures.
-
-5. Generate spatial temperature differences.
-
-6. Maintain substrate water for each plant.
-
-7. Apply automatic watering.
-
-8. Grow plant stems.
-
-9. Generate trusses over time.
-
-10. Generate fruits on trusses.
-
-11. Grow individual fruits.
-
-12. Progress fruit ripeness.
-
-13. Harvest ripe fruit according to management policy.
-
-14. Lower plants when appropriate.
-
-15. Maintain cumulative harvest.
-
-16. Generate environmental sensor observations.
-
-17. Generate soil-moisture observations.
-
-18. Generate structured visual observations.
-
-19. Add realistic measurement noise.
-
-20. Persist ground truth separately from observations.
-
-21. Produce identical runs for identical seeds.
-```
-
----
-
-# 54. Minimal Demonstration
-
-A simple CLI or notebook-level test should be able to run:
-
-```text
-create simulation(seed=42)
-run 28 days
-```
-
-and produce a summary such as:
-
-```text
-Simulation Greenhouse 001
-28 days completed
-
-Plants: 40
-Trusses created: 183
-Fruits created: 2,146
-Fruits harvested: 487
-Harvested mass: 6.3 kg
-
-Plant 17:
-  stem length: 168 cm
-  lowered: 35 cm
-  active trusses: 4
-  visible fruit: 51
-  ripe fruit: 9
-  cumulative harvest: 320 g
-  soil moisture: 47%
-```
-
-The values themselves are not important initially.
-
-What matters is that they arise coherently from the model.
-
----
-
-# 55. Validation Invariants
-
-The simulator should include deterministic consistency checks.
-
-Examples:
-
-```text
-harvested fruit cannot become visible again
-
-fruit mass cannot be negative
-
-fruit diameter cannot be negative
-
-substrate water must remain within bounds
-
-cumulative harvest cannot decrease
-
-fruit cannot belong to multiple trusses
-
-truss must belong to exactly one plant
-
-plant IDs remain stable
-
-fruit IDs remain stable until terminal state
-
-simulation day always increases monotonically
-```
-
-These invariants should become automated tests early.
-
----
-
-# 56. Architecture Suggestion
-
-A possible package structure is:
+# 50. Recommended Package Boundaries
 
 ```text
 simulation/
-    config/
-        models.py
-        defaults.py
-
-    domain/
+    world/
         greenhouse.py
         plant.py
         truss.py
         fruit.py
-        substrate.py
-        climate.py
-        actions.py
+        environment.py
 
     dynamics/
-        climate.py
-        plant_growth.py
-        truss_growth.py
-        fruit_growth.py
+        growth.py
+        ripening.py
         water.py
-        stress.py
+        climate.py
 
-    management/
-        policy.py
-        irrigation.py
-        harvest.py
-        lowering.py
+    actions/
+        models.py
+        application.py
 
     observations/
-        environment.py
-        soil.py
+        sensors.py
         vision.py
         noise.py
 
-    engine/
-        world.py
-        runner.py
-        step.py
+    runner/
+        simulation_runner.py
+        progress.py
 
     persistence/
-        ground_truth.py
-        observations.py
+        snapshots.py
 
-    tests/
-        test_determinism.py
-        test_invariants.py
-        test_harvest.py
-        test_water.py
-        test_growth.py
+management/
+    policy.py
+    no_op_policy.py
+    deterministic_policy.py
+    action_validator.py
+
+management/agent/
+    # V1, separate design document
 ```
 
-The exact structure is not mandatory.
+Exact filenames are flexible.
 
-The important conceptual separation is:
+The architectural boundaries are not.
+
+---
+
+# 51. Initial Deterministic Baseline
+
+A simple deterministic management policy should exist once the management layer begins.
+
+Possible rules:
 
 ```text
-world dynamics
-≠
-management actions
-≠
-observation generation
+if soil moisture below threshold:
+    water plant
+
+if ripe mass above threshold:
+    harvest plant
+
+if plant height exceeds operational threshold:
+    lower plant
+
+if data is inconsistent:
+    schedule inspection
 ```
+
+This policy should use the same observable state available to the future agent.
+
+It should not read hidden simulator truth.
 
 ---
 
-# 57. Recommended Implementation Order
+# 52. First Simulator V0 Scope
 
-Do not attempt to implement every part simultaneously.
+V0 should focus on the physical/logical world before building the agent.
 
-Recommended sequence:
+Required:
 
 ```text
-1. Core data models
-      ↓
-2. Simulation clock + deterministic RNG
-      ↓
-3. Greenhouse + plant initialization
-      ↓
-4. Climate evolution
-      ↓
-5. Stem / physiological growth
-      ↓
-6. Truss creation
-      ↓
-7. Fruit creation and growth
-      ↓
-8. Ripening
-      ↓
-9. Water reservoir + watering
-      ↓
-10. Harvest
-      ↓
-11. Lowering
-      ↓
-12. Observation generation
-      ↓
-13. Noise
-      ↓
-14. Persistence
-      ↓
-15. Validation tests
+greenhouse grid
+plants
+trusses
+fruits
+
+daily environment
+temperature field
+humidity
+
+soil water
+plant water stress
+
+stem growth
+truss initiation
+fruit growth
+fruit ripening
+
+watering action
+harvest action
+lowering action
+inspection action
+
+sensor observations
+vision-derived observations
+
+seeded deterministic runs
+persistence
+progress events
 ```
 
-The first meaningful milestone is not a dashboard.
-
-It is:
+The policy interface should exist, but V0 may run with:
 
 ```text
-seed = 42
-    ↓
-create greenhouse
-    ↓
-simulate 28 days
-    ↓
-obtain a coherent hidden history
-    ↓
-obtain noisy platform-facing observations
+NoOpPolicy
 ```
 
----
-
-# 58. Definition of Done
-
-The baseline simulation engine is complete when:
-
-- the same seed reproduces the same run;
-- greenhouse layout is configurable;
-- plants remain individually identifiable;
-- stems develop over time;
-- trusses appear naturally from development;
-- fruits are created and retain identity;
-- fruits grow smoothly rather than jumping randomly;
-- ripening progresses over time;
-- temperature evolves smoothly and spatially;
-- water state evolves causally;
-- watering changes latent water state;
-- stress emerges from environmental conditions;
-- harvesting removes real hidden fruits;
-- harvested fruits disappear from later observations;
-- lowering is represented as an action;
-- sensor observations contain controlled noise;
-- vision observations are derived from actual hidden plant state;
-- hidden ground truth is isolated from platform-facing observations;
-- basic simulation invariants are covered by automated tests.
-
-At that point, the project has a genuine **probabilistic greenhouse world model** rather than a collection of generated fixtures.
+or directly supplied test actions.
 
 ---
 
-# 59. Future Extensions
+# 53. V1 Immediately After Simulator
 
-Once the baseline works, likely extensions include:
+After V0 is coherent, add the management layer.
 
-- imperfect or delayed management actions;
-- irrigation zones rather than plant-by-plant watering;
-- heat waves;
-- ventilation failures;
-- sensor failures and drift;
-- hidden actions;
-- pruning effects;
-- fruit loss;
-- disease progression;
-- spatial disease propagation;
-- individual fruit tracking observations;
-- camera occlusion models;
-- weather feeds;
-- more realistic greenhouse climate control;
-- calibrated tomato-development parameters;
-- configurable crop types;
-- sub-daily simulation if required.
+V1 will introduce:
 
-These should be introduced incrementally rather than complicating the first simulator.
+```text
+GreenhouseManagementContext
+ManagementPolicy interface
+DeterministicPolicy
+AgenticPolicy
+read tools
+action tools
+action validation
+provider abstraction
+streamed management progress
+basic evaluation
+```
+
+The separate agentic-management design document defines this layer.
 
 ---
 
-# 60. Final Design Principle
+# 54. Definition of Done — Simulator V0
 
-The simulator should answer one question:
+A successful V0 should be able to:
 
-> **Given a simplified model of a real greenhouse, what could plausibly happen next, and what would our sensors observe?**
+1. create a configured greenhouse;
+2. generate positioned vine tomato plants;
+3. advance one simulated day at a time;
+4. create trusses;
+5. create individual fruits;
+6. grow fruits;
+7. ripen fruits;
+8. maintain spatially varying climate;
+9. evolve soil water;
+10. develop and recover water stress;
+11. apply watering;
+12. apply plant-level harvesting;
+13. apply plant lowering;
+14. record inspections;
+15. generate noisy sensor observations;
+16. generate noisy vision-derived observations;
+17. persist daily state;
+18. persist actions with provenance;
+19. produce identical runs from identical seeds and actions;
+20. emit progress events suitable for the UI;
+21. accept actions through a generic management-policy boundary;
+22. remain completely independent from LLM providers.
 
-It should not attempt to answer:
+---
 
-> **What should the grower do?**
+# 55. Final Design Principle
 
-The first question belongs to the simulator.
+The simulator should be simple enough to understand but rich enough to create meaningful causal histories.
 
-The second belongs to the greenhouse intelligence platform.
+The important chain is:
 
-Keeping that boundary clean is essential for meaningful evaluation later.
+```text
+environment
+    ↓
+hidden biological state
+    ↓
+observable measurements
+    ↓
+management decision
+    ↓
+validated action
+    ↓
+changed hidden state
+    ↓
+future observations
+```
+
+This makes the simulation useful both as a POC and as an evaluation environment for increasingly sophisticated greenhouse intelligence and management systems.

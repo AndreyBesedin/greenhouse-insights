@@ -7,6 +7,9 @@ ship the code that implements it. See `docs/design/` for all design documents, c
 - `docs/design/greenhouse_intelligence_poc_brief.md` — overall product scope and vision.
 - `docs/design/greenhouse_simulation_design.md` — design of the simulation engine (hidden
   world model, observation generation, scenario evolution).
+- `docs/design/greenhouse_agentic_management_design.md` — design of the agentic management
+  layer (policy interface, agent tools, action validation, evaluation).
+- `docs/design/greenhouse_ui_initial_brief.md` — initial brief for the frontend UI/UX.
 
 ---
 
