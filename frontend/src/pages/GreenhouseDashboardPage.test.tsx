@@ -82,6 +82,8 @@ function mockGetImplementation(path: string) {
   if (path === '/simulations/{simulation_id}/status') return Promise.resolve(ok(RUNNING_1))
   if (path === '/greenhouses/{greenhouse_id}/plants/{plant_id}')
     return Promise.resolve(ok(PLANT_DETAIL))
+  if (path === '/greenhouses/{greenhouse_id}/plants/{plant_id}/history')
+    return Promise.resolve(ok([]))
   throw new Error(`unexpected GET ${path}`)
 }
 
@@ -189,14 +191,14 @@ describe('GreenhouseDashboardPage', () => {
 
     renderDashboard()
     await screen.findByText('Day 28 / 28')
-    expect(screen.getByText('0 healthy | 0 monitor | 1 action required')).toBeInTheDocument()
+    expect(await screen.findByText('0 healthy | 0 monitor | 1 action required')).toBeInTheDocument()
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Day'), { target: { value: '14' } })
     })
 
     expect(await screen.findByText(/viewing day 14/i)).toBeInTheDocument()
-    expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
+    expect(await screen.findByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /return to current day/i }))
