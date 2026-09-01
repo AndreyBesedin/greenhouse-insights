@@ -58,19 +58,25 @@ Requires Python 3.12+ and Node 22+ (see `frontend/.nvmrc`).
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
+cp .env.example .env   # fill in any values you need to override, see below
 uvicorn application.api.main:app --reload
 ```
 
-Serves the API at `http://localhost:8000`. Set `GREENHOUSE_STEP_DELAY_SECONDS`
-to control the simulated-day pace (default 1.0s/day) and
-`GREENHOUSE_DATABASE_URL` to change where the SQLite file lives (default
-`backend/data/greenhouse.db`, created on first run).
+Serves the API at `http://localhost:8000`. The app loads `backend/.env`
+automatically on startup if it exists (`.env` is gitignored - never commit
+it; `.env.example` documents every variable). Everything in it can also be
+set as a real environment variable instead, which always takes precedence.
+Notable ones: `GREENHOUSE_STEP_DELAY_SECONDS` controls the simulated-day
+pace (default 1.0s/day), `GREENHOUSE_DATABASE_URL` changes where the SQLite
+file lives (default `backend/data/greenhouse.db`, created on first run).
 
 To run `AGENTIC` greenhouses against a real Claude model instead of the
 scripted `FakeAgentModelProvider`, set `GREENHOUSE_AGENT_PROVIDER=anthropic`
-and `ANTHROPIC_API_KEY=<your key>`. Optionally set `GREENHOUSE_AGENT_MODEL`
-to override the model (default `claude-sonnet-5`). Never commit an API key -
-export it in your shell, do not put it in a tracked file.
+and `ANTHROPIC_API_KEY=<your key>` (get one at console.anthropic.com, and
+set a spend limit there too). Optionally set `GREENHOUSE_AGENT_MODEL` to
+override the model (default `claude-sonnet-5`). A bare `alembic` command run
+from the CLI does not read `.env` - export `GREENHOUSE_DATABASE_URL` in your
+shell first if you need it for a manual migration command.
 
 **Frontend:**
 
