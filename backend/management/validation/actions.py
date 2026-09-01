@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from domain.world import GreenhouseWorld
 
-_MAX_WATER_AMOUNT_ML = 2000.0
+MAX_WATER_AMOUNT_ML = 2000.0
 
 
 class WaterPlantAction(BaseModel):
@@ -55,7 +55,7 @@ def validate_action(world: GreenhouseWorld, action: RequestedAction) -> ActionRe
         return ActionResult(accepted=False, reason=f"plant {action.plant_id!r} does not exist")
 
     if isinstance(action, WaterPlantAction):
-        if not (0 < action.amount_ml <= _MAX_WATER_AMOUNT_ML):
+        if not (0 < action.amount_ml <= MAX_WATER_AMOUNT_ML):
             return ActionResult(accepted=False, reason="water amount out of range")
     elif isinstance(action, LowerPlantAction):
         visible_height = plant.stem_length_cm - plant.lowered_length_cm

@@ -29,7 +29,7 @@ class AgentToolkit:
     ) -> None:
         self._context = context
         self._history_reader = history_reader
-        self._budget = budget
+        self.budget = budget
         self.calls: list[ToolCallTrace] = []
 
     def get_plant_state(self, plant_id: str) -> PlantState | None:
@@ -54,5 +54,5 @@ class AgentToolkit:
         return history
 
     def _consume_budget(self) -> None:
-        if len(self.calls) >= self._budget:
-            raise ToolBudgetExceededError(f"tool-call budget of {self._budget} exceeded")
+        if len(self.calls) >= self.budget:
+            raise ToolBudgetExceededError(f"tool-call budget of {self.budget} exceeded")

@@ -1,3 +1,4 @@
+import os
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -133,5 +134,17 @@ class FakeAgentModelProvider:
 
 
 def build_default_provider() -> AgentModelProvider:
-    """The single swap point for a real LLM-backed provider."""
+    """The single swap point for a real LLM-backed provider.
+
+    Selected via GREENHOUSE_AGENT_PROVIDER ("fake", the default, or
+    "anthropic"). The default preserves all existing behavior - nothing
+    calls a real model unless explicitly opted in.
+    """
+    provider_name = os.environ.get("GREENHOUSE_AGENT_PROVIDER", "fake")
+    if provider_name == "anthropic":
+        from management.agent.providers.anthropic_provider import AnthropicAgentModelProvider
+
+        return AnthropicAgentModelProvider()
+    if provider_name != "fake":
+        raise ValueError(f"unknown GREENHOUSE_AGENT_PROVIDER: {provider_name!r}")
     return FakeAgentModelProvider()

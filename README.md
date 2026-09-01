@@ -29,9 +29,24 @@ plants once per simulated day through a validated action boundary
 (`WATER_PLANT` / `HARVEST_PLANT` / `LOWER_PLANT` / `SCHEDULE_INSPECTION`), and
 sensor/vision observations are derived from that hidden state with
 configurable noise. This is what powers the harvest-mass KPIs on the
-dashboard and per-plant detail panel. The full spatial climate model,
-streamed progress events, and the agentic management policy (a separate
-design doc) remain out of scope for now.
+dashboard and per-plant detail panel. The full spatial climate model and
+streamed progress events remain out of scope for now.
+
+**Agentic management (V1) — implemented**, per
+`docs/design/greenhouse_agentic_management_design.md`. Decision-making lives
+in `backend/management/`, separate from `backend/simulation/` (the world
+model) - a greenhouse's `management_policy` (`NONE` / `DETERMINISTIC` /
+`AGENTIC`) is resolved once per simulated day into a policy that only sees
+observable state and proposes actions; validation and execution stay in
+`simulation/`, which the policy never touches. The agent can call
+`get_plant_state` / `get_plant_history` under a configurable tool-call
+budget before finalizing its decision, and every agentic run is traced
+(`GET /greenhouses/{id}/management/history`). `management/evaluation/`
+holds 10 ground-truth decision-quality cases with a scorecard
+(`python -m management.evaluation`). The agent runs against
+`FakeAgentModelProvider` (scripted, no API calls) by default, or against a
+real Claude model via `AnthropicAgentModelProvider` when configured - see
+`GREENHOUSE_AGENT_PROVIDER` below.
 
 ## Running locally
 
@@ -50,6 +65,12 @@ Serves the API at `http://localhost:8000`. Set `GREENHOUSE_STEP_DELAY_SECONDS`
 to control the simulated-day pace (default 1.0s/day) and
 `GREENHOUSE_DATABASE_URL` to change where the SQLite file lives (default
 `backend/data/greenhouse.db`, created on first run).
+
+To run `AGENTIC` greenhouses against a real Claude model instead of the
+scripted `FakeAgentModelProvider`, set `GREENHOUSE_AGENT_PROVIDER=anthropic`
+and `ANTHROPIC_API_KEY=<your key>`. Optionally set `GREENHOUSE_AGENT_MODEL`
+to override the model (default `claude-sonnet-5`). Never commit an API key -
+export it in your shell, do not put it in a tracked file.
 
 **Frontend:**
 
