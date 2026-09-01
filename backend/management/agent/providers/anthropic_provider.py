@@ -23,7 +23,9 @@ from management.validation.actions import RequestedAction
 from simulation.scenarios.config import ScenarioConfig
 
 _DEFAULT_MODEL = "claude-sonnet-5"
-_MAX_TOKENS = 1024
+_DEFAULT_MAX_TOKENS = 1536
+_DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
+_DEFAULT_MAX_RETRIES = 2
 _ROUND_SAFETY_MARGIN = 3
 
 _GET_PLANT_STATE_TOOL: dict[str, Any] = {
@@ -106,21 +108,40 @@ _SUBMIT_TOOL_CHOICE = {"type": "tool", "name": "submit_management_decision"}
 _ACTIONS_ADAPTER: TypeAdapter[list[RequestedAction]] = TypeAdapter(list[RequestedAction])
 
 
+def _build_default_client() -> "anthropic.Anthropic":
+    timeout = float(
+        os.environ.get("GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS", _DEFAULT_REQUEST_TIMEOUT_SECONDS)
+    )
+    max_retries = int(os.environ.get("GREENHOUSE_AGENT_MAX_RETRIES", _DEFAULT_MAX_RETRIES))
+    return anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
+
+
 class AnthropicAgentModelProvider:
     """AgentModelProvider backed by a real Claude model via the Anthropic API.
 
     The client is injectable so tests never need a network call or a real
     API key - only build_default_provider() constructs a live client, and
     only when explicitly selected via GREENHOUSE_AGENT_PROVIDER.
+
+    A default client built here (client=None) always carries a request
+    timeout and a retry cap, so a hung or flaky call cannot stall a
+    simulation indefinitely - a client passed in explicitly (real or a
+    test stub) is used as-is, since its timeout/retry behavior is then the
+    caller's responsibility.
     """
 
-    def __init__(self, client: Any = None, model: str | None = None) -> None:
+    def __init__(
+        self, client: Any = None, model: str | None = None, max_tokens: int | None = None
+    ) -> None:
         # Typed as Any rather than anthropic.Anthropic: tests inject a lightweight
         # stub exposing only .messages.create(...) so they never need a real API
         # key or network access, matching the type: ignore already at the call
         # site for the same reason.
-        self._client = client if client is not None else anthropic.Anthropic()
+        self._client = client if client is not None else _build_default_client()
         self._model = model or os.environ.get("GREENHOUSE_AGENT_MODEL", _DEFAULT_MODEL)
+        self._max_tokens = max_tokens or int(
+            os.environ.get("GREENHOUSE_AGENT_MAX_TOKENS", _DEFAULT_MAX_TOKENS)
+        )
 
     def decide(
         self, context: GreenhouseManagementContext, toolkit: AgentToolkit, config: ScenarioConfig
@@ -139,7 +160,7 @@ class AnthropicAgentModelProvider:
             # models below, so this stays the only untyped boundary.
             response = self._client.messages.create(  # type: ignore[call-overload]
                 model=self._model,
-                max_tokens=_MAX_TOKENS,
+                max_tokens=self._max_tokens,
                 system=SYSTEM_PROMPT,
                 messages=messages,
                 tools=_TOOLS,

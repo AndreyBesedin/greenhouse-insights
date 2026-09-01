@@ -16,6 +16,7 @@ from application.persistence.world_repository import WorldRepository
 from domain.enums import (
     EventSource,
     EventType,
+    ManagementPolicyType,
     ObservationType,
     PlantHealth,
     SimulationStatus,
@@ -256,6 +257,52 @@ def test_create_greenhouse_without_duration_days_is_rejected_for_simulation_sour
             columns=1,
         )
     assert service.list_greenhouses() == []
+
+
+def test_create_greenhouse_rejects_an_overlong_agentic_duration(engine: Engine) -> None:
+    with pytest.raises(ValidationError, match="duration_days"):
+        CreateGreenhouseRequest(
+            name="Test Greenhouse",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+            duration_days=31,
+            management_policy=ManagementPolicyType.AGENTIC,
+        )
+
+
+def test_create_greenhouse_rejects_too_many_plants_for_agentic(engine: Engine) -> None:
+    with pytest.raises(ValidationError, match="rows \\* columns"):
+        CreateGreenhouseRequest(
+            name="Test Greenhouse",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=5,
+            columns=6,
+            duration_days=10,
+            management_policy=ManagementPolicyType.AGENTIC,
+        )
+
+
+def test_create_greenhouse_allows_the_same_duration_and_size_for_deterministic(
+    engine: Engine,
+) -> None:
+    service = GreenhouseService(engine)
+
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Big Deterministic Greenhouse",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=5,
+            columns=6,
+            duration_days=31,
+            management_policy=ManagementPolicyType.DETERMINISTIC,
+        )
+    )
+
+    assert len(detail.greenhouse.plants) == 30
 
 
 def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: Engine) -> None:

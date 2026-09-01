@@ -56,6 +56,15 @@ class TimelineSummary(BaseModel):
     current_day: int
 
 
+# AGENTIC greenhouses make a real, billed LLM call per simulated day (each
+# call itself covering every plant in the greenhouse in one prompt). These
+# caps are deliberately tighter than the general SIMULATION limits above so
+# a single greenhouse cannot silently rack up an unbounded number of live
+# API calls or an unbounded per-call prompt size.
+MAX_AGENTIC_DURATION_DAYS = 30
+MAX_AGENTIC_PLANT_COUNT = 25
+
+
 class CreateGreenhouseRequest(BaseModel):
     name: str
     description: str = ""
@@ -71,6 +80,22 @@ class CreateGreenhouseRequest(BaseModel):
     def _require_duration_for_simulations(self) -> "CreateGreenhouseRequest":
         if self.source_type == SourceType.SIMULATION and self.duration_days is None:
             raise ValueError("duration_days is required when source_type is SIMULATION")
+        return self
+
+    @model_validator(mode="after")
+    def _cap_agentic_cost(self) -> "CreateGreenhouseRequest":
+        if self.management_policy != ManagementPolicyType.AGENTIC:
+            return self
+        if self.duration_days is not None and self.duration_days > MAX_AGENTIC_DURATION_DAYS:
+            raise ValueError(
+                f"duration_days must be <= {MAX_AGENTIC_DURATION_DAYS} for an AGENTIC "
+                "greenhouse (each simulated day makes a real, billed LLM call)"
+            )
+        if self.rows * self.columns > MAX_AGENTIC_PLANT_COUNT:
+            raise ValueError(
+                f"rows * columns must be <= {MAX_AGENTIC_PLANT_COUNT} for an AGENTIC "
+                "greenhouse (every plant is included in each day's LLM prompt)"
+            )
         return self
 
 

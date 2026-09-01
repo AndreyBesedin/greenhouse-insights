@@ -7,7 +7,10 @@ from pydantic import ValidationError
 
 from domain.enums import PlantHealth
 from domain.state import PlantState
-from management.agent.providers.anthropic_provider import AnthropicAgentModelProvider
+from management.agent.providers.anthropic_provider import (
+    AnthropicAgentModelProvider,
+    _build_default_client,
+)
 from management.agent.tools import AgentToolkit
 from management.context import GreenhouseManagementContext
 from management.validation.actions import ScheduleInspectionAction, WaterPlantAction
@@ -188,3 +191,30 @@ def test_rejects_a_malformed_submitted_action() -> None:
 
     with pytest.raises(ValidationError):
         provider.decide(_context(), _toolkit(), CONFIG)
+
+
+def test_sends_the_configured_max_tokens() -> None:
+    submit = _ToolUseBlock(id="tu_1", name="submit_management_decision", input={"actions": []})
+    client = _StubClient(responses=[_StubMessage(content=[submit])])
+    provider = AnthropicAgentModelProvider(client=client, max_tokens=256)
+
+    provider.decide(_context(), _toolkit(), CONFIG)
+
+    assert client.messages.calls[0]["max_tokens"] == 256
+
+
+def test_default_client_carries_a_timeout_and_retry_cap() -> None:
+    client = _build_default_client()
+
+    assert client.timeout == 30.0
+    assert client.max_retries == 2
+
+
+def test_default_client_honors_env_var_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("GREENHOUSE_AGENT_MAX_RETRIES", "0")
+
+    client = _build_default_client()
+
+    assert client.timeout == 5.0
+    assert client.max_retries == 0

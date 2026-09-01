@@ -246,6 +246,40 @@ def test_create_greenhouse_rejects_an_oversized_grid(client: TestClient) -> None
     assert response.status_code == 422
 
 
+def test_create_greenhouse_rejects_an_overlong_agentic_duration(client: TestClient) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "New Greenhouse",
+            "source_type": "SIMULATION",
+            "crop": "cherry_tomato",
+            "rows": 1,
+            "columns": 1,
+            "duration_days": 31,
+            "management_policy": "AGENTIC",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_greenhouse_rejects_too_many_plants_for_agentic(client: TestClient) -> None:
+    response = client.post(
+        "/greenhouses",
+        json={
+            "name": "New Greenhouse",
+            "source_type": "SIMULATION",
+            "crop": "cherry_tomato",
+            "rows": 5,
+            "columns": 6,
+            "duration_days": 10,
+            "management_policy": "AGENTIC",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_delete_greenhouse_removes_it_and_returns_204(client: TestClient) -> None:
     response = client.delete("/greenhouses/gh_001")
 
