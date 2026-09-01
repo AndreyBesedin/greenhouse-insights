@@ -15,6 +15,7 @@ class PlantState(BaseModel):
     latest_visible_fruit_count: int | None = None
     latest_ripe_fruit_count: int | None = None
     latest_estimated_ripe_mass_g: float | None = None
+    latest_visible_height_cm: float | None = None
     harvested_total_g: float = 0.0
     last_event_type: EventType | None = None
     last_event_timestamp: datetime | None = None

@@ -6,11 +6,13 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Engine
 
 from application.persistence.greenhouse_repository import GreenhouseRepository
+from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
-from domain.enums import SimulationStatus, SourceType
+from domain.enums import ManagementPolicyType, SimulationStatus, SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant, build_grid_plants
+from domain.management_trace import ManagementTrace
 from domain.state import GreenhouseState, PlantState
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios.config import ScenarioConfig
@@ -33,6 +35,7 @@ class SimulationSummary(BaseModel):
     status: SimulationStatus
     current_step: int
     total_steps: int
+    management_policy: ManagementPolicyType
 
 
 class GreenhouseDetail(BaseModel):
@@ -59,6 +62,7 @@ class CreateGreenhouseRequest(BaseModel):
     columns: int = Field(gt=0, le=50)
     duration_days: int | None = Field(default=None, gt=0, le=200)
     random_seed: int | None = None
+    management_policy: ManagementPolicyType | None = None
 
     @model_validator(mode="after")
     def _require_duration_for_simulations(self) -> "CreateGreenhouseRequest":
@@ -73,6 +77,7 @@ class GreenhouseService:
         self._simulations = SimulationRepository(engine)
         self._states = StateRepository(engine)
         self._scenario_configs = ScenarioConfigRepository(engine)
+        self._management_traces = ManagementTraceRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         return [
@@ -131,6 +136,7 @@ class GreenhouseService:
                 duration_days=request.duration_days,
                 random_seed=seed,
                 total_steps=request.duration_days,
+                management_policy=request.management_policy or ManagementPolicyType.DETERMINISTIC,
             )
             self._simulations.save(simulation)
 
@@ -189,6 +195,12 @@ class GreenhouseService:
             total_days=simulation.total_steps, current_day=simulation.current_step
         )
 
+    def get_management_history(self, greenhouse_id: str) -> list[ManagementTrace] | None:
+        simulation = self._simulation_for(greenhouse_id)
+        if simulation is None:
+            return None
+        return self._management_traces.list_for_simulation(simulation.simulation_id)
+
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition | None:
         return self._simulations.get(f"sim_{greenhouse_id}")
 
@@ -199,6 +211,7 @@ def _to_summary(simulation: SimulationDefinition) -> SimulationSummary:
         status=simulation.status,
         current_step=simulation.current_step,
         total_steps=simulation.total_steps,
+        management_policy=simulation.management_policy,
     )
 
 

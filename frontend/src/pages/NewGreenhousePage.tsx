@@ -6,12 +6,19 @@ import { AppShell } from '../components/AppShell'
 import type { components } from '../../generated/schema'
 
 type SourceType = components['schemas']['SourceType']
+type ManagementPolicyType = components['schemas']['ManagementPolicyType']
 
 const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: 'SIMULATION', label: 'Simulation' },
   { value: 'REAL_SENSORS', label: 'Real sensors' },
   { value: 'EXTERNAL_API', label: 'External API' },
   { value: 'IMPORTED_DATA', label: 'Imported data' },
+]
+
+const MANAGEMENT_POLICY_OPTIONS: { value: ManagementPolicyType; label: string }[] = [
+  { value: 'NONE', label: 'None (manual only)' },
+  { value: 'DETERMINISTIC', label: 'Deterministic (rule-based autopilot)' },
+  { value: 'AGENTIC', label: 'Agentic' },
 ]
 
 export function NewGreenhousePage() {
@@ -24,6 +31,7 @@ export function NewGreenhousePage() {
   const [columns, setColumns] = useState(10)
   const [durationDays, setDurationDays] = useState(28)
   const [randomSeed, setRandomSeed] = useState('')
+  const [managementPolicy, setManagementPolicy] = useState<ManagementPolicyType>('DETERMINISTIC')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -44,6 +52,7 @@ export function NewGreenhousePage() {
         columns,
         duration_days: isSimulation ? durationDays : null,
         random_seed: isSimulation && randomSeed ? Number(randomSeed) : null,
+        management_policy: isSimulation ? managementPolicy : null,
       },
     })
 
@@ -190,6 +199,35 @@ export function NewGreenhousePage() {
                   className="w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] placeholder:text-mist focus:outline-brand/50"
                 />
               </div>
+            </div>
+          )}
+
+          {isSimulation && (
+            <div className="mb-4">
+              <label htmlFor="management-policy" className="mb-1.5 block text-xs text-mist">
+                Management policy
+              </label>
+              <select
+                id="management-policy"
+                value={managementPolicy}
+                onChange={(event) =>
+                  setManagementPolicy(event.target.value as ManagementPolicyType)
+                }
+                className="w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] focus:outline-brand/50"
+              >
+                {MANAGEMENT_POLICY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {managementPolicy === 'AGENTIC' && (
+                <p className="mt-1.5 text-[11px] text-mist">
+                  Agentic currently runs a scripted stand-in policy until a real LLM provider is
+                  configured — the tool-calling and validation pipeline is real, the decisions are
+                  not yet made by a model.
+                </p>
+              )}
             </div>
           )}
 

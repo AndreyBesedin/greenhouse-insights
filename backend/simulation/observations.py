@@ -82,6 +82,9 @@ def _plant_observations(
         0.0, ripe_mass_g * (1 + rng.normal(0.0, config.ripe_mass_noise_pct / 100.0))
     )
 
+    visible_height_cm = plant.stem_length_cm - plant.lowered_length_cm
+    noisy_height = max(0.0, visible_height_cm + rng.normal(0.0, config.height_noise_cm))
+
     return [
         observation(ObservationType.SOIL_MOISTURE_PCT, round(noisy_moisture, 1)),
         observation(
@@ -93,6 +96,7 @@ def _plant_observations(
             _noisy_count(len(ripe_fruits), config.fruit_count_noise_probability, rng),
         ),
         observation(ObservationType.ESTIMATED_RIPE_MASS_G, round(noisy_ripe_mass, 1)),
+        observation(ObservationType.VISIBLE_HEIGHT_CM, round(noisy_height, 1)),
     ]
 
 

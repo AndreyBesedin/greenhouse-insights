@@ -34,4 +34,5 @@ def _to_summary(definition: SimulationDefinition) -> SimulationSummary:
         status=definition.status,
         current_step=definition.current_step,
         total_steps=definition.total_steps,
+        management_policy=definition.management_policy,
     )

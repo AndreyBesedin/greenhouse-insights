@@ -52,4 +52,5 @@ def test_observation_type_has_expected_members() -> None:
         "visible_fruit_count",
         "ripe_fruit_count",
         "estimated_ripe_mass_g",
+        "visible_height_cm",
     }

@@ -29,6 +29,7 @@ simulation_definitions = Table(
     Column("status", String, nullable=False),
     Column("current_step", Integer, nullable=False),
     Column("total_steps", Integer, nullable=False),
+    Column("management_policy", String, nullable=False),
 )
 
 observations = Table(
@@ -80,4 +81,12 @@ scenario_configs = Table(
     metadata,
     Column("greenhouse_id", String, primary_key=True),
     Column("config_json", String, nullable=False),
+)
+
+management_traces = Table(
+    "management_traces",
+    metadata,
+    Column("simulation_id", String, primary_key=True),
+    Column("simulated_day", Integer, primary_key=True),
+    Column("trace_json", String, nullable=False),
 )

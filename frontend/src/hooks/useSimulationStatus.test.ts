@@ -16,6 +16,7 @@ const NOT_STARTED = {
   status: 'NOT_STARTED',
   current_step: 0,
   total_steps: 3,
+  management_policy: 'DETERMINISTIC',
 } as const
 const RUNNING_1 = { ...NOT_STARTED, status: 'RUNNING', current_step: 1 } as const
 const RUNNING_2 = { ...NOT_STARTED, status: 'RUNNING', current_step: 2 } as const

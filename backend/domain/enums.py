@@ -14,6 +14,7 @@ class ObservationType(StrEnum):
     VISIBLE_FRUIT_COUNT = "visible_fruit_count"
     RIPE_FRUIT_COUNT = "ripe_fruit_count"
     ESTIMATED_RIPE_MASS_G = "estimated_ripe_mass_g"
+    VISIBLE_HEIGHT_CM = "visible_height_cm"
 
 
 class EventType(StrEnum):
@@ -32,6 +33,7 @@ class EventSource(StrEnum):
     INFERRED_FROM_OBSERVATIONS = "INFERRED_FROM_OBSERVATIONS"
     SIMULATION = "SIMULATION"
     RULE_BASED_POLICY = "RULE_BASED_POLICY"
+    AGENT = "AGENT"
 
 
 class FruitStatus(StrEnum):
@@ -75,3 +77,9 @@ class SimulationStatus(StrEnum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class ManagementPolicyType(StrEnum):
+    NONE = "NONE"
+    DETERMINISTIC = "DETERMINISTIC"
+    AGENTIC = "AGENTIC"

@@ -107,6 +107,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/management/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Management History */
+        get: operations["get_management_history_greenhouses__greenhouse_id__management_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/run": {
         parameters: {
             query?: never;
@@ -165,6 +182,7 @@ export interface components {
             duration_days?: number | null;
             /** Random Seed */
             random_seed?: number | null;
+            management_policy?: components["schemas"]["ManagementPolicyType"] | null;
         };
         /**
          * EventType
@@ -265,6 +283,62 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * ManagementPolicyType
+         * @enum {string}
+         */
+        ManagementPolicyType: "NONE" | "DETERMINISTIC" | "AGENTIC";
+        /** ManagementTrace */
+        ManagementTrace: {
+            /** Simulation Id */
+            simulation_id: string;
+            /** Greenhouse Id */
+            greenhouse_id: string;
+            /** Simulated Day */
+            simulated_day: number;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /**
+             * Tool Calls
+             * @default []
+             */
+            tool_calls: components["schemas"]["ToolCallTrace"][];
+            /**
+             * Requested Action Count
+             * @default 0
+             */
+            requested_action_count: number;
+            /**
+             * Accepted Action Count
+             * @default 0
+             */
+            accepted_action_count: number;
+            /**
+             * Rejected Action Count
+             * @default 0
+             */
+            rejected_action_count: number;
+            /**
+             * Status
+             * @default SUCCESS
+             * @enum {string}
+             */
+            status: "SUCCESS" | "FAILED";
+            /** Error */
+            error?: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Completed At
+             * Format: date-time
+             */
+            completed_at: string;
+        };
         /** Plant */
         Plant: {
             /** Plant Id */
@@ -316,6 +390,8 @@ export interface components {
             latest_ripe_fruit_count?: number | null;
             /** Latest Estimated Ripe Mass G */
             latest_estimated_ripe_mass_g?: number | null;
+            /** Latest Visible Height Cm */
+            latest_visible_height_cm?: number | null;
             /**
              * Harvested Total G
              * @default 0
@@ -346,6 +422,7 @@ export interface components {
             current_step: number;
             /** Total Steps */
             total_steps: number;
+            management_policy: components["schemas"]["ManagementPolicyType"];
         };
         /**
          * SourceType
@@ -358,6 +435,17 @@ export interface components {
             total_days: number;
             /** Current Day */
             current_day: number;
+        };
+        /** ToolCallTrace */
+        ToolCallTrace: {
+            /** Tool */
+            tool: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -584,6 +672,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_management_history_greenhouses__greenhouse_id__management_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementTrace"][];
                 };
             };
             /** @description Validation Error */

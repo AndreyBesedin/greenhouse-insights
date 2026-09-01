@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from pydantic import BaseModel
 
-from domain.enums import SimulationStatus
+from domain.enums import ManagementPolicyType, SimulationStatus
 
 
 class SimulationDefinition(BaseModel):
@@ -16,3 +16,4 @@ class SimulationDefinition(BaseModel):
     status: SimulationStatus = SimulationStatus.NOT_STARTED
     current_step: int = 0
     total_steps: int
+    management_policy: ManagementPolicyType = ManagementPolicyType.DETERMINISTIC

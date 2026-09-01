@@ -1,4 +1,4 @@
-from domain.enums import SourceType
+from domain.enums import ManagementPolicyType, SourceType
 
 
 def test_source_type_has_expected_members() -> None:
@@ -7,4 +7,12 @@ def test_source_type_has_expected_members() -> None:
         "REAL_SENSORS",
         "EXTERNAL_API",
         "IMPORTED_DATA",
+    }
+
+
+def test_management_policy_type_has_expected_members() -> None:
+    assert {member.value for member in ManagementPolicyType} == {
+        "NONE",
+        "DETERMINISTIC",
+        "AGENTIC",
     }

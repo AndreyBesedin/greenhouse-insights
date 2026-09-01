@@ -5,20 +5,27 @@ from sqlalchemy import Engine
 
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
+from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from application.persistence.world_repository import WorldRepository
-from domain.enums import SimulationStatus
+from domain.enums import ManagementPolicyType, SimulationStatus
 from domain.event import Event
+from domain.management_trace import ManagementTrace
+from domain.state import PlantState
 from intelligence.state_reconstruction import (
     reconstruct_greenhouse_state,
     reconstruct_plant_state,
 )
 from simulation.actions import apply_action, validate_action
+from simulation.agent.context import GreenhouseManagementContext
+from simulation.agent.policy import AgenticPolicy
+from simulation.agent.provider import build_default_provider
+from simulation.agent.tools import PlantHistoryReader
 from simulation.observations import generate_observations
-from simulation.policy import DeterministicPolicy
+from simulation.policy import DeterministicPolicy, ManagementPolicy, NoOpPolicy
 from simulation.world_builder import advance_world, initialize_world
 
 
@@ -33,7 +40,8 @@ class SimulationRunner:
         self._states = StateRepository(engine)
         self._worlds = WorldRepository(engine)
         self._scenario_configs = ScenarioConfigRepository(engine)
-        self._policy = DeterministicPolicy()
+        self._management_traces = ManagementTraceRepository(engine)
+        self._agent_provider = build_default_provider()
 
     async def run_to_completion(self, simulation_id: str) -> None:
         while True:
@@ -73,18 +81,59 @@ class SimulationRunner:
 
         generation = generate_observations(world, config, day=day, timestamp=timestamp)
 
-        actions = self._policy.decide(world, config)
+        observable_plant_states = [
+            reconstruct_plant_state(
+                plant_id=plant_id,
+                greenhouse_id=greenhouse.greenhouse_id,
+                day=day,
+                timestamp=timestamp,
+                observations=generation.observations,
+                events=[],
+            )
+            for plant_id in plant_ids
+        ]
+        context = GreenhouseManagementContext(
+            greenhouse_id=greenhouse.greenhouse_id, day=day, plant_states=observable_plant_states
+        )
+
+        policy = self._resolve_policy(definition.management_policy, greenhouse.greenhouse_id, day)
+        actions = policy.decide(context, config)
+
         action_events: list[Event] = []
+        accepted = 0
+        rejected = 0
         for action in actions:
             result = validate_action(world, action)
             if not result.accepted:
+                rejected += 1
                 continue
+            accepted += 1
             world, event = apply_action(world, action, config, day=day, timestamp=timestamp)
             action_events.append(event)
 
         self._observations.save_many(generation.observations)
         self._events.save_many(action_events)
         self._worlds.save(world)
+
+        if isinstance(policy, AgenticPolicy) and policy.last_run is not None:
+            run = policy.last_run
+            self._management_traces.save(
+                ManagementTrace(
+                    simulation_id=simulation_id,
+                    greenhouse_id=greenhouse.greenhouse_id,
+                    simulated_day=day,
+                    provider=run.provider,
+                    model=run.model,
+                    tool_calls=run.tool_calls,
+                    requested_action_count=run.requested_action_count,
+                    accepted_action_count=accepted,
+                    rejected_action_count=rejected,
+                    status=run.status,
+                    error=run.error,
+                    started_at=run.started_at,
+                    completed_at=run.completed_at,
+                )
+            )
 
         plant_states = [
             reconstruct_plant_state(
@@ -118,3 +167,24 @@ class SimulationRunner:
             update={"current_state_timestamp": timestamp, "latest_available_timestamp": timestamp}
         )
         self._greenhouses.save(updated_greenhouse)
+
+    def _resolve_policy(
+        self, policy_type: ManagementPolicyType, greenhouse_id: str, day: int
+    ) -> ManagementPolicy:
+        if policy_type == ManagementPolicyType.NONE:
+            return NoOpPolicy()
+        if policy_type == ManagementPolicyType.AGENTIC:
+            return AgenticPolicy(
+                self._agent_provider, self._history_reader(greenhouse_id, up_to_day=day - 1)
+            )
+        return DeterministicPolicy()
+
+    def _history_reader(self, greenhouse_id: str, *, up_to_day: int) -> PlantHistoryReader:
+        def read(plant_id: str, days: int) -> list[PlantState]:
+            if up_to_day < 1:
+                return []
+            states = self._states.list_up_to_day(greenhouse_id, max_day=up_to_day)
+            matching = [ps for gs in states for ps in gs.plant_states if ps.plant_id == plant_id]
+            return matching[-days:]
+
+        return read

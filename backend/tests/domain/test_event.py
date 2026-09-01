@@ -78,4 +78,5 @@ def test_event_source_has_expected_members() -> None:
         "INFERRED_FROM_OBSERVATIONS",
         "SIMULATION",
         "RULE_BASED_POLICY",
+        "AGENT",
     }

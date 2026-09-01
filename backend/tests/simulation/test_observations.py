@@ -71,3 +71,18 @@ def test_generate_observations_emits_ripe_mass_that_grows_as_fruit_ripens() -> N
         )
 
     assert total_ripe_mass(late.observations) > total_ripe_mass(early.observations)
+
+
+def test_generate_observations_emits_a_visible_height_that_grows_as_the_plant_grows() -> None:
+    early = generate_observations(_world_at(1), CONFIG, day=1, timestamp=TIMESTAMP)
+    late = generate_observations(_world_at(30), CONFIG, day=30, timestamp=TIMESTAMP)
+
+    def height_for_plant_one(observations: list[Observation]) -> float:
+        return next(
+            obs.value
+            for obs in observations
+            if obs.observation_type == ObservationType.VISIBLE_HEIGHT_CM
+            and obs.plant_id == PLANT_IDS[0]
+        )
+
+    assert height_for_plant_one(late.observations) > height_for_plant_one(early.observations)

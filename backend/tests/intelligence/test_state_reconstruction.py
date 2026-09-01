@@ -58,6 +58,21 @@ def test_reconstruct_plant_state_restates_latest_observation_values() -> None:
     assert state.health == PlantHealth.HEALTHY
 
 
+def test_reconstruct_plant_state_restates_latest_visible_height() -> None:
+    observations = [_obs("plant_017", ObservationType.VISIBLE_HEIGHT_CM, 132.5)]
+
+    state = reconstruct_plant_state(
+        plant_id="plant_017",
+        greenhouse_id="gh_001",
+        day=8,
+        timestamp=TIMESTAMP,
+        observations=observations,
+        events=[],
+    )
+
+    assert state.latest_visible_height_cm == 132.5
+
+
 def test_reconstruct_plant_state_flags_low_soil_moisture_as_action_required() -> None:
     observations = [_obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, 15.0)]
 

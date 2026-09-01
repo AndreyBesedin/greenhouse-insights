@@ -10,6 +10,7 @@ from application.greenhouse_service import (
     PlantDetail,
     TimelineSummary,
 )
+from domain.management_trace import ManagementTrace
 from domain.state import GreenhouseState, PlantState
 
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
@@ -89,3 +90,13 @@ def get_timeline(
     if timeline is None:
         raise HTTPException(status_code=404, detail="greenhouse not found")
     return timeline
+
+
+@router.get("/{greenhouse_id}/management/history")
+def get_management_history(
+    greenhouse_id: str, service: GreenhouseService = Depends(_get_service)
+) -> list[ManagementTrace]:
+    history = service.get_management_history(greenhouse_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="greenhouse not found")
+    return history

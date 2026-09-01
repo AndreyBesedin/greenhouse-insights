@@ -50,3 +50,7 @@ class ScenarioConfig(BaseModel):
     air_temperature_noise_c: float = 0.4
     fruit_count_noise_probability: float = 0.1
     ripe_mass_noise_pct: float = 8.0
+    height_noise_cm: float = 1.5
+
+    # Agentic management.
+    agent_tool_call_budget: int = 8
