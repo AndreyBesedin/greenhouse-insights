@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from domain.management_trace import ToolCallTrace
 from domain.state import PlantState
-from simulation.agent.context import GreenhouseManagementContext
+from management.context import GreenhouseManagementContext
 
 PlantHistoryReader = Callable[[str, int], list[PlantState]]
 

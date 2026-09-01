@@ -19,13 +19,15 @@ from intelligence.state_reconstruction import (
     reconstruct_greenhouse_state,
     reconstruct_plant_state,
 )
-from simulation.actions import apply_action, validate_action
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.agent.policy import AgenticPolicy
-from simulation.agent.provider import build_default_provider
-from simulation.agent.tools import PlantHistoryReader
+from management.agent.policy import AgenticPolicy
+from management.agent.provider import build_default_provider
+from management.agent.tools import PlantHistoryReader
+from management.context import GreenhouseManagementContext
+from management.deterministic.policy import DeterministicPolicy
+from management.policy import ManagementPolicy, NoOpPolicy
+from management.validation.actions import validate_action
+from simulation.actions import apply_action
 from simulation.observations import generate_observations
-from simulation.policy import DeterministicPolicy, ManagementPolicy, NoOpPolicy
 from simulation.world_builder import advance_world, initialize_world
 
 

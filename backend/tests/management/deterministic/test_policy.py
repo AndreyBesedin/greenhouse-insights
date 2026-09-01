@@ -2,9 +2,9 @@ from datetime import UTC, datetime
 
 from domain.enums import PlantHealth
 from domain.state import PlantState
-from simulation.actions import HarvestPlantAction, LowerPlantAction, WaterPlantAction
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.policy import DeterministicPolicy, NoOpPolicy
+from management.context import GreenhouseManagementContext
+from management.deterministic.policy import DeterministicPolicy
+from management.validation.actions import HarvestPlantAction, LowerPlantAction, WaterPlantAction
 from simulation.scenarios import SCENARIO_REGISTRY
 
 CONFIG = SCENARIO_REGISTRY["gh_001"]
@@ -24,10 +24,6 @@ def _context(**overrides: object) -> GreenhouseManagementContext:
     defaults.update(overrides)
     plant_state = PlantState(**defaults)
     return GreenhouseManagementContext(greenhouse_id="gh_001", day=1, plant_states=[plant_state])
-
-
-def test_no_op_policy_never_requests_actions() -> None:
-    assert NoOpPolicy().decide(_context(), CONFIG) == []
 
 
 def test_deterministic_policy_waters_a_plant_with_low_soil_moisture() -> None:

@@ -4,8 +4,8 @@ import pytest
 
 from domain.enums import PlantHealth
 from domain.state import PlantState
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.agent.tools import AgentToolkit, ToolBudgetExceededError
+from management.agent.tools import AgentToolkit, ToolBudgetExceededError
+from management.context import GreenhouseManagementContext
 
 TIMESTAMP = datetime(2026, 1, 9, tzinfo=UTC)
 

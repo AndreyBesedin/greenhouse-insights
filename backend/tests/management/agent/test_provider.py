@@ -2,15 +2,15 @@ from datetime import UTC, datetime
 
 from domain.enums import PlantHealth
 from domain.state import PlantState
-from simulation.actions import (
+from management.agent.provider import AgentDecision, FakeAgentModelProvider
+from management.agent.tools import AgentToolkit
+from management.context import GreenhouseManagementContext
+from management.validation.actions import (
     HarvestPlantAction,
     LowerPlantAction,
     ScheduleInspectionAction,
     WaterPlantAction,
 )
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.agent.provider import AgentDecision, FakeAgentModelProvider
-from simulation.agent.tools import AgentToolkit
 from simulation.scenarios import SCENARIO_REGISTRY
 
 CONFIG = SCENARIO_REGISTRY["gh_001"]

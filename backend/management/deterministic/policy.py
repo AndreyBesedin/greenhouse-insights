@@ -1,26 +1,11 @@
-from typing import Protocol
-
-from simulation.actions import (
+from management.context import GreenhouseManagementContext
+from management.validation.actions import (
     HarvestPlantAction,
     LowerPlantAction,
     RequestedAction,
     WaterPlantAction,
 )
-from simulation.agent.context import GreenhouseManagementContext
 from simulation.scenarios.config import ScenarioConfig
-
-
-class ManagementPolicy(Protocol):
-    def decide(
-        self, context: GreenhouseManagementContext, config: ScenarioConfig
-    ) -> list[RequestedAction]: ...
-
-
-class NoOpPolicy:
-    def decide(
-        self, context: GreenhouseManagementContext, config: ScenarioConfig
-    ) -> list[RequestedAction]:
-        return []
 
 
 class DeterministicPolicy:

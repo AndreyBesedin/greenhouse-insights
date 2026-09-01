@@ -4,10 +4,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from domain.management_trace import ToolCallTrace
-from simulation.actions import RequestedAction
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.agent.provider import AgentModelProvider
-from simulation.agent.tools import AgentToolkit, PlantHistoryReader
+from management.agent.provider import AgentModelProvider
+from management.agent.tools import AgentToolkit, PlantHistoryReader
+from management.context import GreenhouseManagementContext
+from management.validation.actions import RequestedAction
 from simulation.scenarios.config import ScenarioConfig
 
 

@@ -1,68 +1,17 @@
 from datetime import datetime
-from typing import Literal
-
-from pydantic import BaseModel
 
 from domain.enums import EventSource, EventType, FruitStatus
 from domain.event import Event
 from domain.world import GreenhouseWorld, PlantWorld
+from management.validation.actions import (
+    HarvestPlantAction,
+    LowerPlantAction,
+    RequestedAction,
+    ScheduleInspectionAction,
+    WaterPlantAction,
+)
 from simulation.dynamics.water import apply_irrigation
 from simulation.scenarios.config import ScenarioConfig
-
-
-class WaterPlantAction(BaseModel):
-    action_type: Literal["WATER_PLANT"] = "WATER_PLANT"
-    plant_id: str
-    amount_ml: float
-
-
-class HarvestPlantAction(BaseModel):
-    action_type: Literal["HARVEST_PLANT"] = "HARVEST_PLANT"
-    plant_id: str
-
-
-class LowerPlantAction(BaseModel):
-    action_type: Literal["LOWER_PLANT"] = "LOWER_PLANT"
-    plant_id: str
-    amount_cm: float
-
-
-class ScheduleInspectionAction(BaseModel):
-    action_type: Literal["SCHEDULE_INSPECTION"] = "SCHEDULE_INSPECTION"
-    plant_id: str
-    reason: str
-
-
-RequestedAction = (
-    WaterPlantAction | HarvestPlantAction | LowerPlantAction | ScheduleInspectionAction
-)
-
-_MAX_WATER_AMOUNT_ML = 2000.0
-
-
-class ActionResult(BaseModel):
-    accepted: bool
-    reason: str | None = None
-
-
-def validate_action(world: GreenhouseWorld, action: RequestedAction) -> ActionResult:
-    try:
-        plant = world.plant(action.plant_id)
-    except LookupError:
-        return ActionResult(accepted=False, reason=f"plant {action.plant_id!r} does not exist")
-
-    if isinstance(action, WaterPlantAction):
-        if not (0 < action.amount_ml <= _MAX_WATER_AMOUNT_ML):
-            return ActionResult(accepted=False, reason="water amount out of range")
-    elif isinstance(action, LowerPlantAction):
-        visible_height = plant.stem_length_cm - plant.lowered_length_cm
-        if not (0 < action.amount_cm <= visible_height):
-            return ActionResult(accepted=False, reason="lowering amount exceeds visible height")
-    elif isinstance(action, ScheduleInspectionAction):
-        if not action.reason.strip():
-            return ActionResult(accepted=False, reason="inspection reason is required")
-
-    return ActionResult(accepted=True)
 
 
 def apply_action(
@@ -73,7 +22,13 @@ def apply_action(
     day: int,
     timestamp: datetime,
 ) -> tuple[GreenhouseWorld, Event]:
-    """Applies an already-validated action, returning the updated world and its Event."""
+    """Applies an already-validated action, returning the updated world and its Event.
+
+    This is the simulation's actioner (docs/design/greenhouse_agentic_management_design.md
+    §45): a real deployment would replace this with human approval, task
+    creation, or a robot/climate controller instead of mutating GreenhouseWorld
+    directly. The management layer that decided the action is unaware of this.
+    """
     if isinstance(action, WaterPlantAction):
         return _apply_water(world, action, config, day=day, timestamp=timestamp)
     if isinstance(action, HarvestPlantAction):

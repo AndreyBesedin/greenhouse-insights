@@ -4,14 +4,13 @@ import pytest
 
 from domain.enums import EventType, FruitStatus
 from domain.world import GreenhouseWorld
-from simulation.actions import (
+from management.validation.actions import (
     HarvestPlantAction,
     LowerPlantAction,
     ScheduleInspectionAction,
     WaterPlantAction,
-    apply_action,
-    validate_action,
 )
+from simulation.actions import apply_action
 from simulation.scenarios import SCENARIO_REGISTRY
 from simulation.world_builder import advance_world, initialize_world
 
@@ -25,20 +24,6 @@ def _grown_world(days: int = 60) -> GreenhouseWorld:
     for day in range(1, days + 1):
         world = advance_world(world, CONFIG, day)
     return world
-
-
-def test_validate_action_rejects_an_unknown_plant() -> None:
-    world = initialize_world(CONFIG, [PLANT_ID])
-    result = validate_action(world, WaterPlantAction(plant_id="does_not_exist", amount_ml=500))
-
-    assert result.accepted is False
-
-
-def test_validate_water_action_rejects_non_positive_amount() -> None:
-    world = initialize_world(CONFIG, [PLANT_ID])
-    result = validate_action(world, WaterPlantAction(plant_id=PLANT_ID, amount_ml=0))
-
-    assert result.accepted is False
 
 
 def test_water_action_increases_the_reservoir_and_records_an_event() -> None:
@@ -96,12 +81,6 @@ def test_harvest_action_removes_ripe_fruit_and_tracks_cumulative_mass() -> None:
 def test_lower_action_increases_lowered_length() -> None:
     world = _grown_world()
     plant = world.plant(PLANT_ID)
-    visible_height = plant.stem_length_cm - plant.lowered_length_cm
-
-    result = validate_action(
-        world, LowerPlantAction(plant_id=PLANT_ID, amount_cm=visible_height + 1)
-    )
-    assert result.accepted is False
 
     updated_world, event = apply_action(
         world,
@@ -117,8 +96,6 @@ def test_lower_action_increases_lowered_length() -> None:
 
 def test_schedule_inspection_records_an_event_without_mutating_the_world() -> None:
     world = initialize_world(CONFIG, [PLANT_ID])
-    result = validate_action(world, ScheduleInspectionAction(plant_id=PLANT_ID, reason=""))
-    assert result.accepted is False
 
     updated_world, event = apply_action(
         world,

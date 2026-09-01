@@ -4,15 +4,15 @@ from pydantic import BaseModel
 
 from domain.enums import PlantHealth
 from domain.state import PlantState
-from simulation.actions import (
+from management.agent.tools import AgentToolkit, ToolBudgetExceededError
+from management.context import GreenhouseManagementContext
+from management.validation.actions import (
     HarvestPlantAction,
     LowerPlantAction,
     RequestedAction,
     ScheduleInspectionAction,
     WaterPlantAction,
 )
-from simulation.agent.context import GreenhouseManagementContext
-from simulation.agent.tools import AgentToolkit, ToolBudgetExceededError
 from simulation.scenarios.config import ScenarioConfig
 
 _HISTORY_WINDOW_DAYS = 3

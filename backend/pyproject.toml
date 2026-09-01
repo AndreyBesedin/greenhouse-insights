@@ -41,7 +41,7 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-packages = ["domain", "simulation", "intelligence", "evaluation", "application"]
+packages = ["domain", "simulation", "management", "intelligence", "evaluation", "application"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -54,4 +54,4 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["domain*", "simulation*", "intelligence*", "evaluation*", "application*"]
+include = ["domain*", "simulation*", "management*", "intelligence*", "evaluation*", "application*"]

@@ -50,7 +50,8 @@ greenhouse-insights/
 │   └── design/             # all design docs (product brief, subsystem designs, ...)
 ├── backend/
 │   ├── domain/            # greenhouse, plants, observations, events, state
-│   ├── simulation/        # definitions, scenarios, runner, evolution, ground truth
+│   ├── simulation/        # world model: definitions, scenarios, runner, evolution, actioner
+│   ├── management/        # decision-making: policy, agent, validation, evaluation (see below)
 │   ├── intelligence/      # feature extraction, reconciliation, inference, recommendations
 │   ├── evaluation/        # scenario evaluation, consistency checks, recommendation eval
 │   ├── application/       # persistence, services, FastAPI routers
@@ -69,6 +70,16 @@ greenhouse-insights/
 
 - **Backend:** Python + FastAPI. Pydantic models double as the domain schema and the
   source of the OpenAPI spec.
+- **Simulation vs. management:** `simulation/` owns world state and its evolution — it does
+  not decide anything. `management/` owns decision-making (`NoOpPolicy`, `DeterministicPolicy`,
+  the agent) and reads only the observable `GreenhouseManagementContext`
+  (`management/context.py`), never simulator-hidden truth. This mirrors
+  `docs/design/greenhouse_agentic_management_design.md` §43/§45: the same management code
+  should later run against a real greenhouse by swapping simulated observations for real
+  sensors and simulation execution for human approval/robot scheduling, with the decision
+  logic unchanged. `simulation/runner.py` is the only place that wires the two together per
+  day: build context → `management` policy decides → `management.validation` checks the
+  result against real state → `simulation.actions.apply_action` executes it.
 - **Frontend:** React + TypeScript.
 - **API connection:** FastAPI's auto-generated OpenAPI schema is the contract. We generate
   a typed TS client from it (`openapi-typescript` + a thin fetch wrapper, e.g.
