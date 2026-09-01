@@ -25,6 +25,7 @@ class SimulationRepository:
             "current_step": definition.current_step,
             "total_steps": definition.total_steps,
             "management_policy": definition.management_policy.value,
+            "action_executor": definition.action_executor.value,
         }
         statement = insert(simulation_definitions).values(**row)
         statement = statement.on_conflict_do_update(
@@ -63,4 +64,5 @@ def _row_to_definition(mapping: RowMapping) -> SimulationDefinition:
         current_step=mapping["current_step"],
         total_steps=mapping["total_steps"],
         management_policy=mapping["management_policy"],
+        action_executor=mapping["action_executor"],
     )

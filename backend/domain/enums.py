@@ -83,3 +83,14 @@ class ManagementPolicyType(StrEnum):
     NONE = "NONE"
     DETERMINISTIC = "DETERMINISTIC"
     AGENTIC = "AGENTIC"
+
+
+class ActionExecutorType(StrEnum):
+    """Who/what actually carries out an accepted action, as opposed to who
+    decided it (see management/). Only one member exists today - it makes
+    the choice a real, persisted, per-simulation setting rather than a
+    hardcoded function call, so a second implementation (a simulated robot
+    with different characteristics, later a real one) is a new member plus
+    one new class, not a refactor."""
+
+    SIMULATED_OPERATOR = "SIMULATED_OPERATOR"

@@ -13,7 +13,7 @@ from application.persistence.scenario_config_repository import ScenarioConfigRep
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from application.persistence.world_repository import WorldRepository
-from domain.enums import ManagementPolicyType, SimulationStatus, SourceType
+from domain.enums import ActionExecutorType, ManagementPolicyType, SimulationStatus, SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant, build_grid_plants
 from domain.management_trace import ManagementTrace
 from domain.state import GreenhouseState, PlantState
@@ -39,6 +39,7 @@ class SimulationSummary(BaseModel):
     current_step: int
     total_steps: int
     management_policy: ManagementPolicyType
+    action_executor: ActionExecutorType
 
 
 class GreenhouseDetail(BaseModel):
@@ -75,6 +76,7 @@ class CreateGreenhouseRequest(BaseModel):
     duration_days: int | None = Field(default=None, gt=0, le=200)
     random_seed: int | None = None
     management_policy: ManagementPolicyType | None = None
+    action_executor: ActionExecutorType | None = None
 
     @model_validator(mode="after")
     def _require_duration_for_simulations(self) -> "CreateGreenhouseRequest":
@@ -168,6 +170,7 @@ class GreenhouseService:
                 random_seed=seed,
                 total_steps=request.duration_days,
                 management_policy=request.management_policy or ManagementPolicyType.DETERMINISTIC,
+                action_executor=request.action_executor or ActionExecutorType.SIMULATED_OPERATOR,
             )
             self._simulations.save(simulation)
 
@@ -263,6 +266,7 @@ def _to_summary(simulation: SimulationDefinition) -> SimulationSummary:
         current_step=simulation.current_step,
         total_steps=simulation.total_steps,
         management_policy=simulation.management_policy,
+        action_executor=simulation.action_executor,
     )
 
 

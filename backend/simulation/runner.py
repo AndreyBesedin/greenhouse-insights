@@ -11,7 +11,7 @@ from application.persistence.scenario_config_repository import ScenarioConfigRep
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from application.persistence.world_repository import WorldRepository
-from domain.enums import ManagementPolicyType, SimulationStatus
+from domain.enums import ActionExecutorType, ManagementPolicyType, SimulationStatus
 from domain.event import Event
 from domain.management_trace import ManagementTrace
 from domain.state import PlantState
@@ -26,7 +26,7 @@ from management.context import GreenhouseManagementContext
 from management.deterministic.policy import DeterministicPolicy
 from management.policy import ManagementPolicy, NoOpPolicy
 from management.validation.actions import validate_action
-from simulation.actions import apply_action
+from simulation.executor import ActionExecutor, SimulatedOperatorExecutor
 from simulation.observations import generate_observations
 from simulation.world_builder import advance_world, initialize_world
 
@@ -100,6 +100,7 @@ class SimulationRunner:
 
         policy = self._resolve_policy(definition.management_policy, greenhouse.greenhouse_id, day)
         actions = policy.decide(context, config)
+        executor = self._resolve_executor(definition.action_executor)
 
         action_events: list[Event] = []
         accepted = 0
@@ -110,7 +111,7 @@ class SimulationRunner:
                 rejected += 1
                 continue
             accepted += 1
-            world, event = apply_action(world, action, config, day=day, timestamp=timestamp)
+            world, event = executor.apply(world, action, config, day=day, timestamp=timestamp)
             action_events.append(event)
 
         self._observations.save_many(generation.observations)
@@ -180,6 +181,11 @@ class SimulationRunner:
                 self._agent_provider, self._history_reader(greenhouse_id, up_to_day=day - 1)
             )
         return DeterministicPolicy()
+
+    def _resolve_executor(self, executor_type: ActionExecutorType) -> ActionExecutor:
+        if executor_type == ActionExecutorType.SIMULATED_OPERATOR:
+            return SimulatedOperatorExecutor()
+        raise ValueError(f"unknown action executor type: {executor_type!r}")
 
     def _history_reader(self, greenhouse_id: str, *, up_to_day: int) -> PlantHistoryReader:
         def read(plant_id: str, days: int) -> list[PlantState]:

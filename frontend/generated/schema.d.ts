@@ -163,6 +163,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActionExecutorType
+         * @description Who/what actually carries out an accepted action, as opposed to who
+         *     decided it (see management/). Only one member exists today - it makes
+         *     the choice a real, persisted, per-simulation setting rather than a
+         *     hardcoded function call, so a second implementation (a simulated robot
+         *     with different characteristics, later a real one) is a new member plus
+         *     one new class, not a refactor.
+         * @enum {string}
+         */
+        ActionExecutorType: "SIMULATED_OPERATOR";
         /** CreateGreenhouseRequest */
         CreateGreenhouseRequest: {
             /** Name */
@@ -184,6 +195,7 @@ export interface components {
             /** Random Seed */
             random_seed?: number | null;
             management_policy?: components["schemas"]["ManagementPolicyType"] | null;
+            action_executor?: components["schemas"]["ActionExecutorType"] | null;
         };
         /**
          * EventType
@@ -424,6 +436,7 @@ export interface components {
             /** Total Steps */
             total_steps: number;
             management_policy: components["schemas"]["ManagementPolicyType"];
+            action_executor: components["schemas"]["ActionExecutorType"];
         };
         /**
          * SourceType

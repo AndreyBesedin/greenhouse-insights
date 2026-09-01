@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from pydantic import BaseModel
 
-from domain.enums import ManagementPolicyType, SimulationStatus
+from domain.enums import ActionExecutorType, ManagementPolicyType, SimulationStatus
 
 
 class SimulationDefinition(BaseModel):
@@ -17,3 +17,4 @@ class SimulationDefinition(BaseModel):
     current_step: int = 0
     total_steps: int
     management_policy: ManagementPolicyType = ManagementPolicyType.DETERMINISTIC
+    action_executor: ActionExecutorType = ActionExecutorType.SIMULATED_OPERATOR

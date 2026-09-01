@@ -30,6 +30,7 @@ simulation_definitions = Table(
     Column("current_step", Integer, nullable=False),
     Column("total_steps", Integer, nullable=False),
     Column("management_policy", String, nullable=False),
+    Column("action_executor", String, nullable=False, server_default="SIMULATED_OPERATOR"),
 )
 
 observations = Table(

@@ -85,16 +85,23 @@ greenhouse-insights/
   wires them together for local testing of the deployment artifacts
   specifically - day-to-day development still uses the venv/`npm run dev`
   workflow below, not Docker, for faster iteration.
-- **Simulation vs. management:** `simulation/` owns world state and its evolution — it does
-  not decide anything. `management/` owns decision-making (`NoOpPolicy`, `DeterministicPolicy`,
-  the agent) and reads only the observable `GreenhouseManagementContext`
-  (`management/context.py`), never simulator-hidden truth. This mirrors
+- **Simulation vs. management vs. execution:** three separate concerns, on purpose. `simulation/`
+  owns world state and its evolution - it does not decide anything. `management/` owns
+  decision-making (`NoOpPolicy`, `DeterministicPolicy`, the agent) and reads only the
+  observable `GreenhouseManagementContext` (`management/context.py`), never simulator-hidden
+  truth - it *proposes* `RequestedAction`s and never touches `GreenhouseWorld`. Carrying those
+  proposals out is a third, separate concern: `simulation/executor.py`'s `ActionExecutor`
+  protocol (`SimulatedOperatorExecutor` today: instantaneous, complete execution), selected
+  per simulation via `SimulationDefinition.action_executor`
+  (`domain.enums.ActionExecutorType`) the same way `management_policy` is. This mirrors
   `docs/design/greenhouse_agentic_management_design.md` §43/§45: the same management code
   should later run against a real greenhouse by swapping simulated observations for real
-  sensors and simulation execution for human approval/robot scheduling, with the decision
-  logic unchanged. `simulation/runner.py` is the only place that wires the two together per
-  day: build context → `management` policy decides → `management.validation` checks the
-  result against real state → `simulation.actions.apply_action` executes it.
+  sensors and simulated execution for human approval/robot scheduling/a real robot, with the
+  decision logic unchanged - and now the execution side is a real swap point (a future
+  `SimulatedRobotExecutor` or a real one is a new `ActionExecutorType` member plus one class),
+  not a hardcoded function call. `simulation/runner.py` is the only place that wires all
+  three together per day: build context → `management` policy decides → `management.validation`
+  checks the result against real state → the resolved `ActionExecutor` executes it.
 - **Frontend:** React + TypeScript.
 - **API connection:** FastAPI's auto-generated OpenAPI schema is the contract. We generate
   a typed TS client from it (`openapi-typescript` + a thin fetch wrapper, e.g.
