@@ -54,7 +54,9 @@ greenhouse-insights/
 │   ├── intelligence/      # feature extraction, reconciliation, inference, recommendations
 │   ├── evaluation/        # scenario evaluation, consistency checks, recommendation eval
 │   ├── application/       # persistence, services, FastAPI routers
+│   ├── alembic/           # schema migrations (versions/ has one file per schema change)
 │   ├── tests/
+│   ├── alembic.ini
 │   ├── pyproject.toml
 │   └── .python-version
 ├── frontend/
@@ -76,6 +78,14 @@ greenhouse-insights/
 - **Progressive simulation updates:** start with polling against
   `GET /simulations/{id}/status`; move to SSE only if polling proves visually insufficient.
   Per the brief, the transport is an implementation detail — don't over-invest here early.
+- **Database:** SQLite via SQLAlchemy Core, one `MetaData` object
+  (`backend/application/persistence/schema.py`). Schema changes are managed with Alembic, not
+  `create_all` — `create_engine_and_tables` (`backend/application/db.py`) runs `alembic
+  upgrade head` on every startup, including in tests. Any change to `schema.py` needs a
+  matching migration generated from `backend/` with:
+  `alembic revision --autogenerate -m "<description>"`. `test_schema_py_has_no_drift_from_the_migrations`
+  (`backend/tests/application/test_migrations.py`) fails the build if a schema change ships
+  without one, so this cannot silently drift the way it did once before migrations existed.
 
 ---
 

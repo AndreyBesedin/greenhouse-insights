@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.9",
     "sqlalchemy>=2.0",
     "numpy>=2.0",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,9 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI's Depends(...) default-argument pattern is idiomatic, not a real
 # mutable-default hazard.
 "application/api/**" = ["B008"]
+# Alembic generates these from a template we do not control; do not hold
+# them to house style.
+"alembic/versions/**" = ["I001", "UP035", "F401", "E501"]
 
 [tool.mypy]
 python_version = "3.12"
