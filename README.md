@@ -50,16 +50,17 @@ real Claude model via `AnthropicAgentModelProvider` when configured - see
 
 ## Running locally
 
-Requires Python 3.12+ and Node 22+ (see `frontend/.nvmrc`).
+Requires Python 3.12+, [Poetry](https://python-poetry.org/docs/#installation)
+2.0+, and Node 22+ (see `frontend/.nvmrc`). Also see `make help` at the repo
+root for shortcuts to everything below (`make backend-dev`, `make test`, ...).
 
 **Backend:**
 
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+poetry install                 # creates backend/.venv (poetry.toml sets in-project venvs)
 cp .env.example .env   # fill in any values you need to override, see below
-uvicorn application.api.main:app --reload
+poetry run uvicorn application.api.main:app --reload
 ```
 
 Serves the API at `http://localhost:8000`. The app loads `backend/.env`
@@ -91,17 +92,39 @@ Serves the app at `http://localhost:5173`. If the backend's API surface
 changes, regenerate the typed client:
 
 ```bash
-# with the backend venv active
-python backend/scripts/export_openapi.py frontend/openapi.json
+cd backend && poetry run python scripts/export_openapi.py ../frontend/openapi.json
 cd frontend && npm run generate:api
 ```
 
 ## Tests
 
 ```bash
-cd backend && source .venv/bin/activate && pytest
+cd backend && poetry run pytest
 cd frontend && npm test
 ```
 
 `pre-commit run --all-files` runs the full lint/format/type-check/test suite
-for both.
+for both. (The pre-commit hooks still `source .venv/bin/activate` directly -
+that keeps working unchanged since `poetry.toml` makes Poetry create the
+venv in-project at `backend/.venv`, same as before.)
+
+## Running with Docker
+
+```bash
+cp backend/.env.example backend/.env   # fill in real values first
+docker compose up -d --build
+```
+
+Serves the frontend at `http://localhost:8080` and the API at
+`http://localhost:8000`, with the SQLite database persisted in a named
+Docker volume (`greenhouse_data`) so it survives container restarts.
+`docker compose down -v` also removes that volume, wiping the database.
+
+The frontend image bakes `VITE_API_BASE_URL` in at build time (Vite env vars
+are compile-time, not runtime) - `docker-compose.yml`'s default points it at
+`http://localhost:8000` for local compose testing. Deploying the two images
+to different hosts/domains means rebuilding the frontend image with
+`--build-arg VITE_API_BASE_URL=https://your-real-api-domain` pointed at
+wherever the backend actually ends up, and setting
+`GREENHOUSE_ALLOWED_ORIGINS` on the backend to match the frontend's real
+origin.

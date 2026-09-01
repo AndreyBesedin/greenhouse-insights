@@ -58,18 +58,33 @@ greenhouse-insights/
 │   ├── alembic/           # schema migrations (versions/ has one file per schema change)
 │   ├── tests/
 │   ├── alembic.ini
-│   ├── pyproject.toml
+│   ├── Dockerfile
+│   ├── pyproject.toml     # Poetry: [project] deps, [tool.poetry.group.dev]
+│   ├── poetry.lock
 │   └── .python-version
 ├── frontend/
 │   ├── src/
 │   ├── package.json
+│   ├── Dockerfile
 │   └── generated/         # OpenAPI-generated typed client (never hand-edited)
+├── docker-compose.yml
+├── Makefile                # `make help` lists the common dev/test/docker commands
 ├── .pre-commit-config.yaml
 └── DEVELOPMENT_GUIDELINES.md
 ```
 
 - **Backend:** Python + FastAPI. Pydantic models double as the domain schema and the
-  source of the OpenAPI spec.
+  source of the OpenAPI spec. Dependencies are managed with Poetry
+  (`poetry install`), not pip/venv directly - `poetry.toml` sets
+  `virtualenvs.in-project = true` so `poetry install` still creates
+  `backend/.venv`, which is why the pre-commit hooks below can keep doing
+  `source .venv/bin/activate` unchanged.
+- **Deployment:** `backend/Dockerfile` and `frontend/Dockerfile` are independent
+  images (backend: Poetry install + uvicorn; frontend: Vite build served by
+  nginx, with an SPA fallback for client-side routes). `docker-compose.yml`
+  wires them together for local testing of the deployment artifacts
+  specifically - day-to-day development still uses the venv/`npm run dev`
+  workflow below, not Docker, for faster iteration.
 - **Simulation vs. management:** `simulation/` owns world state and its evolution — it does
   not decide anything. `management/` owns decision-making (`NoOpPolicy`, `DeterministicPolicy`,
   the agent) and reads only the observable `GreenhouseManagementContext`

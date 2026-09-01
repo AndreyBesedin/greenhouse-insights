@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    # Copy backend/.env.example to backend/.env and fill in real values
+    # (ANTHROPIC_API_KEY etc.) before running this.
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides whatever GREENHOUSE_ALLOWED_ORIGINS is in .env: the
+      # frontend container below is what actually calls this API, and it is
+      # reachable from the browser at localhost:8080 (the host port mapping
+      # on the frontend service), not at a docker-network hostname.
+      GREENHOUSE_ALLOWED_ORIGINS: http://localhost:8080
+    volumes:
+      # The app's default GREENHOUSE_DATABASE_URL (sqlite:///./data/greenhouse.db)
+      # resolves to /app/data/greenhouse.db given the image's WORKDIR - this
+      # volume is what makes that survive a container restart.
+      - greenhouse_data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the built JS at image-build time (Vite env vars are
+        # compile-time). Must be reachable from the browser, not the docker
+        # network - hence localhost:8000 (the backend's host port mapping
+        # above), not http://backend:8000.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  greenhouse_data:
