@@ -33,20 +33,33 @@ dashboard and per-plant detail panel. The full spatial climate model and
 streamed progress events remain out of scope for now.
 
 **Agentic management (V1) — implemented**, per
-`docs/design/greenhouse_agentic_management_design.md`. Decision-making lives
-in `backend/management/`, separate from `backend/simulation/` (the world
-model) - a greenhouse's `management_policy` (`NONE` / `DETERMINISTIC` /
-`AGENTIC`) is resolved once per simulated day into a policy that only sees
-observable state and proposes actions; validation and execution stay in
-`simulation/`, which the policy never touches. The agent can call
-`get_plant_state` / `get_plant_history` under a configurable tool-call
-budget before finalizing its decision, and every agentic run is traced
-(`GET /greenhouses/{id}/management/history`). `management/evaluation/`
-holds 10 ground-truth decision-quality cases with a scorecard
+`docs/design/greenhouse_agentic_management_design.md`. Three separate
+concerns, deliberately: `backend/simulation/` owns world state and never
+decides anything; `backend/management/` owns decision-making (a greenhouse's
+`management_policy` - `NONE` / `DETERMINISTIC` / `AGENTIC` - is resolved
+once per simulated day into a policy that only sees observable state) and
+only ever *proposes* actions, never touching the world directly; carrying an
+accepted action out is a third, separate, swappable step
+(`simulation/executor.py`'s `ActionExecutor`, selected per simulation via
+`action_executor` - only `SIMULATED_OPERATOR`, instantaneous and complete,
+exists today, but a future simulated-robot or real executor is a new enum
+member plus one class, not a refactor). The agent can call `get_plant_state`
+/ `get_plant_history` under a configurable tool-call budget before
+finalizing its decision, and every agentic run is traced
+(`GET /greenhouses/{id}/management/history`). `management/evaluation/` holds
+10 ground-truth decision-quality cases with a scorecard
 (`python -m management.evaluation`). The agent runs against
 `FakeAgentModelProvider` (scripted, no API calls) by default, or against a
 real Claude model via `AnthropicAgentModelProvider` when configured - see
-`GREENHOUSE_AGENT_PROVIDER` below.
+`GREENHOUSE_AGENT_PROVIDER` below. Because an `AGENTIC` greenhouse makes one
+real, billed LLM call per simulated day, `POST /greenhouses` rejects
+`duration_days` over 30 or `rows * columns` over 25 for that policy (see
+`MAX_AGENTIC_DURATION_DAYS` / `MAX_AGENTIC_PLANT_COUNT` in
+`application/greenhouse_service.py`); the Anthropic provider itself also
+carries a request timeout, retry cap, and max-tokens ceiling, all
+configurable (`GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS` /
+`GREENHOUSE_AGENT_MAX_RETRIES` / `GREENHOUSE_AGENT_MAX_TOKENS`, see
+`.env.example`).
 
 ## Running locally
 
