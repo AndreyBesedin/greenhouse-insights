@@ -47,3 +47,16 @@ def test_save_overwrites_the_same_day(engine: Engine) -> None:
     traces = repo.list_for_simulation("sim_gh_001")
     assert len(traces) == 1
     assert traces[0].requested_action_count == 5
+
+
+def test_delete_for_simulation_removes_all_of_that_simulations_traces(engine: Engine) -> None:
+    repo = ManagementTraceRepository(engine)
+    repo.save(_trace(1))
+    repo.save(_trace(2))
+    other = _trace(1).model_copy(update={"simulation_id": "sim_gh_002"})
+    repo.save(other)
+
+    repo.delete_for_simulation("sim_gh_001")
+
+    assert repo.list_for_simulation("sim_gh_001") == []
+    assert len(repo.list_for_simulation("sim_gh_002")) == 1

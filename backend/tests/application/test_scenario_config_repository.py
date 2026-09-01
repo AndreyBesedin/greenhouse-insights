@@ -27,3 +27,18 @@ def test_save_overwrites_an_existing_config(engine: Engine) -> None:
     repo.save(updated)
 
     assert repo.get("gh_001") == updated
+
+
+def test_delete_removes_the_config(engine: Engine) -> None:
+    repo = ScenarioConfigRepository(engine)
+    repo.save(SCENARIO_REGISTRY["gh_001"])
+
+    repo.delete("gh_001")
+
+    assert repo.get("gh_001") is None
+
+
+def test_delete_is_a_noop_for_an_unknown_greenhouse(engine: Engine) -> None:
+    repo = ScenarioConfigRepository(engine)
+
+    repo.delete("does_not_exist")  # should not raise

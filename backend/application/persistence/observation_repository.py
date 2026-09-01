@@ -1,4 +1,4 @@
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import observations
@@ -33,6 +33,11 @@ class ObservationRepository:
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
         return [_row_to_observation(row) for row in rows]
+
+    def delete_for_greenhouse(self, greenhouse_id: str) -> None:
+        statement = delete(observations).where(observations.c.greenhouse_id == greenhouse_id)
+        with self._engine.begin() as connection:
+            connection.execute(statement)
 
 
 def _observation_to_row(observation: Observation) -> dict[str, object]:

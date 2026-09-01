@@ -69,3 +69,24 @@ def test_list_for_greenhouse_orders_by_simulated_day(engine: Engine) -> None:
     listed = repo.list_for_greenhouse("gh_001", plant_id="plant_017")
 
     assert [o.observation_id for o in listed] == ["obs_a", "obs_b", "obs_c"]
+
+
+def test_delete_for_greenhouse_removes_only_that_greenhouses_observations(engine: Engine) -> None:
+    repo = ObservationRepository(engine)
+    repo.save_many([_make_observation("plant_017", 1, "obs_gh_001")])
+    other = Observation(
+        observation_id="obs_gh_002",
+        greenhouse_id="gh_002",
+        plant_id="plant_001",
+        simulated_day=1,
+        timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+        observation_type=ObservationType.SOIL_MOISTURE_PCT,
+        value=40.0,
+        source_type=SourceType.SIMULATION,
+    )
+    repo.save_many([other])
+
+    repo.delete_for_greenhouse("gh_001")
+
+    assert repo.list_for_greenhouse("gh_001") == []
+    assert [o.observation_id for o in repo.list_for_greenhouse("gh_002")] == ["obs_gh_002"]

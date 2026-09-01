@@ -5,10 +5,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from application.api.dependencies import get_engine
+from application.api.dependencies import get_engine, get_simulation_service
 from application.api.main import app
 from application.bootstrap import bootstrap_greenhouses
 from application.persistence.state_repository import StateRepository
+from application.simulation_service import SimulationService
 from domain.enums import PlantHealth
 from domain.state import GreenhouseState, PlantState
 
@@ -17,6 +18,9 @@ from domain.state import GreenhouseState, PlantState
 def client(engine: Engine) -> Iterator[TestClient]:
     bootstrap_greenhouses(engine)
     app.dependency_overrides[get_engine] = lambda: engine
+    app.dependency_overrides[get_simulation_service] = lambda: SimulationService(
+        engine, step_delay_seconds=0
+    )
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -240,3 +244,28 @@ def test_create_greenhouse_rejects_an_oversized_grid(client: TestClient) -> None
     )
 
     assert response.status_code == 422
+
+
+def test_delete_greenhouse_removes_it_and_returns_204(client: TestClient) -> None:
+    response = client.delete("/greenhouses/gh_001")
+
+    assert response.status_code == 204
+    assert client.get("/greenhouses/gh_001").status_code == 404
+    remaining = {item["greenhouse_id"] for item in client.get("/greenhouses").json()}
+    assert remaining == {"gh_002"}
+
+
+def test_delete_greenhouse_returns_404_for_unknown_greenhouse(client: TestClient) -> None:
+    response = client.delete("/greenhouses/does_not_exist")
+
+    assert response.status_code == 404
+
+
+def test_delete_greenhouse_cancels_a_running_simulation(client: TestClient) -> None:
+    run_response = client.post("/simulations/sim_gh_001/run")
+    assert run_response.status_code == 200
+
+    delete_response = client.delete("/greenhouses/gh_001")
+
+    assert delete_response.status_code == 204
+    assert client.get("/greenhouses/gh_001").status_code == 404

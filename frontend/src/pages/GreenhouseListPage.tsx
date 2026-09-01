@@ -21,7 +21,21 @@ const STATUS_BADGE: Record<SimulationStatus, { label: string; cls: string }> = {
 
 const NO_SOURCE_BADGE = { label: 'No data source', cls: 'bg-ink-800 text-mist outline-white/15' }
 
-function GreenhouseCard({ greenhouse }: { greenhouse: GreenhouseListItem }) {
+function GreenhouseCard({
+  greenhouse,
+  isConfirmingDelete,
+  isDeleting,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: {
+  greenhouse: GreenhouseListItem
+  isConfirmingDelete: boolean
+  isDeleting: boolean
+  onRequestDelete: () => void
+  onCancelDelete: () => void
+  onConfirmDelete: () => void
+}) {
   const hasSimulation = greenhouse.status !== null
   const badge = greenhouse.status !== null ? STATUS_BADGE[greenhouse.status] : NO_SOURCE_BADGE
   const totalSteps = greenhouse.total_steps ?? 0
@@ -79,13 +93,61 @@ function GreenhouseCard({ greenhouse }: { greenhouse: GreenhouseListItem }) {
         <p className="mt-4 text-[11px] text-mist">Not yet connected to a live data source.</p>
       )}
 
-      <div className="mt-4 text-xs font-medium text-brand">Open greenhouse →</div>
+      {isConfirmingDelete ? (
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-terra">Delete this greenhouse for good?</span>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onCancelDelete()
+              }}
+              className="rounded-md px-2 py-1 text-xs text-mist transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onConfirmDelete()
+              }}
+              className="rounded-md bg-terra/10 px-2 py-1 text-xs font-medium text-terra outline-1 -outline-offset-1 outline-terra/40 transition-colors hover:bg-terra/20 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs font-medium text-brand">Open greenhouse →</span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onRequestDelete()
+            }}
+            className="rounded-md px-2 py-1 text-[11px] text-mist transition-colors hover:text-terra"
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </Link>
   )
 }
 
 export function GreenhouseListPage() {
   const [greenhouses, setGreenhouses] = useState<GreenhouseListItem[] | null>(null)
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -96,6 +158,21 @@ export function GreenhouseListPage() {
       cancelled = true
     }
   }, [])
+
+  async function handleConfirmDelete(greenhouseId: string) {
+    setError(null)
+    setDeletingId(greenhouseId)
+    const { error: apiError } = await apiClient.DELETE('/greenhouses/{greenhouse_id}', {
+      params: { path: { greenhouse_id: greenhouseId } },
+    })
+    setDeletingId(null)
+    setConfirmingDeleteId(null)
+    if (apiError) {
+      setError('Could not delete that greenhouse. Try again.')
+      return
+    }
+    setGreenhouses((current) => current?.filter((g) => g.greenhouse_id !== greenhouseId) ?? null)
+  }
 
   return (
     <AppShell>
@@ -118,12 +195,22 @@ export function GreenhouseListPage() {
           </Link>
         </div>
 
+        {error && <p className="mb-4 text-xs text-terra">{error}</p>}
+
         {greenhouses === null ? (
           <p className="text-sm text-mist">Loading greenhouses…</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-3">
             {greenhouses.map((greenhouse) => (
-              <GreenhouseCard key={greenhouse.greenhouse_id} greenhouse={greenhouse} />
+              <GreenhouseCard
+                key={greenhouse.greenhouse_id}
+                greenhouse={greenhouse}
+                isConfirmingDelete={confirmingDeleteId === greenhouse.greenhouse_id}
+                isDeleting={deletingId === greenhouse.greenhouse_id}
+                onRequestDelete={() => setConfirmingDeleteId(greenhouse.greenhouse_id)}
+                onCancelDelete={() => setConfirmingDeleteId(null)}
+                onConfirmDelete={() => handleConfirmDelete(greenhouse.greenhouse_id)}
+              />
             ))}
           </div>
         )}

@@ -6,9 +6,26 @@ from sqlalchemy import Engine
 
 from application.bootstrap import bootstrap_greenhouses
 from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseService
+from application.persistence.event_repository import EventRepository
+from application.persistence.management_trace_repository import ManagementTraceRepository
+from application.persistence.observation_repository import ObservationRepository
+from application.persistence.scenario_config_repository import ScenarioConfigRepository
+from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
-from domain.enums import PlantHealth, SimulationStatus, SourceType
+from application.persistence.world_repository import WorldRepository
+from domain.enums import (
+    EventSource,
+    EventType,
+    ObservationType,
+    PlantHealth,
+    SimulationStatus,
+    SourceType,
+)
+from domain.event import Event
+from domain.management_trace import ManagementTrace
+from domain.observation import Observation
 from domain.state import GreenhouseState, PlantState
+from simulation.world_builder import initialize_world
 
 
 def test_list_greenhouses_returns_both_seeded_greenhouses(engine: Engine) -> None:
@@ -261,3 +278,109 @@ def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: En
     assert item.current_step is None
     assert item.total_steps is None
     assert service.get_timeline(detail.greenhouse.greenhouse_id) is None
+
+
+def test_delete_greenhouse_returns_false_for_an_unknown_greenhouse(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    assert service.delete_greenhouse("does_not_exist") is False
+
+
+def test_delete_greenhouse_removes_a_greenhouse_with_no_simulation(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Live Greenhouse",
+            source_type=SourceType.REAL_SENSORS,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+        )
+    )
+    greenhouse_id = detail.greenhouse.greenhouse_id
+
+    assert service.delete_greenhouse(greenhouse_id) is True
+
+    assert service.get_greenhouse_detail(greenhouse_id) is None
+    assert greenhouse_id not in {item.greenhouse_id for item in service.list_greenhouses()}
+
+
+def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    service = GreenhouseService(engine)
+    greenhouse_id = "gh_001"
+    simulation_id = "sim_gh_001"
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+
+    ObservationRepository(engine).save_many(
+        [
+            Observation(
+                observation_id="obs_1",
+                greenhouse_id=greenhouse_id,
+                plant_id="gh_001_plant_001",
+                simulated_day=1,
+                timestamp=timestamp,
+                observation_type=ObservationType.SOIL_MOISTURE_PCT,
+                value=40.0,
+                source_type=SourceType.SIMULATION,
+            )
+        ]
+    )
+    EventRepository(engine).save_many(
+        [
+            Event(
+                event_id="evt_1",
+                greenhouse_id=greenhouse_id,
+                plant_id="gh_001_plant_001",
+                simulated_day=1,
+                timestamp=timestamp,
+                event_type=EventType.WATERING,
+                source=EventSource.RULE_BASED_POLICY,
+            )
+        ]
+    )
+    StateRepository(engine).save(
+        GreenhouseState.aggregate(
+            greenhouse_id=greenhouse_id,
+            simulated_day=1,
+            timestamp=timestamp,
+            plant_states=[
+                PlantState(
+                    plant_id="gh_001_plant_001",
+                    greenhouse_id=greenhouse_id,
+                    simulated_day=1,
+                    timestamp=timestamp,
+                    health=PlantHealth.HEALTHY,
+                )
+            ],
+        )
+    )
+    config = ScenarioConfigRepository(engine).get(greenhouse_id)
+    assert config is not None
+    WorldRepository(engine).save(initialize_world(config, ["gh_001_plant_001"]))
+    ManagementTraceRepository(engine).save(
+        ManagementTrace(
+            simulation_id=simulation_id,
+            greenhouse_id=greenhouse_id,
+            simulated_day=1,
+            provider="fake",
+            model="scripted-v1",
+            started_at=timestamp,
+            completed_at=timestamp,
+        )
+    )
+
+    assert service.delete_greenhouse(greenhouse_id) is True
+
+    assert service.get_greenhouse_detail(greenhouse_id) is None
+    assert greenhouse_id not in {item.greenhouse_id for item in service.list_greenhouses()}
+    assert SimulationRepository(engine).get(simulation_id) is None
+    assert ScenarioConfigRepository(engine).get(greenhouse_id) is None
+    assert WorldRepository(engine).get_latest(greenhouse_id) is None
+    assert StateRepository(engine).get_latest(greenhouse_id) is None
+    assert EventRepository(engine).list_for_greenhouse(greenhouse_id) == []
+    assert ObservationRepository(engine).list_for_greenhouse(greenhouse_id) == []
+    assert ManagementTraceRepository(engine).list_for_simulation(simulation_id) == []
+
+    # The other bootstrapped greenhouse is untouched.
+    assert service.get_greenhouse_detail("gh_002") is not None

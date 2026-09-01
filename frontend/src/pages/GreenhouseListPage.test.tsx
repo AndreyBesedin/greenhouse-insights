@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -6,10 +7,11 @@ import { apiClient } from '../api/client'
 import { GreenhouseListPage } from './GreenhouseListPage'
 
 vi.mock('../api/client', () => ({
-  apiClient: { GET: vi.fn() },
+  apiClient: { GET: vi.fn(), DELETE: vi.fn() },
 }))
 
 const mockedGet = vi.mocked(apiClient.GET)
+const mockedDelete = vi.mocked(apiClient.DELETE)
 
 const GREENHOUSES = [
   {
@@ -38,21 +40,77 @@ const GREENHOUSES = [
 
 beforeEach(() => {
   mockedGet.mockReset()
+  mockedDelete.mockReset()
 })
+
+function renderList() {
+  mockedGet.mockResolvedValue({ data: GREENHOUSES, error: undefined, response: new Response() })
+  return render(
+    <MemoryRouter>
+      <GreenhouseListPage />
+    </MemoryRouter>,
+  )
+}
 
 describe('GreenhouseListPage', () => {
   it('renders a card for every greenhouse returned by the API', async () => {
-    mockedGet.mockResolvedValue({ data: GREENHOUSES, error: undefined, response: new Response() })
-
-    render(
-      <MemoryRouter>
-        <GreenhouseListPage />
-      </MemoryRouter>,
-    )
+    renderList()
 
     expect(await screen.findByText('Simulation Greenhouse 001')).toBeInTheDocument()
     expect(screen.getByText('Longitudinal Plant Demo')).toBeInTheDocument()
     expect(screen.getByText(/40 plants/)).toBeInTheDocument()
     expect(screen.getByText(/28 simulated days/)).toBeInTheDocument()
+  })
+
+  it('asks for confirmation before deleting, and cancel backs out without calling the API', async () => {
+    const user = userEvent.setup()
+    renderList()
+    await screen.findByText('Simulation Greenhouse 001')
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    expect(screen.getByText('Delete this greenhouse for good?')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText('Delete this greenhouse for good?')).not.toBeInTheDocument()
+    expect(mockedDelete).not.toHaveBeenCalled()
+    expect(screen.getByText('Simulation Greenhouse 001')).toBeInTheDocument()
+  })
+
+  it('deletes the greenhouse and removes its card once confirmed', async () => {
+    const user = userEvent.setup()
+    mockedDelete.mockResolvedValue({ data: undefined, error: undefined, response: new Response() })
+    renderList()
+    await screen.findByText('Simulation Greenhouse 001')
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    // gh_002's card still shows its own (unrelated) "Delete" trigger button,
+    // so the confirm button for gh_001 is the first "Delete" in DOM order.
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+    expect(mockedDelete).toHaveBeenCalledWith('/greenhouses/{greenhouse_id}', {
+      params: { path: { greenhouse_id: 'gh_001' } },
+    })
+    expect(await screen.findByText('Longitudinal Plant Demo')).toBeInTheDocument()
+    expect(screen.queryByText('Simulation Greenhouse 001')).not.toBeInTheDocument()
+  })
+
+  it('shows an error and keeps the card when deletion fails', async () => {
+    const user = userEvent.setup()
+    mockedDelete.mockResolvedValue({
+      data: undefined,
+      error: {
+        detail: [{ loc: ['path', 'greenhouse_id'], msg: 'not found', type: 'value_error' }],
+      },
+      response: new Response(),
+    })
+    renderList()
+    await screen.findByText('Simulation Greenhouse 001')
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+
+    expect(await screen.findByText(/could not delete/i)).toBeInTheDocument()
+    expect(screen.getByText('Simulation Greenhouse 001')).toBeInTheDocument()
   })
 })

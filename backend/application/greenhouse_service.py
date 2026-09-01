@@ -5,11 +5,14 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Engine
 
+from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
+from application.persistence.observation_repository import ObservationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
+from application.persistence.world_repository import WorldRepository
 from domain.enums import ManagementPolicyType, SimulationStatus, SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant, build_grid_plants
 from domain.management_trace import ManagementTrace
@@ -78,6 +81,9 @@ class GreenhouseService:
         self._states = StateRepository(engine)
         self._scenario_configs = ScenarioConfigRepository(engine)
         self._management_traces = ManagementTraceRepository(engine)
+        self._observations = ObservationRepository(engine)
+        self._events = EventRepository(engine)
+        self._worlds = WorldRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         return [
@@ -200,6 +206,26 @@ class GreenhouseService:
         if simulation is None:
             return None
         return self._management_traces.list_for_simulation(simulation.simulation_id)
+
+    def delete_greenhouse(self, greenhouse_id: str) -> bool:
+        """Deletes a greenhouse and everything derived from it: its simulation
+        definition and scenario config (if any), management traces, world and
+        state snapshots, observations, and events. Returns False if the
+        greenhouse did not exist."""
+        if self._greenhouses.get(greenhouse_id) is None:
+            return False
+
+        simulation = self._simulation_for(greenhouse_id)
+        if simulation is not None:
+            self._management_traces.delete_for_simulation(simulation.simulation_id)
+            self._simulations.delete(simulation.simulation_id)
+        self._scenario_configs.delete(greenhouse_id)
+        self._worlds.delete_for_greenhouse(greenhouse_id)
+        self._states.delete_for_greenhouse(greenhouse_id)
+        self._events.delete_for_greenhouse(greenhouse_id)
+        self._observations.delete_for_greenhouse(greenhouse_id)
+        self._greenhouses.delete(greenhouse_id)
+        return True
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition | None:
         return self._simulations.get(f"sim_{greenhouse_id}")

@@ -82,3 +82,14 @@ def test_list_up_to_day_returns_empty_list_when_nothing_saved(engine: Engine) ->
     repo = StateRepository(engine)
 
     assert repo.list_up_to_day("gh_001", max_day=10) == []
+
+
+def test_delete_for_greenhouse_removes_all_of_that_greenhouses_snapshots(engine: Engine) -> None:
+    repo = StateRepository(engine)
+    for day in range(1, 4):
+        repo.save(_make_state(day))
+
+    repo.delete_for_greenhouse("gh_001")
+
+    assert repo.list_up_to_day("gh_001", max_day=10) == []
+    assert repo.get_latest("gh_001") is None

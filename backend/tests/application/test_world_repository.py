@@ -40,3 +40,13 @@ def test_get_latest_returns_the_most_recently_saved_day(engine: Engine) -> None:
 
     assert latest is not None
     assert latest.simulated_day == 8
+
+
+def test_delete_for_greenhouse_removes_all_saved_snapshots(engine: Engine) -> None:
+    repo = WorldRepository(engine)
+    repo.save(_make_world(3))
+    repo.save(_make_world(8))
+
+    repo.delete_for_greenhouse("gh_001")
+
+    assert repo.get_latest("gh_001") is None

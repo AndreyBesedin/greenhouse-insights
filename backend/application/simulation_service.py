@@ -31,3 +31,8 @@ class SimulationService:
     def is_running(self, simulation_id: str) -> bool:
         task = self._tasks.get(simulation_id)
         return task is not None and not task.done()
+
+    def cancel(self, simulation_id: str) -> None:
+        task = self._tasks.pop(simulation_id, None)
+        if task is not None and not task.done():
+            task.cancel()

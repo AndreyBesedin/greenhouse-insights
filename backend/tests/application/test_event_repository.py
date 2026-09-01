@@ -62,3 +62,15 @@ def test_event_parameters_round_trip_through_persistence(engine: Engine) -> None
     (listed,) = repo.list_for_greenhouse("gh_001")
     assert listed.confidence == 0.94
     assert listed.parameters == {"estimated_mass_g": 820}
+
+
+def test_delete_for_greenhouse_removes_only_that_greenhouses_events(engine: Engine) -> None:
+    repo = EventRepository(engine)
+    repo.save_many([_make_event("plant_017", 1, "evt_gh_001")])
+    other = _make_event("plant_001", 1, "evt_gh_002").model_copy(update={"greenhouse_id": "gh_002"})
+    repo.save_many([other])
+
+    repo.delete_for_greenhouse("gh_001")
+
+    assert repo.list_for_greenhouse("gh_001") == []
+    assert [e.event_id for e in repo.list_for_greenhouse("gh_002")] == ["evt_gh_002"]

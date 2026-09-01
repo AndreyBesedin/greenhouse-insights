@@ -1,7 +1,7 @@
 from typing import Any
 
 from pydantic import TypeAdapter
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
@@ -47,6 +47,11 @@ class GreenhouseRepository:
         with self._engine.connect() as connection:
             rows = connection.execute(select(greenhouses)).mappings().all()
         return [_row_to_greenhouse(row) for row in rows]
+
+    def delete(self, greenhouse_id: str) -> None:
+        statement = delete(greenhouses).where(greenhouses.c.greenhouse_id == greenhouse_id)
+        with self._engine.begin() as connection:
+            connection.execute(statement)
 
 
 def _plants_to_json(plants: list[Plant]) -> str:

@@ -1,6 +1,6 @@
 import json
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import events
@@ -35,6 +35,11 @@ class EventRepository:
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
         return [_row_to_event(row) for row in rows]
+
+    def delete_for_greenhouse(self, greenhouse_id: str) -> None:
+        statement = delete(events).where(events.c.greenhouse_id == greenhouse_id)
+        with self._engine.begin() as connection:
+            connection.execute(statement)
 
 
 def _event_to_row(event: Event) -> dict[str, object]:

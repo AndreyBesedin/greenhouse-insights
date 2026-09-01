@@ -97,3 +97,24 @@ def test_get_status_returns_none_for_unknown_simulation(engine: Engine) -> None:
     service = SimulationService(engine)
 
     assert service.get_status("does_not_exist") is None
+
+
+def test_cancel_stops_an_in_flight_simulation(engine: Engine) -> None:
+    _seed(engine, total_steps=3)
+    service = SimulationService(engine, step_delay_seconds=5)
+
+    async def scenario() -> None:
+        await service.start_simulation("sim_test")
+        assert service.is_running("sim_test")
+        service.cancel("sim_test")
+        await asyncio.sleep(0)
+
+    asyncio.run(scenario())
+
+    assert not service.is_running("sim_test")
+
+
+def test_cancel_is_a_noop_when_nothing_is_running(engine: Engine) -> None:
+    service = SimulationService(engine)
+
+    service.cancel("does_not_exist")  # should not raise

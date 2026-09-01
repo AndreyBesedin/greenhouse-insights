@@ -1,4 +1,4 @@
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.dialects.sqlite import insert
 
 from application.persistence.schema import management_traces
@@ -32,3 +32,10 @@ class ManagementTraceRepository:
         with self._engine.connect() as connection:
             rows = connection.execute(statement).scalars().all()
         return [ManagementTrace.model_validate_json(trace_json) for trace_json in rows]
+
+    def delete_for_simulation(self, simulation_id: str) -> None:
+        statement = delete(management_traces).where(
+            management_traces.c.simulation_id == simulation_id
+        )
+        with self._engine.begin() as connection:
+            connection.execute(statement)

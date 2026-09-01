@@ -57,3 +57,20 @@ def test_list_returns_all_saved_greenhouses(engine: Engine) -> None:
     listed = repo.list()
 
     assert {gh.greenhouse_id for gh in listed} == {"gh_001", "gh_002"}
+
+
+def test_delete_removes_the_greenhouse(engine: Engine) -> None:
+    repo = GreenhouseRepository(engine)
+    repo.save(_make_greenhouse("gh_001"))
+    repo.save(_make_greenhouse("gh_002"))
+
+    repo.delete("gh_001")
+
+    assert repo.get("gh_001") is None
+    assert repo.get("gh_002") is not None
+
+
+def test_delete_is_a_noop_for_an_unknown_greenhouse(engine: Engine) -> None:
+    repo = GreenhouseRepository(engine)
+
+    repo.delete("does_not_exist")  # should not raise

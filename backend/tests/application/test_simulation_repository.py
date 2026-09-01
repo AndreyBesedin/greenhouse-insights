@@ -38,6 +38,22 @@ def test_get_returns_none_for_unknown_simulation(engine: Engine) -> None:
     assert repo.get("does_not_exist") is None
 
 
+def test_delete_removes_the_definition(engine: Engine) -> None:
+    repo = SimulationRepository(engine)
+    definition = _make_definition()
+    repo.save(definition)
+
+    repo.delete(definition.simulation_id)
+
+    assert repo.get(definition.simulation_id) is None
+
+
+def test_delete_is_a_noop_for_an_unknown_simulation(engine: Engine) -> None:
+    repo = SimulationRepository(engine)
+
+    repo.delete("does_not_exist")  # should not raise
+
+
 def test_status_and_current_step_survive_reopening_a_fresh_engine(db_path: Path) -> None:
     first_engine = create_engine_and_tables(f"sqlite:///{db_path}")
     definition = _make_definition()

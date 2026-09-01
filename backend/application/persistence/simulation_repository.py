@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
@@ -41,6 +41,13 @@ class SimulationRepository:
         with self._engine.connect() as connection:
             row = connection.execute(statement).mappings().one_or_none()
         return None if row is None else _row_to_definition(row)
+
+    def delete(self, simulation_id: str) -> None:
+        statement = delete(simulation_definitions).where(
+            simulation_definitions.c.simulation_id == simulation_id
+        )
+        with self._engine.begin() as connection:
+            connection.execute(statement)
 
 
 def _row_to_definition(mapping: RowMapping) -> SimulationDefinition:

@@ -1,4 +1,4 @@
-from sqlalchemy import Engine, desc, select
+from sqlalchemy import Engine, delete, desc, select
 from sqlalchemy.dialects.sqlite import insert
 
 from application.persistence.schema import greenhouse_world_snapshots
@@ -33,3 +33,10 @@ class WorldRepository:
         with self._engine.connect() as connection:
             world_json = connection.execute(statement).scalar_one_or_none()
         return None if world_json is None else GreenhouseWorld.model_validate_json(world_json)
+
+    def delete_for_greenhouse(self, greenhouse_id: str) -> None:
+        statement = delete(greenhouse_world_snapshots).where(
+            greenhouse_world_snapshots.c.greenhouse_id == greenhouse_id
+        )
+        with self._engine.begin() as connection:
+            connection.execute(statement)

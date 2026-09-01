@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Engine
 
-from application.api.dependencies import get_engine
+from application.api.dependencies import get_engine, get_simulation_service
 from application.greenhouse_service import (
     CreateGreenhouseRequest,
     GreenhouseDetail,
@@ -10,6 +10,7 @@ from application.greenhouse_service import (
     PlantDetail,
     TimelineSummary,
 )
+from application.simulation_service import SimulationService
 from domain.management_trace import ManagementTrace
 from domain.state import GreenhouseState, PlantState
 
@@ -42,6 +43,20 @@ def get_greenhouse(
     if detail is None:
         raise HTTPException(status_code=404, detail="greenhouse not found")
     return detail
+
+
+@router.delete("/{greenhouse_id}", status_code=204)
+def delete_greenhouse(
+    greenhouse_id: str,
+    service: GreenhouseService = Depends(_get_service),
+    simulation_service: SimulationService = Depends(get_simulation_service),
+) -> None:
+    detail = service.get_greenhouse_detail(greenhouse_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="greenhouse not found")
+    if detail.simulation is not None:
+        simulation_service.cancel(detail.simulation.simulation_id)
+    service.delete_greenhouse(greenhouse_id)
 
 
 @router.get("/{greenhouse_id}/state")
