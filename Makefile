@@ -1,4 +1,4 @@
-.PHONY: help backend-install backend-dev backend-test backend-lint backend-typecheck \
+.PHONY: help backend-install backend-dev backend-test backend-lint backend-typecheck backend-eval \
 	frontend-install frontend-dev frontend-test frontend-lint frontend-build \
 	test lint docker-build docker-up docker-down docker-logs
 
@@ -7,6 +7,7 @@ help:
 	@echo "backend-dev       run the backend dev server (uvicorn --reload)"
 	@echo "backend-test      run backend tests"
 	@echo "backend-lint      run ruff + mypy on the backend"
+	@echo "backend-eval      run the agent decision-quality evaluation scorecard"
 	@echo "frontend-install  install frontend dependencies"
 	@echo "frontend-dev      run the frontend dev server (vite)"
 	@echo "frontend-test     run frontend tests"
@@ -30,6 +31,9 @@ backend-test:
 
 backend-lint:
 	cd backend && poetry run ruff check . && poetry run ruff format --check . && poetry run mypy .
+
+backend-eval:
+	cd backend && poetry run python -m management.evaluation
 
 frontend-install:
 	cd frontend && npm install --legacy-peer-deps

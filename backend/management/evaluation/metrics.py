@@ -20,6 +20,7 @@ from management.evaluation.cases import CASES, EvalCase
 
 class CaseResult(BaseModel):
     case_id: str
+    description: str
     action_type_correct: bool
     missed_action_types: frozenset[str]
     unnecessary_action_types: frozenset[str]
@@ -32,11 +33,17 @@ class CaseResult(BaseModel):
 
 
 class Scorecard(BaseModel):
+    provider: str
+    model: str
     results: list[CaseResult]
 
     @property
     def total(self) -> int:
         return len(self.results)
+
+    @property
+    def passed_count(self) -> int:
+        return sum(1 for r in self.results if r.passed)
 
     @property
     def overall_pass_rate(self) -> float:
@@ -68,7 +75,7 @@ class Scorecard(BaseModel):
         return sum(1 for r in self.results if predicate(r)) / len(self.results)
 
 
-def grade_case(case: EvalCase, provider: AgentModelProvider) -> CaseResult:
+def grade_case(case: EvalCase, provider: AgentModelProvider) -> tuple[CaseResult, str, str]:
     context = GreenhouseManagementContext(
         greenhouse_id=case.plant_state.greenhouse_id,
         day=case.plant_state.simulated_day,
@@ -97,35 +104,46 @@ def grade_case(case: EvalCase, provider: AgentModelProvider) -> CaseResult:
 
     investigated = any(call.tool == "get_plant_history" for call in toolkit.calls)
 
-    return CaseResult(
+    result = CaseResult(
         case_id=case.case_id,
+        description=case.description,
         action_type_correct=actual_types == case.expected_action_types,
         missed_action_types=missed,
         unnecessary_action_types=unnecessary,
         param_valid=param_valid,
         investigation_correct=investigated == case.requires_investigation,
     )
+    return result, decision.provider, decision.model
 
 
 def run_eval(provider: AgentModelProvider, cases: list[EvalCase] = CASES) -> Scorecard:
-    return Scorecard(results=[grade_case(case, provider) for case in cases])
+    graded = [grade_case(case, provider) for case in cases]
+    provider_name, model_name = (graded[0][1], graded[0][2]) if graded else ("", "")
+    return Scorecard(
+        provider=provider_name, model=model_name, results=[result for result, _, _ in graded]
+    )
 
 
 def format_report(scorecard: Scorecard) -> str:
-    lines = [f"Eval report - {scorecard.total} cases", ""]
+    lines = [
+        f"Agent decision-quality evaluation - {scorecard.provider}/{scorecard.model}",
+        f"{scorecard.passed_count}/{scorecard.total} cases passed "
+        f"({scorecard.overall_pass_rate:.0%})",
+        "",
+    ]
+    id_width = max((len(r.case_id) for r in scorecard.results), default=0)
     for result in scorecard.results:
         status = "PASS" if result.passed else "FAIL"
-        lines.append(f"[{status}] {result.case_id}")
+        lines.append(f"[{status}] {result.case_id:<{id_width}}  {result.description}")
         if result.missed_action_types:
-            lines.append(f"    missed: {sorted(result.missed_action_types)}")
+            lines.append(f"       missed: {sorted(result.missed_action_types)}")
         if result.unnecessary_action_types:
-            lines.append(f"    unnecessary: {sorted(result.unnecessary_action_types)}")
+            lines.append(f"       unnecessary: {sorted(result.unnecessary_action_types)}")
         if not result.param_valid:
-            lines.append("    parameter out of acceptable range")
+            lines.append("       parameter out of acceptable range")
         if not result.investigation_correct:
-            lines.append("    investigation (tool-call) behavior incorrect")
+            lines.append("       investigation (tool-call) behavior incorrect")
     lines.append("")
-    lines.append(f"overall pass rate:          {scorecard.overall_pass_rate:.0%}")
     lines.append(f"action type accuracy:       {scorecard.action_type_accuracy:.0%}")
     lines.append(f"parameter validity rate:    {scorecard.parameter_validity_rate:.0%}")
     lines.append(f"unnecessary-action rate:    {scorecard.unnecessary_action_rate:.0%}")

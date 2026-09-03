@@ -48,18 +48,23 @@ member plus one class, not a refactor). The agent can call `get_plant_state`
 finalizing its decision, and every agentic run is traced
 (`GET /greenhouses/{id}/management/history`). `management/evaluation/` holds
 10 ground-truth decision-quality cases with a scorecard
-(`python -m management.evaluation`). The agent runs against
-`FakeAgentModelProvider` (scripted, no API calls) by default, or against a
-real Claude model via `AnthropicAgentModelProvider` when configured - see
-`GREENHOUSE_AGENT_PROVIDER` below. Because an `AGENTIC` greenhouse makes one
-real, billed LLM call per simulated day, `POST /greenhouses` rejects
-`duration_days` over 30 or `rows * columns` over 25 for that policy (see
-`MAX_AGENTIC_DURATION_DAYS` / `MAX_AGENTIC_PLANT_COUNT` in
-`application/greenhouse_service.py`); the Anthropic provider itself also
-carries a request timeout, retry cap, and max-tokens ceiling, all
-configurable (`GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS` /
-`GREENHOUSE_AGENT_MAX_RETRIES` / `GREENHOUSE_AGENT_MAX_TOKENS`, see
-`.env.example`).
+(`make backend-eval`, or directly: `python -m management.evaluation` from
+`backend/`) - reproducible against whichever provider
+`GREENHOUSE_AGENT_PROVIDER` currently selects. The agent runs against
+`FakeAgentModelProvider` (scripted, no API calls, passes all 10 cases by
+construction) by default, or against a real Claude model via
+`AnthropicAgentModelProvider` when configured - see `GREENHOUSE_AGENT_PROVIDER`
+below. The real provider scored 7/10 on this scorecard as of its last
+recorded run; the failures were left as-is rather than tuned against, since
+the point of the harness is catching real reasoning gaps, not chasing 100%.
+Because an `AGENTIC` greenhouse makes one real, billed LLM call per simulated
+day, `POST /greenhouses` rejects `duration_days` over 30 or `rows * columns`
+over 25 for that policy (see `MAX_AGENTIC_DURATION_DAYS` /
+`MAX_AGENTIC_PLANT_COUNT` in `application/greenhouse_service.py`); the
+Anthropic provider itself also carries a request timeout, retry cap, and
+max-tokens ceiling, all configurable
+(`GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS` / `GREENHOUSE_AGENT_MAX_RETRIES` /
+`GREENHOUSE_AGENT_MAX_TOKENS`, see `.env.example`).
 
 ## Running locally
 
