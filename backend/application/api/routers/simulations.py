@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from application.api.dependencies import get_simulation_service
 from application.greenhouse_service import SimulationSummary
 from application.simulation_service import PendingRecommendationsExist, SimulationService
+from domain.management_progress import ManagementProgress
 from simulation.definitions import SimulationDefinition
 
 router = APIRouter(prefix="/simulations", tags=["simulations"])
@@ -33,6 +34,13 @@ async def advance_simulation_one_day(
     if definition is None:
         raise HTTPException(status_code=404, detail="simulation not found")
     return _to_summary(definition)
+
+
+@router.get("/{simulation_id}/management-progress")
+def get_management_progress(
+    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+) -> ManagementProgress | None:
+    return service.get_management_progress(simulation_id)
 
 
 @router.get("/{simulation_id}/status")

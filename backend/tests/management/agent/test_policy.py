@@ -66,3 +66,13 @@ def test_agentic_policy_survives_a_provider_failure() -> None:
     assert policy.last_run is not None
     assert policy.last_run.status == "FAILED"
     assert "unavailable" in (policy.last_run.error or "")
+
+
+def test_agentic_policy_forwards_tool_calls_to_the_progress_callback() -> None:
+    policy = AgenticPolicy(_StubProvider(), history_reader=lambda plant_id, days: [])
+    seen = []
+    policy.progress_callback = lambda trace: seen.append(trace.tool)
+
+    policy.decide(_context(), CONFIG)
+
+    assert seen == ["get_plant_state"]

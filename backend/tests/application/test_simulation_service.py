@@ -33,7 +33,11 @@ PLANT_ID = "gh_test_plant_001"
 
 
 def _seed(
-    engine: Engine, *, total_steps: int = 3, status: SimulationStatus = SimulationStatus.NOT_STARTED
+    engine: Engine,
+    *,
+    total_steps: int = 3,
+    status: SimulationStatus = SimulationStatus.NOT_STARTED,
+    management_policy: ManagementPolicyType = ManagementPolicyType.DETERMINISTIC,
 ) -> None:
     greenhouse = Greenhouse(
         greenhouse_id="gh_test",
@@ -59,6 +63,7 @@ def _seed(
             status=status,
             current_step=total_steps if status == SimulationStatus.COMPLETED else 0,
             total_steps=total_steps,
+            management_policy=management_policy,
         )
     )
 
@@ -223,6 +228,27 @@ def test_advance_one_day_returns_none_for_unknown_simulation(engine: Engine) -> 
         return await service.advance_one_day("does_not_exist")
 
     assert asyncio.run(scenario()) is None
+
+
+def test_get_management_progress_returns_none_when_nothing_is_in_flight(engine: Engine) -> None:
+    _seed(engine, total_steps=3)
+    service = SimulationService(engine)
+
+    assert service.get_management_progress("sim_test") is None
+
+
+def test_advance_one_day_clears_progress_once_the_day_is_proposed(engine: Engine) -> None:
+    _seed(engine, total_steps=3, management_policy=ManagementPolicyType.AGENTIC)
+    service = SimulationService(engine)
+
+    async def scenario() -> SimulationDefinition | None:
+        return await service.advance_one_day("sim_test")
+
+    result = asyncio.run(scenario())
+
+    assert result is not None
+    assert result.current_step == 1
+    assert service.get_management_progress("sim_test") is None
 
 
 def test_advance_one_day_is_a_noop_while_auto_run_is_in_flight(engine: Engine) -> None:

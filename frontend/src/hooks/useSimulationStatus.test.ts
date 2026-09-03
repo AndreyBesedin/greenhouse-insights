@@ -112,6 +112,47 @@ describe('useSimulationStatus', () => {
     expect(result.current.status).toEqual(NOT_STARTED)
   })
 
+  it('polls analysis progress while nextDay is in flight, then clears it', async () => {
+    let resolveNextDay: (() => void) | null = null
+    mockedPost.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveNextDay = () => resolve(ok(RUNNING_1))
+        }),
+    )
+    const progress = {
+      simulation_id: 'sim_gh_002',
+      simulated_day: 1,
+      phase: 'ANALYZING',
+      message: 'Inspecting plant_017…',
+      plant_id: 'plant_017',
+      completed_tool_calls: 1,
+      recommendation_count: null,
+    } as const
+    mockedGet.mockResolvedValue(ok(progress))
+
+    const { result } = renderHook(() => useSimulationStatus('sim_gh_002', NOT_STARTED))
+
+    let nextDayPromise: Promise<{ blocked: boolean }> | null = null
+    act(() => {
+      nextDayPromise = result.current.nextDay()
+    })
+    expect(result.current.isAdvancing).toBe(true)
+    expect(result.current.analysisProgress).toBeNull()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(result.current.analysisProgress).toEqual(progress)
+
+    await act(async () => {
+      resolveNextDay?.()
+      await nextDayPromise
+    })
+    expect(result.current.isAdvancing).toBe(false)
+    expect(result.current.analysisProgress).toBeNull()
+  })
+
   it('starts polling immediately when the initial status is already RUNNING', async () => {
     mockedGet.mockResolvedValueOnce(ok(COMPLETED))
 

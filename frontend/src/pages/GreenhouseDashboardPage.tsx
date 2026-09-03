@@ -147,7 +147,7 @@ function DashboardContent({
   simulation: SimulationSummary
 }) {
   const { greenhouse } = detail
-  const { status, isAdvancing, nextDay } = useSimulationStatus(
+  const { status, isAdvancing, analysisProgress, nextDay } = useSimulationStatus(
     initialSimulation.simulation_id,
     initialSimulation,
   )
@@ -256,6 +256,13 @@ function DashboardContent({
             </button>
           </div>
         </div>
+
+        {isAdvancing && analysisProgress && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-ink-800 px-4 py-2.5 text-xs text-mist outline-1 -outline-offset-1 outline-white/[0.07]">
+            <span className="size-1.5 animate-pulse rounded-full bg-brand" />
+            <span className="text-paper">{analysisProgress.message}</span>
+          </div>
+        )}
 
         <div className="mt-5">
           <DayNavigator

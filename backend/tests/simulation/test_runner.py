@@ -12,6 +12,7 @@ from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from domain.enums import ManagementPolicyType, SimulationStatus, SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.management_progress import ManagementProgress
 from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
 from simulation.scenarios import SCENARIO_REGISTRY
@@ -125,3 +126,35 @@ def test_run_to_completion_with_agentic_policy_persists_traces_and_applies_actio
     # agent should investigate and/or act on it by day 8.
     events = EventRepository(engine).list_for_greenhouse("gh_test")
     assert events, "expected the agentic policy to take at least one action across 8 days"
+
+
+def test_prepare_day_reports_progress_for_an_agentic_policy(engine: Engine) -> None:
+    _seed_greenhouse_and_simulation(
+        engine, total_steps=8, management_policy=ManagementPolicyType.AGENTIC
+    )
+    runner = SimulationRunner(engine, step_delay_seconds=0)
+    events: list[ManagementProgress] = []
+
+    for day in range(1, 9):
+        runner.prepare_day("sim_test", day, progress_reporter=events.append)
+
+    assert events[0].phase == "ANALYZING"
+    assert events[0].message == "Analysing greenhouse…"
+    ready_events = [e for e in events if e.phase == "READY"]
+    assert len(ready_events) == 8
+    assert all(e.recommendation_count is not None for e in ready_events)
+    assert any(
+        "Checking" in e.message or "Inspecting" in e.message
+        for e in events
+        if e.phase == "ANALYZING"
+    )
+
+
+def test_prepare_day_reports_nothing_for_a_deterministic_policy(engine: Engine) -> None:
+    _seed_greenhouse_and_simulation(engine, total_steps=1)
+    runner = SimulationRunner(engine, step_delay_seconds=0)
+    events: list[ManagementProgress] = []
+
+    runner.prepare_day("sim_test", 1, progress_reporter=events.append)
+
+    assert events == []

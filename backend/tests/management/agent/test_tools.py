@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from domain.enums import PlantHealth
+from domain.management_trace import ToolCallTrace
 from domain.state import PlantState
 from management.agent.tools import AgentToolkit, ToolBudgetExceededError
 from management.context import GreenhouseManagementContext
@@ -57,6 +58,18 @@ def test_calls_are_recorded() -> None:
     toolkit.get_plant_history("plant_001", days=3)
 
     assert [call.tool for call in toolkit.calls] == ["get_plant_state", "get_plant_history"]
+
+
+def test_on_call_is_invoked_with_each_recorded_trace() -> None:
+    seen: list[ToolCallTrace] = []
+    toolkit = AgentToolkit(
+        _context(), history_reader=lambda plant_id, days: [], budget=5, on_call=seen.append
+    )
+
+    toolkit.get_plant_state("plant_001")
+    toolkit.get_plant_history("plant_001", days=3)
+
+    assert [trace.tool for trace in seen] == ["get_plant_state", "get_plant_history"]
 
 
 def test_exceeding_the_budget_raises() -> None:

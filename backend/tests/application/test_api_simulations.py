@@ -134,6 +134,13 @@ def test_next_day_returns_404_for_unknown_simulation(client: TestClient) -> None
     assert response.status_code == 404
 
 
+def test_management_progress_is_null_when_nothing_is_in_flight(client: TestClient) -> None:
+    response = client.get("/simulations/sim_test/management-progress")
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
 def test_next_day_blocks_while_recommendations_are_pending(client: TestClient) -> None:
     client.post("/simulations/sim_test/next-day")  # day 1: no recommendations for this seed
     client.post("/simulations/sim_test/next-day")  # day 2: proposes a WATER_PLANT

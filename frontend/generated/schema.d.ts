@@ -176,6 +176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/simulations/{simulation_id}/management-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Management Progress */
+        get: operations["get_management_progress_simulations__simulation_id__management_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/status": {
         parameters: {
             query?: never;
@@ -402,6 +419,36 @@ export interface components {
          * @enum {string}
          */
         ManagementPolicyType: "NONE" | "DETERMINISTIC" | "AGENTIC";
+        /**
+         * ManagementProgress
+         * @description High-level, structured progress for an in-flight agentic day
+         *     analysis - docs/design/demo_readiness_plan.md section 14. Never carries
+         *     chain-of-thought, only tool-call-derived milestones (Inspecting Plant X,
+         *     Checking Plant X history, ...) so a real LLM call does not look like a
+         *     frozen UI while it runs.
+         */
+        ManagementProgress: {
+            /** Simulation Id */
+            simulation_id: string;
+            /** Simulated Day */
+            simulated_day: number;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "ANALYZING" | "READY";
+            /** Message */
+            message: string;
+            /** Plant Id */
+            plant_id?: string | null;
+            /**
+             * Completed Tool Calls
+             * @default 0
+             */
+            completed_tool_calls: number;
+            /** Recommendation Count */
+            recommendation_count?: number | null;
+        };
         /** ManagementTrace */
         ManagementTrace: {
             /** Simulation Id */
@@ -1032,6 +1079,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimulationSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_management_progress_simulations__simulation_id__management_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                simulation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementProgress"] | null;
                 };
             };
             /** @description Validation Error */

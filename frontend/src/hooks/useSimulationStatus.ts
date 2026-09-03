@@ -4,13 +4,16 @@ import { apiClient } from '../api/client'
 import type { components } from '../../generated/schema'
 
 type SimulationSummary = components['schemas']['SimulationSummary']
+type ManagementProgress = components['schemas']['ManagementProgress']
 
 const POLL_INTERVAL_MS = 1000
+const PROGRESS_POLL_INTERVAL_MS = 500
 
 export function useSimulationStatus(simulationId: string, initialStatus: SimulationSummary) {
   const [status, setStatus] = useState(initialStatus)
   const [isPolling, setIsPolling] = useState(initialStatus.status === 'RUNNING')
   const [isAdvancing, setIsAdvancing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<ManagementProgress | null>(null)
 
   const run = useCallback(() => {
     setIsPolling(true)
@@ -29,6 +32,7 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
         },
       })
       setIsAdvancing(false)
+      setAnalysisProgress(null)
       if (data) {
         setStatus(data)
         return { blocked: false as const }
@@ -61,5 +65,19 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
     return () => clearInterval(intervalId)
   }, [isPolling, simulationId])
 
-  return { status, isPolling, isAdvancing, run, nextDay }
+  useEffect(() => {
+    if (!isAdvancing) return
+
+    const intervalId = setInterval(() => {
+      void apiClient
+        .GET('/simulations/{simulation_id}/management-progress', {
+          params: { path: { simulation_id: simulationId } },
+        })
+        .then(({ data }) => setAnalysisProgress(data ?? null))
+    }, PROGRESS_POLL_INTERVAL_MS)
+
+    return () => clearInterval(intervalId)
+  }, [isAdvancing, simulationId])
+
+  return { status, isPolling, isAdvancing, analysisProgress, run, nextDay }
 }

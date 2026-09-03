@@ -86,6 +86,7 @@ function mockGetImplementation(path: string) {
   if (path === '/greenhouses/{greenhouse_id}/plants/{plant_id}/history')
     return Promise.resolve(ok([]))
   if (path === '/greenhouses/{greenhouse_id}/recommendations') return Promise.resolve(ok([]))
+  if (path === '/simulations/{simulation_id}/management-progress') return Promise.resolve(ok(null))
   throw new Error(`unexpected GET ${path}`)
 }
 

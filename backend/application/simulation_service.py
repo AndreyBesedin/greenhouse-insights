@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from application.persistence.recommendation_repository import RecommendationRepo
 from application.persistence.simulation_repository import SimulationRepository
 from application.recommendation_builder import build_recommendation
 from domain.enums import ApprovalSource, RecommendationStatus, SimulationStatus
+from domain.management_progress import ManagementProgress
 from domain.recommendation import Recommendation
 from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
@@ -41,6 +43,7 @@ class SimulationService:
         self._recommendations = RecommendationRepository(engine)
         self._runner = SimulationRunner(engine, step_delay_seconds=step_delay_seconds)
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._progress: dict[str, ManagementProgress] = {}
 
     async def start_simulation(self, simulation_id: str) -> SimulationDefinition | None:
         definition = self._simulations.get(simulation_id)
@@ -109,16 +112,34 @@ class SimulationService:
         return self._simulations.get(simulation_id)
 
     def _propose_day(self, simulation_id: str, day: int) -> None:
-        proposal = self._runner.prepare_day(simulation_id, day)
-        requested_at = datetime.now(UTC)
-        for action in proposal.proposed_actions:
-            recommendation = build_recommendation(
-                proposal,
-                action,
-                recommendation_id=f"rec_{uuid4().hex[:10]}",
-                requested_at=requested_at,
+        try:
+            proposal = self._runner.prepare_day(
+                simulation_id, day, progress_reporter=self._report_progress(simulation_id)
             )
-            self._recommendations.save(recommendation)
+            requested_at = datetime.now(UTC)
+            for action in proposal.proposed_actions:
+                recommendation = build_recommendation(
+                    proposal,
+                    action,
+                    recommendation_id=f"rec_{uuid4().hex[:10]}",
+                    requested_at=requested_at,
+                )
+                self._recommendations.save(recommendation)
+        finally:
+            self._progress.pop(simulation_id, None)
+
+    def _report_progress(self, simulation_id: str) -> Callable[[ManagementProgress], None]:
+        def report(progress: ManagementProgress) -> None:
+            self._progress[simulation_id] = progress
+
+        return report
+
+    def get_management_progress(self, simulation_id: str) -> ManagementProgress | None:
+        """The latest high-level progress for an in-flight agentic day
+        analysis, or None if nothing is currently in progress for this
+        simulation - polled by the frontend while a next-day request is
+        outstanding (section 14)."""
+        return self._progress.get(simulation_id)
 
     def list_recommendations(self, greenhouse_id: str, day: int) -> list[Recommendation]:
         return self._recommendations.list_for_day(greenhouse_id, day)

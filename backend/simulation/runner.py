@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
@@ -13,7 +14,8 @@ from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
 from application.persistence.world_repository import WorldRepository
 from domain.enums import ActionExecutorType, ManagementPolicyType, SimulationStatus
-from domain.management_trace import ManagementTrace
+from domain.management_progress import ManagementProgress
+from domain.management_trace import ManagementTrace, ToolCallTrace
 from domain.state import PlantState
 from intelligence.state_reconstruction import (
     reconstruct_greenhouse_state,
@@ -87,13 +89,23 @@ class SimulationRunner:
             self.execute_recommendation_action(simulation_id, day, action)
         self.refresh_day_state(simulation_id, day)
 
-    def prepare_day(self, simulation_id: str, day: int) -> DayProposal:
+    def prepare_day(
+        self,
+        simulation_id: str,
+        day: int,
+        *,
+        progress_reporter: Callable[[ManagementProgress], None] | None = None,
+    ) -> DayProposal:
         """Advances the world for one day, generates and persists its
         observations, and asks the management policy what it would like to
         do. Saves a pre-action GreenhouseState snapshot (observed state
         only) and advances current_step - the day genuinely is "current"
         for the whole review process, not just once it is fully resolved.
         Does not validate or execute anything.
+
+        If given, progress_reporter receives high-level ManagementProgress
+        updates as an AgenticPolicy makes tool calls (section 14) - a no-op
+        for NoOpPolicy/DeterministicPolicy, which have nothing to report.
         """
         definition = self._simulations.get(simulation_id)
         if definition is None:
@@ -133,7 +145,33 @@ class SimulationRunner:
         )
 
         policy = self._resolve_policy(definition.management_policy, greenhouse.greenhouse_id, day)
+        if isinstance(policy, AgenticPolicy) and progress_reporter is not None:
+            self._wire_progress(policy, simulation_id, day, progress_reporter)
+            progress_reporter(
+                ManagementProgress(
+                    simulation_id=simulation_id,
+                    simulated_day=day,
+                    phase="ANALYZING",
+                    message="Analysing greenhouse…",
+                )
+            )
         actions = policy.decide(context, config)
+        if isinstance(policy, AgenticPolicy) and progress_reporter is not None:
+            completed = len(policy.last_run.tool_calls) if policy.last_run is not None else 0
+            progress_reporter(
+                ManagementProgress(
+                    simulation_id=simulation_id,
+                    simulated_day=day,
+                    phase="READY",
+                    message=(
+                        f"{len(actions)} recommendation(s) ready"
+                        if actions
+                        else "No recommendations for this day."
+                    ),
+                    completed_tool_calls=completed,
+                    recommendation_count=len(actions),
+                )
+            )
 
         self._observations.save_many(generation.observations)
         self._worlds.save(world)
@@ -281,6 +319,38 @@ class SimulationRunner:
             plant_states=plant_states,
         )
         self._states.save(greenhouse_state)
+
+    def _wire_progress(
+        self,
+        policy: AgenticPolicy,
+        simulation_id: str,
+        day: int,
+        progress_reporter: Callable[[ManagementProgress], None],
+    ) -> None:
+        completed_tool_calls = 0
+
+        def on_tool_call(trace: ToolCallTrace) -> None:
+            nonlocal completed_tool_calls
+            completed_tool_calls += 1
+            plant_id = trace.args.get("plant_id")
+            if trace.tool == "get_plant_state":
+                message = f"Inspecting {plant_id}…"
+            elif trace.tool == "get_plant_history":
+                message = f"Checking {plant_id} history…"
+            else:
+                message = f"Running {trace.tool}…"
+            progress_reporter(
+                ManagementProgress(
+                    simulation_id=simulation_id,
+                    simulated_day=day,
+                    phase="ANALYZING",
+                    message=message,
+                    plant_id=plant_id if isinstance(plant_id, str) else None,
+                    completed_tool_calls=completed_tool_calls,
+                )
+            )
+
+        policy.progress_callback = on_tool_call
 
     def _resolve_policy(
         self, policy_type: ManagementPolicyType, greenhouse_id: str, day: int

@@ -26,17 +26,19 @@ class AgentToolkit:
         history_reader: PlantHistoryReader,
         *,
         budget: int,
+        on_call: Callable[[ToolCallTrace], None] | None = None,
     ) -> None:
         self._context = context
         self._history_reader = history_reader
         self.budget = budget
+        self._on_call = on_call
         self.calls: list[ToolCallTrace] = []
 
     def get_plant_state(self, plant_id: str) -> PlantState | None:
         self._consume_budget()
         state = self._context.plant_state(plant_id)
         summary = f"health={state.health}" if state is not None else "not found"
-        self.calls.append(
+        self._record(
             ToolCallTrace(tool="get_plant_state", args={"plant_id": plant_id}, summary=summary)
         )
         return state
@@ -44,7 +46,7 @@ class AgentToolkit:
     def get_plant_history(self, plant_id: str, days: int) -> list[PlantState]:
         self._consume_budget()
         history = self._history_reader(plant_id, days)
-        self.calls.append(
+        self._record(
             ToolCallTrace(
                 tool="get_plant_history",
                 args={"plant_id": plant_id, "days": days},
@@ -52,6 +54,11 @@ class AgentToolkit:
             )
         )
         return history
+
+    def _record(self, trace: ToolCallTrace) -> None:
+        self.calls.append(trace)
+        if self._on_call is not None:
+            self._on_call(trace)
 
     def _consume_budget(self) -> None:
         if len(self.calls) >= self.budget:
