@@ -2,7 +2,6 @@ interface DayNavigatorProps {
   viewingDay: number
   currentDay: number
   totalDays: number
-  isFinished: boolean
   onSelectDay: (day: number) => void
   onReturnToCurrent: () => void
 }
@@ -11,7 +10,6 @@ export function DayNavigator({
   viewingDay,
   currentDay,
   totalDays,
-  isFinished,
   onSelectDay,
   onReturnToCurrent,
 }: DayNavigatorProps) {
@@ -31,7 +29,7 @@ export function DayNavigator({
         <button
           type="button"
           aria-label="Previous day"
-          disabled={!isFinished || viewingDay <= 1}
+          disabled={viewingDay <= 1}
           onClick={() => onSelectDay(viewingDay - 1)}
           className="shrink-0 rounded-md px-2 py-1 text-xs text-mist transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-mist"
         >
@@ -47,12 +45,12 @@ export function DayNavigator({
             type="range"
             aria-label="Day"
             min={1}
-            max={totalDays}
+            max={currentDay}
             value={viewingDay}
-            disabled={!isFinished}
+            disabled={currentDay <= 1}
             onChange={(event) => {
               const day = Number(event.target.value)
-              if (Number.isInteger(day) && day >= 1 && day <= totalDays) onSelectDay(day)
+              if (Number.isInteger(day) && day >= 1 && day <= currentDay) onSelectDay(day)
             }}
             className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent accent-brand disabled:cursor-not-allowed [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand"
           />
@@ -61,7 +59,7 @@ export function DayNavigator({
         <button
           type="button"
           aria-label="Next day"
-          disabled={!isFinished || viewingDay >= totalDays}
+          disabled={viewingDay >= currentDay}
           onClick={() => onSelectDay(viewingDay + 1)}
           className="shrink-0 rounded-md px-2 py-1 text-xs text-mist transition-colors hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-mist"
         >

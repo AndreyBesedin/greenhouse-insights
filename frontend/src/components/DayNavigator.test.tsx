@@ -4,13 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { DayNavigator } from './DayNavigator'
 
 describe('DayNavigator', () => {
-  it('is disabled while the simulation has not completed', () => {
+  it('is disabled while there is nothing to browse yet (day 1 of day 1)', () => {
     render(
       <DayNavigator
-        viewingDay={3}
-        currentDay={3}
+        viewingDay={1}
+        currentDay={1}
         totalDays={28}
-        isFinished={false}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -20,13 +19,12 @@ describe('DayNavigator', () => {
     expect(screen.getByRole('button', { name: /next day/i })).toBeDisabled()
   })
 
-  it('enables navigation once the simulation is finished', () => {
+  it('enables navigation mid-simulation, bounded by the current day', () => {
     render(
       <DayNavigator
-        viewingDay={14}
-        currentDay={28}
+        viewingDay={5}
+        currentDay={9}
         totalDays={28}
-        isFinished={true}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -43,7 +41,6 @@ describe('DayNavigator', () => {
         viewingDay={14}
         currentDay={28}
         totalDays={28}
-        isFinished={true}
         onSelectDay={onSelectDay}
         onReturnToCurrent={vi.fn()}
       />,
@@ -56,13 +53,12 @@ describe('DayNavigator', () => {
     expect(onSelectDay).toHaveBeenCalledWith(15)
   })
 
-  it('disables next at the current day and previous at day 1', () => {
+  it('disables next at the current day (not total days) and previous at day 1', () => {
     const { rerender } = render(
       <DayNavigator
-        viewingDay={28}
-        currentDay={28}
+        viewingDay={9}
+        currentDay={9}
         totalDays={28}
-        isFinished={true}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -72,9 +68,8 @@ describe('DayNavigator', () => {
     rerender(
       <DayNavigator
         viewingDay={1}
-        currentDay={28}
+        currentDay={9}
         totalDays={28}
-        isFinished={true}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -88,7 +83,6 @@ describe('DayNavigator', () => {
         viewingDay={28}
         currentDay={28}
         totalDays={28}
-        isFinished={true}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -100,7 +94,6 @@ describe('DayNavigator', () => {
         viewingDay={14}
         currentDay={28}
         totalDays={28}
-        isFinished={true}
         onSelectDay={vi.fn()}
         onReturnToCurrent={vi.fn()}
       />,
@@ -110,14 +103,13 @@ describe('DayNavigator', () => {
     expect(screen.getByRole('button', { name: /return to current day/i })).toBeInTheDocument()
   })
 
-  it('the day input is disabled until finished and jumps to a typed day', () => {
+  it('the day input is bounded by the current day, not total days, and jumps to a typed day', () => {
     const onSelectDay = vi.fn()
     const { rerender } = render(
       <DayNavigator
-        viewingDay={3}
-        currentDay={3}
+        viewingDay={1}
+        currentDay={1}
         totalDays={28}
-        isFinished={false}
         onSelectDay={onSelectDay}
         onReturnToCurrent={vi.fn()}
       />,
@@ -127,15 +119,14 @@ describe('DayNavigator', () => {
     rerender(
       <DayNavigator
         viewingDay={3}
-        currentDay={28}
+        currentDay={9}
         totalDays={28}
-        isFinished={true}
         onSelectDay={onSelectDay}
         onReturnToCurrent={vi.fn()}
       />,
     )
-    fireEvent.change(screen.getByLabelText('Day'), { target: { value: '17' } })
+    fireEvent.change(screen.getByLabelText('Day'), { target: { value: '7' } })
 
-    expect(onSelectDay).toHaveBeenCalledWith(17)
+    expect(onSelectDay).toHaveBeenCalledWith(7)
   })
 })

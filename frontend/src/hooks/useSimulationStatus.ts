@@ -10,12 +10,22 @@ const POLL_INTERVAL_MS = 1000
 export function useSimulationStatus(simulationId: string, initialStatus: SimulationSummary) {
   const [status, setStatus] = useState(initialStatus)
   const [isPolling, setIsPolling] = useState(initialStatus.status === 'RUNNING')
+  const [isAdvancing, setIsAdvancing] = useState(false)
 
   const run = useCallback(() => {
     setIsPolling(true)
     void apiClient.POST('/simulations/{simulation_id}/run', {
       params: { path: { simulation_id: simulationId } },
     })
+  }, [simulationId])
+
+  const nextDay = useCallback(async () => {
+    setIsAdvancing(true)
+    const { data } = await apiClient.POST('/simulations/{simulation_id}/next-day', {
+      params: { path: { simulation_id: simulationId } },
+    })
+    if (data) setStatus(data)
+    setIsAdvancing(false)
   }, [simulationId])
 
   useEffect(() => {
@@ -38,5 +48,5 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
     return () => clearInterval(intervalId)
   }, [isPolling, simulationId])
 
-  return { status, isPolling, run }
+  return { status, isPolling, isAdvancing, run, nextDay }
 }

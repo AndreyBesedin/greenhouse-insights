@@ -145,7 +145,7 @@ function DashboardContent({
   simulation: SimulationSummary
 }) {
   const { greenhouse } = detail
-  const { status, isPolling, run } = useSimulationStatus(
+  const { status, isAdvancing, nextDay } = useSimulationStatus(
     initialSimulation.simulation_id,
     initialSimulation,
   )
@@ -156,6 +156,13 @@ function DashboardContent({
   const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null)
   const [manualViewingDay, setManualViewingDay] = useState<number | null>(null)
   const viewingDay = manualViewingDay ?? status.current_step
+
+  async function handleNextDay() {
+    await nextDay()
+    // Advancing is an action on "today" - snap the view back to the new
+    // current day even if the operator was browsing history.
+    setManualViewingDay(null)
+  }
 
   const state = useGreenhouseState(greenhouse.greenhouse_id, viewingDay)
   const plantDetail = usePlantDetail(greenhouse.greenhouse_id, selectedPlantId, viewingDay)
@@ -204,11 +211,11 @@ function DashboardContent({
             </div>
             <button
               type="button"
-              onClick={run}
-              disabled={isPolling || isFinished}
+              onClick={handleNextDay}
+              disabled={isAdvancing || isFinished}
               className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Run simulation
+              {isAdvancing ? 'Advancing…' : 'Next day →'}
             </button>
           </div>
         </div>
@@ -218,7 +225,6 @@ function DashboardContent({
             viewingDay={viewingDay}
             currentDay={status.current_step}
             totalDays={status.total_steps}
-            isFinished={isFinished}
             onSelectDay={setManualViewingDay}
             onReturnToCurrent={() => setManualViewingDay(null)}
           />

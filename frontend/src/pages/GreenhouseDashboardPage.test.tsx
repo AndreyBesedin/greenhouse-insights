@@ -37,14 +37,15 @@ const DETAIL = {
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 28,
+    management_policy: 'DETERMINISTIC',
+    action_executor: 'SIMULATED_OPERATOR',
   },
 } as const
 
 const RUNNING_1 = {
-  simulation_id: 'sim_gh_001',
+  ...DETAIL.simulation,
   status: 'RUNNING',
   current_step: 1,
-  total_steps: 28,
 } as const
 
 const STATE_DAY_1 = {
@@ -138,20 +139,13 @@ describe('GreenhouseDashboardPage', () => {
     expect(await screen.findByText('Row 1 · Position 1')).toBeInTheDocument()
   })
 
-  it('clicking run starts polling and updates progress and KPIs until completion', async () => {
+  it('clicking next day advances one day and updates progress and KPIs', async () => {
     mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
-    mockedPost.mockResolvedValue(ok(DETAIL.simulation))
+    mockedPost.mockResolvedValue(ok(RUNNING_1))
 
     renderDashboard()
-    const runButton = await screen.findByRole('button', { name: /run simulation/i })
-    expect(runButton).toBeEnabled()
-
-    vi.useFakeTimers()
-
-    await act(async () => {
-      fireEvent.click(runButton)
-    })
-    expect(mockedPost).toHaveBeenCalledOnce()
+    const nextDayButton = await screen.findByRole('button', { name: 'Next day →' })
+    expect(nextDayButton).toBeEnabled()
 
     mockedGet.mockImplementation((path: string) => {
       if (path === '/greenhouses/{greenhouse_id}/state') return Promise.resolve(ok(STATE_DAY_1))
@@ -159,7 +153,11 @@ describe('GreenhouseDashboardPage', () => {
     })
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000)
+      fireEvent.click(nextDayButton)
+    })
+
+    expect(mockedPost).toHaveBeenCalledWith('/simulations/{simulation_id}/next-day', {
+      params: { path: { simulation_id: 'sim_gh_001' } },
     })
     expect(screen.getByText('Day 1 / 28')).toBeInTheDocument()
     expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()

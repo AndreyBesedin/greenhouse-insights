@@ -76,6 +76,24 @@ describe('useSimulationStatus', () => {
     expect(mockedGet.mock.calls.length).toBe(callsSoFar)
   })
 
+  it('nextDay posts to the next-day endpoint and applies the returned status', async () => {
+    mockedPost.mockResolvedValue(ok(RUNNING_1))
+
+    const { result } = renderHook(() => useSimulationStatus('sim_gh_002', NOT_STARTED))
+
+    expect(result.current.isAdvancing).toBe(false)
+
+    await act(async () => {
+      await result.current.nextDay()
+    })
+
+    expect(mockedPost).toHaveBeenCalledWith('/simulations/{simulation_id}/next-day', {
+      params: { path: { simulation_id: 'sim_gh_002' } },
+    })
+    expect(result.current.status).toEqual(RUNNING_1)
+    expect(result.current.isAdvancing).toBe(false)
+  })
+
   it('starts polling immediately when the initial status is already RUNNING', async () => {
     mockedGet.mockResolvedValueOnce(ok(COMPLETED))
 
