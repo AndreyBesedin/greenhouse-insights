@@ -254,6 +254,52 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
   })
 
+  it('the AI assistant panel starts open and collapses/expands on click', async () => {
+    const pending = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: { soil_moisture_pct: 12 },
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pending]))
+      return mockGetImplementation(path)
+    })
+
+    renderDashboard()
+    expect(await screen.findByText('plant_017 · Water')).toBeInTheDocument()
+
+    const toggle = screen.getByRole('button', { name: /AI assistant/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('plant_017 · Water')).not.toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('plant_017 · Water')).toBeInTheDocument()
+  })
+
   it('recommendations are read-only when viewing a historical day', async () => {
     const COMPLETED_DETAIL = {
       ...DETAIL,

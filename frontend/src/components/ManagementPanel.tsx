@@ -1,3 +1,5 @@
+import { useId, useState } from 'react'
+
 import { RecommendationCard } from './RecommendationCard'
 import type { components } from '../../generated/schema'
 
@@ -21,31 +23,66 @@ export function ManagementPanel({
   onApprove,
   onDismiss,
 }: ManagementPanelProps) {
+  const [isOpen, setIsOpen] = useState(true)
+  const bodyId = useId()
+
   return (
     <section className="rounded-lg bg-ink-850 p-5 outline-1 -outline-offset-1 outline-white/[0.06]">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-sm font-medium">AI assistant</h2>
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-controls={bodyId}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="flex items-center gap-2">
+          <ChevronIcon isOpen={isOpen} />
+          <h2 className="font-display text-sm font-medium">AI assistant</h2>
+        </span>
         {recommendations && recommendations.length > 0 && (
           <Summary recommendations={recommendations} />
         )}
-      </div>
+      </button>
 
-      {recommendations === null && (
-        <p className="mt-3 text-xs text-mist">Loading recommendations…</p>
-      )}
-      {recommendations !== null && recommendations.length === 0 && (
-        <p className="mt-3 text-xs text-mist">No recommendations for this day.</p>
-      )}
-      {recommendations !== null && recommendations.length > 0 && (
-        <RecommendationLists
-          recommendations={recommendations}
-          interactive={interactive}
-          busyId={busyId}
-          onApprove={onApprove}
-          onDismiss={onDismiss}
-        />
+      {isOpen && (
+        <div id={bodyId}>
+          {recommendations === null && (
+            <p className="mt-3 text-xs text-mist">Loading recommendations…</p>
+          )}
+          {recommendations !== null && recommendations.length === 0 && (
+            <p className="mt-3 text-xs text-mist">No recommendations for this day.</p>
+          )}
+          {recommendations !== null && recommendations.length > 0 && (
+            <RecommendationLists
+              recommendations={recommendations}
+              interactive={interactive}
+              busyId={busyId}
+              onApprove={onApprove}
+              onDismiss={onDismiss}
+            />
+          )}
+        </div>
       )}
     </section>
+  )
+}
+
+function ChevronIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      width={14}
+      height={14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`shrink-0 text-mist transition-transform ${isOpen ? 'rotate-90' : ''}`}
+      aria-hidden="true"
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
   )
 }
 
