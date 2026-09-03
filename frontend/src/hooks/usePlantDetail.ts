@@ -9,6 +9,11 @@ export function usePlantDetail(
   greenhouseId: string,
   plantId: string | null,
   day: number,
+  // Bump this (e.g. after approving a recommendation or submitting a manual
+  // action, either of which can change this plant's state) to force a
+  // refetch without waiting for greenhouseId/plantId/day to change - mirrors
+  // useGreenhouseState's refreshToken.
+  refreshToken: number = 0,
 ): PlantDetail | null {
   const [detail, setDetail] = useState<PlantDetail | null>(null)
 
@@ -25,7 +30,7 @@ export function usePlantDetail(
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, plantId, day])
+  }, [greenhouseId, plantId, day, refreshToken])
 
   return plantId === null ? null : detail
 }

@@ -8,9 +8,15 @@ from sqlalchemy import Engine
 from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.recommendation_builder import build_recommendation
-from domain.enums import ApprovalSource, RecommendationStatus, SimulationStatus
+from domain.enums import (
+    ApprovalSource,
+    ManagementPolicyType,
+    RecommendationStatus,
+    SimulationStatus,
+)
 from domain.management_progress import ManagementProgress
 from domain.recommendation import Recommendation
+from management.validation.actions import RequestedAction
 from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
 
@@ -35,6 +41,16 @@ class RecommendationAlreadyReviewed(Exception):
         self.recommendation_id = recommendation_id
         self.status = status
         super().__init__(f"recommendation {recommendation_id!r} is already {status.value}")
+
+
+class ManualActionNotAllowed(Exception):
+    """Raised when an operator tries to act on a greenhouse before its
+    simulation has ever advanced a day - there is no world snapshot yet to
+    validate or execute against."""
+
+    def __init__(self, greenhouse_id: str) -> None:
+        self.greenhouse_id = greenhouse_id
+        super().__init__(f"{greenhouse_id!r} has not started yet - advance a day first")
 
 
 class SimulationService:
@@ -143,6 +159,58 @@ class SimulationService:
 
     def list_recommendations(self, greenhouse_id: str, day: int) -> list[Recommendation]:
         return self._recommendations.list_for_day(greenhouse_id, day)
+
+    async def submit_manual_action(
+        self, greenhouse_id: str, action: RequestedAction
+    ) -> Recommendation:
+        """Lets an operator act on a plant directly on the current day,
+        without waiting for (or regardless of) any policy proposal. Recorded
+        as a Recommendation like any other action for a consistent audit
+        trail, with source_policy=NONE - reusing NONE's existing meaning of
+        "no automated policy involved" rather than adding a new enum member
+        - and both approved_by and (if accepted) executed_by filled in
+        immediately, since there is no separate propose/approve step here.
+
+        Raises ManualActionNotAllowed if the simulation has not started yet
+        (current_step == 0, so no world snapshot exists to act against).
+        """
+        simulation_id = f"sim_{greenhouse_id}"
+        definition = self._simulations.get(simulation_id)
+        if definition is None:
+            raise LookupError(f"no simulation found for greenhouse {greenhouse_id!r}")
+        if definition.current_step == 0:
+            raise ManualActionNotAllowed(greenhouse_id)
+        day = definition.current_step
+
+        result = await asyncio.to_thread(
+            self._runner.execute_recommendation_action, simulation_id, day, action
+        )
+        now = datetime.now(UTC)
+        recommendation = Recommendation(
+            recommendation_id=f"rec_{uuid4().hex[:10]}",
+            simulation_id=simulation_id,
+            greenhouse_id=greenhouse_id,
+            simulated_day=day,
+            plant_id=action.plant_id,
+            action=action,
+            source_policy=ManagementPolicyType.NONE,
+            status=(
+                RecommendationStatus.EXECUTED
+                if result.accepted
+                else RecommendationStatus.REJECTED_BY_VALIDATOR
+            ),
+            reason="Manually requested by operator.",
+            rejection_reason=None if result.accepted else result.reason,
+            approved_by=ApprovalSource.HUMAN,
+            executed_by=definition.action_executor if result.accepted else None,
+            requested_at=now,
+            reviewed_at=now,
+            executed_at=now if result.accepted else None,
+        )
+        self._recommendations.save(recommendation)
+        if result.accepted:
+            await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
+        return recommendation
 
     async def approve_recommendation(self, recommendation_id: str) -> Recommendation | None:
         recommendation = self._recommendations.get(recommendation_id)

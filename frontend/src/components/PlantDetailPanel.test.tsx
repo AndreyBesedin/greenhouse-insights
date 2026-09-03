@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { PlantDetailPanel } from './PlantDetailPanel'
 
@@ -23,15 +23,34 @@ const DETAIL = {
   },
 } as const
 
+const ACTION_REQUIRED_DETAIL = {
+  plant: DETAIL.plant,
+  state: {
+    ...DETAIL.state,
+    health: 'ACTION_REQUIRED',
+    latest_soil_moisture_pct: 18.5,
+  },
+} as const
+
+function baseProps() {
+  return {
+    history: null,
+    recommendations: null,
+    interactive: true,
+    isSubmittingAction: false,
+    onSubmitAction: vi.fn(),
+  }
+}
+
 describe('PlantDetailPanel', () => {
   it('prompts for a selection when no plant is chosen', () => {
-    render(<PlantDetailPanel detail={null} history={null} />)
+    render(<PlantDetailPanel detail={null} {...baseProps()} />)
 
     expect(screen.getByText(/select a plant/i)).toBeInTheDocument()
   })
 
   it('shows plant position and health when state exists', () => {
-    render(<PlantDetailPanel detail={DETAIL} history={null} />)
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} />)
 
     expect(screen.getByText('plant_017')).toBeInTheDocument()
     expect(screen.getByText('Row 2 · Position 7')).toBeInTheDocument()
@@ -48,7 +67,7 @@ describe('PlantDetailPanel', () => {
           plant: { plant_id: 'plant_017', variety: 'cherry_tomato', row: 2, position_in_row: 7 },
           state: null,
         }}
-        history={null}
+        {...baseProps()}
       />,
     )
 
@@ -57,7 +76,7 @@ describe('PlantDetailPanel', () => {
 
   it('shows the raw state as JSON on the Raw state tab', async () => {
     const user = userEvent.setup()
-    render(<PlantDetailPanel detail={DETAIL} history={null} />)
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} />)
 
     await user.click(screen.getByRole('button', { name: 'Raw state' }))
 
@@ -73,6 +92,7 @@ describe('PlantDetailPanel', () => {
     render(
       <PlantDetailPanel
         detail={DETAIL}
+        {...baseProps()}
         history={[
           {
             plant_id: 'plant_017',
@@ -96,5 +116,94 @@ describe('PlantDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: 'History' }))
 
     expect(screen.getByText('Day 6')).toBeInTheDocument()
+  })
+
+  it('does not show an attention banner for a healthy plant', () => {
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} />)
+
+    expect(screen.queryByText(/below the/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/AI recommendation/)).not.toBeInTheDocument()
+  })
+
+  it('explains an action-required plant and flags the missing recommendation', () => {
+    render(
+      <PlantDetailPanel detail={ACTION_REQUIRED_DETAIL} {...baseProps()} recommendations={[]} />,
+    )
+
+    expect(
+      screen.getByText('Soil moisture 18.5% is below the 20% action-required threshold.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/No AI recommendation for this plant today/)).toBeInTheDocument()
+  })
+
+  it('says a recommendation already exists instead of the missing-recommendation note', () => {
+    const recommendation = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 8,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture low.',
+      evidence: {},
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-09T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+
+    render(
+      <PlantDetailPanel
+        detail={ACTION_REQUIRED_DETAIL}
+        {...baseProps()}
+        recommendations={[recommendation]}
+      />,
+    )
+
+    expect(screen.getByText(/has a recommendation for this plant today/)).toBeInTheDocument()
+    expect(screen.queryByText(/No AI recommendation/)).not.toBeInTheDocument()
+  })
+
+  it('hides quick actions when viewing a historical day', () => {
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} interactive={false} />)
+
+    expect(screen.queryByRole('button', { name: /Water 700 ml/ })).not.toBeInTheDocument()
+  })
+
+  it('submits a manual water action with the default amount', async () => {
+    const user = userEvent.setup()
+    const onSubmitAction = vi.fn()
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} onSubmitAction={onSubmitAction} />)
+
+    await user.click(screen.getByRole('button', { name: 'Water 700 ml' }))
+
+    expect(onSubmitAction).toHaveBeenCalledWith({
+      action_type: 'WATER_PLANT',
+      plant_id: 'plant_017',
+      amount_ml: 700,
+    })
+  })
+
+  it('submits a manual harvest action', async () => {
+    const user = userEvent.setup()
+    const onSubmitAction = vi.fn()
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} onSubmitAction={onSubmitAction} />)
+
+    await user.click(screen.getByRole('button', { name: 'Harvest ripe fruit' }))
+
+    expect(onSubmitAction).toHaveBeenCalledWith({
+      action_type: 'HARVEST_PLANT',
+      plant_id: 'plant_017',
+    })
+  })
+
+  it('disables quick action buttons while a submission is in flight', () => {
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} isSubmittingAction={true} />)
+
+    expect(screen.getByRole('button', { name: 'Water 700 ml' })).toBeDisabled()
   })
 })

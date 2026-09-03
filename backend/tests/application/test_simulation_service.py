@@ -10,6 +10,7 @@ from application.persistence.scenario_config_repository import ScenarioConfigRep
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.world_repository import WorldRepository
 from application.simulation_service import (
+    ManualActionNotAllowed,
     PendingRecommendationsExist,
     RecommendationAlreadyReviewed,
     SimulationService,
@@ -416,4 +417,110 @@ def test_dismiss_an_already_reviewed_recommendation_raises(engine: Engine) -> No
         await service.dismiss_recommendation("rec_1")
 
     with pytest.raises(RecommendationAlreadyReviewed):
+        asyncio.run(scenario())
+
+
+_MANUAL_GH_ID = "gh_manual"
+_MANUAL_PLANT_ID = "gh_manual_plant_001"
+_MANUAL_SIM_ID = f"sim_{_MANUAL_GH_ID}"
+
+
+def _seed_manual(
+    engine: Engine, *, status: SimulationStatus = SimulationStatus.RUNNING, current_step: int = 1
+) -> None:
+    greenhouse = Greenhouse(
+        greenhouse_id=_MANUAL_GH_ID,
+        name="Manual Action Greenhouse",
+        description="",
+        source_type=SourceType.SIMULATION,
+        layout=GreenhouseLayout(rows=1, columns=1),
+        plants=[
+            Plant(plant_id=_MANUAL_PLANT_ID, variety="cherry_tomato", row=1, position_in_row=1)
+        ],
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    GreenhouseRepository(engine).save(greenhouse)
+    ScenarioConfigRepository(engine).save(SCENARIO_REGISTRY["gh_002"])
+    SimulationRepository(engine).save(
+        SimulationDefinition(
+            simulation_id=_MANUAL_SIM_ID,
+            greenhouse_id=_MANUAL_GH_ID,
+            scenario_definition="gh_002",
+            start_date=date(2026, 1, 1),
+            duration_days=3,
+            random_seed=42,
+            status=status,
+            current_step=current_step,
+            total_steps=3,
+        )
+    )
+    if current_step > 0:
+        world = initialize_world(
+            SCENARIO_REGISTRY["gh_002"], [_MANUAL_PLANT_ID], greenhouse_id=_MANUAL_GH_ID
+        )
+        WorldRepository(engine).save(world.model_copy(update={"simulated_day": current_step}))
+
+
+def test_submit_manual_action_executes_and_records_provenance(engine: Engine) -> None:
+    _seed_manual(engine)
+    service = SimulationService(engine)
+    action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
+
+    async def scenario() -> Recommendation:
+        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+
+    result = asyncio.run(scenario())
+
+    assert result.status == RecommendationStatus.EXECUTED
+    assert result.source_policy == ManagementPolicyType.NONE
+    assert result.approved_by == ApprovalSource.HUMAN
+    assert result.executed_by == ActionExecutorType.SIMULATED_OPERATOR
+    assert result.simulated_day == 1
+    assert result.executed_at is not None
+
+    world = WorldRepository(engine).get_latest(_MANUAL_GH_ID)
+    assert world is not None
+    assert world.plant(_MANUAL_PLANT_ID).water_reservoir_ml > 0
+
+    persisted = RecommendationRepository(engine).list_for_day(_MANUAL_GH_ID, 1)
+    assert len(persisted) == 1
+    assert persisted[0].recommendation_id == result.recommendation_id
+
+
+def test_submit_manual_action_records_a_validator_rejection(engine: Engine) -> None:
+    _seed_manual(engine)
+    service = SimulationService(engine)
+    action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=0)
+
+    async def scenario() -> Recommendation:
+        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+
+    result = asyncio.run(scenario())
+
+    assert result.status == RecommendationStatus.REJECTED_BY_VALIDATOR
+    assert result.approved_by == ApprovalSource.HUMAN
+    assert result.executed_by is None
+    assert result.rejection_reason is not None
+
+
+def test_submit_manual_action_raises_before_the_simulation_has_started(engine: Engine) -> None:
+    _seed_manual(engine, status=SimulationStatus.NOT_STARTED, current_step=0)
+    service = SimulationService(engine)
+    action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
+
+    async def scenario() -> Recommendation:
+        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+
+    with pytest.raises(ManualActionNotAllowed):
+        asyncio.run(scenario())
+
+
+def test_submit_manual_action_raises_for_an_unknown_greenhouse(engine: Engine) -> None:
+    service = SimulationService(engine)
+    action = WaterPlantAction(plant_id="does_not_exist", amount_ml=500)
+
+    async def scenario() -> Recommendation:
+        return await service.submit_manual_action("does_not_exist", action)
+
+    with pytest.raises(LookupError):
         asyncio.run(scenario())

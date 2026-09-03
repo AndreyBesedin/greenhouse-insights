@@ -6,7 +6,7 @@ import { AppShell } from '../components/AppShell'
 import { DayNavigator } from '../components/DayNavigator'
 import { GreenhouseMap } from '../components/GreenhouseMap'
 import { ManagementPanel } from '../components/ManagementPanel'
-import { PlantDetailPanel } from '../components/PlantDetailPanel'
+import { PlantDetailPanel, type RequestedAction } from '../components/PlantDetailPanel'
 import { useGreenhouseState } from '../hooks/useGreenhouseState'
 import { usePlantDetail } from '../hooks/usePlantDetail'
 import { usePlantHistory } from '../hooks/usePlantHistory'
@@ -179,12 +179,23 @@ function DashboardContent({
   }
 
   const state = useGreenhouseState(greenhouse.greenhouse_id, viewingDay, stateRefreshToken)
-  const plantDetail = usePlantDetail(greenhouse.greenhouse_id, selectedPlantId, viewingDay)
-  const plantHistory = usePlantHistory(greenhouse.greenhouse_id, selectedPlantId, viewingDay)
-  const { recommendations, approve, dismiss } = useRecommendations(
+  const plantDetail = usePlantDetail(
+    greenhouse.greenhouse_id,
+    selectedPlantId,
+    viewingDay,
+    stateRefreshToken,
+  )
+  const plantHistory = usePlantHistory(
+    greenhouse.greenhouse_id,
+    selectedPlantId,
+    viewingDay,
+    stateRefreshToken,
+  )
+  const { recommendations, approve, dismiss, add } = useRecommendations(
     greenhouse.greenhouse_id,
     viewingDay,
   )
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false)
 
   async function handleApprove(recommendationId: string) {
     setBusyRecommendationId(recommendationId)
@@ -197,6 +208,25 @@ function DashboardContent({
     setBusyRecommendationId(recommendationId)
     await dismiss(recommendationId)
     setBusyRecommendationId(null)
+  }
+
+  async function handleSubmitManualAction(action: RequestedAction) {
+    if (!selectedPlantId) return
+    setIsSubmittingAction(true)
+    const { data } = await apiClient.POST(
+      '/greenhouses/{greenhouse_id}/plants/{plant_id}/actions',
+      {
+        params: {
+          path: { greenhouse_id: greenhouse.greenhouse_id, plant_id: selectedPlantId },
+        },
+        body: action,
+      },
+    )
+    setIsSubmittingAction(false)
+    if (data) {
+      add(data)
+      setStateRefreshToken((token) => token + 1)
+    }
   }
 
   const healthByPlantId = new Map<string, PlantHealth>(
@@ -336,7 +366,14 @@ function DashboardContent({
             />
           </section>
 
-          <PlantDetailPanel detail={plantDetail} history={plantHistory} />
+          <PlantDetailPanel
+            detail={plantDetail}
+            history={plantHistory}
+            recommendations={recommendations}
+            interactive={isViewingCurrentDay}
+            isSubmittingAction={isSubmittingAction}
+            onSubmitAction={handleSubmitManualAction}
+          />
         </div>
       </main>
     </AppShell>

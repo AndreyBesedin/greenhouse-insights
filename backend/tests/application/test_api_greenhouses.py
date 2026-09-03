@@ -303,3 +303,50 @@ def test_delete_greenhouse_cancels_a_running_simulation(client: TestClient) -> N
 
     assert delete_response.status_code == 204
     assert client.get("/greenhouses/gh_001").status_code == 404
+
+
+def test_submit_manual_action_executes_and_returns_the_recommendation(client: TestClient) -> None:
+    client.post("/simulations/sim_gh_002/next-day")
+
+    response = client.post(
+        "/greenhouses/gh_002/plants/gh_002_plant_001/actions",
+        json={"action_type": "WATER_PLANT", "plant_id": "gh_002_plant_001", "amount_ml": 500},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "EXECUTED"
+    assert body["source_policy"] == "NONE"
+    assert body["approved_by"] == "HUMAN"
+    assert body["executed_by"] == "SIMULATED_OPERATOR"
+
+
+def test_submit_manual_action_rejects_mismatched_plant_id(client: TestClient) -> None:
+    client.post("/simulations/sim_gh_002/next-day")
+
+    response = client.post(
+        "/greenhouses/gh_002/plants/gh_002_plant_001/actions",
+        json={"action_type": "WATER_PLANT", "plant_id": "someone_else", "amount_ml": 500},
+    )
+
+    assert response.status_code == 422
+
+
+def test_submit_manual_action_returns_409_before_the_simulation_has_started(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/greenhouses/gh_002/plants/gh_002_plant_001/actions",
+        json={"action_type": "WATER_PLANT", "plant_id": "gh_002_plant_001", "amount_ml": 500},
+    )
+
+    assert response.status_code == 409
+
+
+def test_submit_manual_action_returns_404_for_unknown_greenhouse(client: TestClient) -> None:
+    response = client.post(
+        "/greenhouses/does_not_exist/plants/plant_001/actions",
+        json={"action_type": "WATER_PLANT", "plant_id": "plant_001", "amount_ml": 500},
+    )
+
+    assert response.status_code == 404

@@ -46,5 +46,12 @@ export function useRecommendations(greenhouseId: string, day: number) {
     return data
   }
 
-  return { recommendations, approve, dismiss }
+  // Appends a recommendation created outside the normal propose/review flow
+  // (a manual action) without a refetch - mirrors approve/dismiss patching
+  // from the response they already have rather than re-fetching the list.
+  function add(recommendation: Recommendation) {
+    setRecommendations((current) => [...(current ?? []), recommendation])
+  }
+
+  return { recommendations, approve, dismiss, add }
 }

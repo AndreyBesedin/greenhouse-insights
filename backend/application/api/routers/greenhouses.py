@@ -10,10 +10,11 @@ from application.greenhouse_service import (
     PlantDetail,
     TimelineSummary,
 )
-from application.simulation_service import SimulationService
+from application.simulation_service import ManualActionNotAllowed, SimulationService
 from domain.management_trace import ManagementTrace
 from domain.recommendation import Recommendation
 from domain.state import GreenhouseState, PlantState
+from management.validation.actions import RequestedAction
 
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
 
@@ -125,3 +126,20 @@ def get_recommendations(
     simulation_service: SimulationService = Depends(get_simulation_service),
 ) -> list[Recommendation]:
     return simulation_service.list_recommendations(greenhouse_id, day)
+
+
+@router.post("/{greenhouse_id}/plants/{plant_id}/actions", status_code=201)
+async def submit_manual_action(
+    greenhouse_id: str,
+    plant_id: str,
+    action: RequestedAction,
+    simulation_service: SimulationService = Depends(get_simulation_service),
+) -> Recommendation:
+    if action.plant_id != plant_id:
+        raise HTTPException(status_code=422, detail="action plant_id must match the URL")
+    try:
+        return await simulation_service.submit_manual_action(greenhouse_id, action)
+    except ManualActionNotAllowed as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

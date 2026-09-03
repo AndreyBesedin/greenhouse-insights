@@ -41,4 +41,20 @@ describe('usePlantDetail', () => {
       params: { path: { greenhouse_id: 'gh_001', plant_id: 'plant_017' }, query: { day: 1 } },
     })
   })
+
+  it('refetches when refreshToken changes, without waiting for plant/day to change', async () => {
+    const updated = { ...DETAIL, state: { health: 'MONITOR' } }
+    mockedGet.mockResolvedValueOnce(ok(DETAIL)).mockResolvedValueOnce(ok(updated))
+
+    const { result, rerender } = renderHook(
+      ({ token }: { token: number }) => usePlantDetail('gh_001', 'plant_017', 1, token),
+      { initialProps: { token: 0 } },
+    )
+    await waitFor(() => expect(result.current).toEqual(DETAIL))
+
+    rerender({ token: 1 })
+
+    await waitFor(() => expect(result.current).toEqual(updated))
+    expect(mockedGet).toHaveBeenCalledTimes(2)
+  })
 })

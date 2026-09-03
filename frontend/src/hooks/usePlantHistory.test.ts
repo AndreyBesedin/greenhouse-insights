@@ -58,4 +58,20 @@ describe('usePlantHistory', () => {
       },
     )
   })
+
+  it('refetches when refreshToken changes, without waiting for plant/day to change', async () => {
+    const updatedHistory = [...HISTORY, { ...HISTORY[0], simulated_day: 8 }]
+    mockedGet.mockResolvedValueOnce(ok(HISTORY)).mockResolvedValueOnce(ok(updatedHistory))
+
+    const { result, rerender } = renderHook(
+      ({ token }: { token: number }) => usePlantHistory('gh_001', 'plant_017', 8, token),
+      { initialProps: { token: 0 } },
+    )
+    await waitFor(() => expect(result.current).toEqual(HISTORY))
+
+    rerender({ token: 1 })
+
+    await waitFor(() => expect(result.current).toEqual(updatedHistory))
+    expect(mockedGet).toHaveBeenCalledTimes(2)
+  })
 })

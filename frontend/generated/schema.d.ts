@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/plants/{plant_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Manual Action */
+        post: operations["submit_manual_action_greenhouses__greenhouse_id__plants__plant_id__actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/run": {
         parameters: {
             query?: never;
@@ -1016,6 +1033,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Recommendation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_manual_action_greenhouses__greenhouse_id__plants__plant_id__actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                greenhouse_id: string;
+                plant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaterPlantAction"] | components["schemas"]["HarvestPlantAction"] | components["schemas"]["LowerPlantAction"] | components["schemas"]["ScheduleInspectionAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
                 };
             };
             /** @description Validation Error */

@@ -3,16 +3,35 @@ import { useState } from 'react'
 import type { components } from '../../generated/schema'
 import { cropIconVariant } from '../lib/crop'
 import { formatMass } from '../lib/format'
+import { explainHealth } from '../lib/health'
 import { healthToStatus } from '../lib/status'
 import { CropIcon } from './CropIcon'
 import { StatusBadge } from './StatusBadge'
 
 type PlantDetail = components['schemas']['PlantDetail']
 type PlantState = components['schemas']['PlantState']
+type Recommendation = components['schemas']['Recommendation']
+
+export type RequestedAction =
+  | components['schemas']['WaterPlantAction']
+  | components['schemas']['HarvestPlantAction']
+  | components['schemas']['LowerPlantAction']
+  | components['schemas']['ScheduleInspectionAction']
+
+const DEFAULT_WATER_ML = 700
+const DEFAULT_LOWER_CM = 40
 
 interface PlantDetailPanelProps {
   detail: PlantDetail | null
   history: PlantState[] | null
+  /** Every recommendation for the day currently being viewed - used to spot
+   * whether this plant already has one, and to explain when it doesn't. */
+  recommendations: Recommendation[] | null
+  /** True only when viewing the current day - manual actions, like
+   * recommendation review, only make sense on "today". */
+  interactive: boolean
+  isSubmittingAction: boolean
+  onSubmitAction: (action: RequestedAction) => void
 }
 
 function MetricTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -25,7 +44,14 @@ function MetricTile({ label, value, hint }: { label: string; value: string; hint
   )
 }
 
-export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
+export function PlantDetailPanel({
+  detail,
+  history,
+  recommendations,
+  interactive,
+  isSubmittingAction,
+  onSubmitAction,
+}: PlantDetailPanelProps) {
   const [tab, setTab] = useState<'overview' | 'history' | 'acquisitions' | 'raw'>('overview')
 
   if (detail === null) {
@@ -39,6 +65,11 @@ export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
   }
 
   const { plant, state } = detail
+  const healthExplanation = state
+    ? explainHealth(state.health, state.latest_soil_moisture_pct)
+    : null
+  const hasRecommendationToday = (recommendations ?? []).some((r) => r.plant_id === plant.plant_id)
+  const needsAttention = state != null && state.health !== 'HEALTHY'
 
   return (
     <aside className="rounded-lg bg-ink-850 p-5 outline-1 -outline-offset-1 outline-white/[0.06]">
@@ -54,6 +85,74 @@ export function PlantDetailPanel({ detail, history }: PlantDetailPanelProps) {
         <p className="mt-4 text-xs text-mist">No observations yet.</p>
       ) : (
         <>
+          {needsAttention && (
+            <div className="mt-3 rounded-md bg-amber/[0.08] px-3 py-2 text-[11px] text-paper outline-1 -outline-offset-1 outline-amber/30">
+              {healthExplanation && <p>{healthExplanation}</p>}
+              <p className={healthExplanation ? 'mt-1 text-mist' : 'text-mist'}>
+                {hasRecommendationToday
+                  ? 'The AI assistant has a recommendation for this plant today - see below.'
+                  : 'No AI recommendation for this plant today - use quick actions to act directly.'}
+              </p>
+            </div>
+          )}
+
+          {interactive && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={() =>
+                  onSubmitAction({
+                    action_type: 'WATER_PLANT',
+                    plant_id: plant.plant_id,
+                    amount_ml: DEFAULT_WATER_ML,
+                  })
+                }
+                className="rounded-md bg-ink-700 px-2.5 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Water {DEFAULT_WATER_ML} ml
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={() =>
+                  onSubmitAction({ action_type: 'HARVEST_PLANT', plant_id: plant.plant_id })
+                }
+                className="rounded-md bg-ink-700 px-2.5 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Harvest ripe fruit
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={() =>
+                  onSubmitAction({
+                    action_type: 'LOWER_PLANT',
+                    plant_id: plant.plant_id,
+                    amount_cm: DEFAULT_LOWER_CM,
+                  })
+                }
+                className="rounded-md bg-ink-700 px-2.5 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Lower {DEFAULT_LOWER_CM} cm
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAction}
+                onClick={() =>
+                  onSubmitAction({
+                    action_type: 'SCHEDULE_INSPECTION',
+                    plant_id: plant.plant_id,
+                    reason: 'Manually requested by operator.',
+                  })
+                }
+                className="rounded-md bg-ink-700 px-2.5 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Schedule inspection
+              </button>
+            </div>
+          )}
+
           <div className="mt-4 flex gap-1 border-b border-white/[0.06] text-xs">
             {(
               [

@@ -9,6 +9,8 @@ export function usePlantHistory(
   greenhouseId: string,
   plantId: string | null,
   upToDay: number,
+  // See usePlantDetail's refreshToken.
+  refreshToken: number = 0,
 ): PlantState[] | null {
   const [history, setHistory] = useState<PlantState[] | null>(null)
 
@@ -28,7 +30,7 @@ export function usePlantHistory(
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, plantId, upToDay])
+  }, [greenhouseId, plantId, upToDay, refreshToken])
 
   return plantId === null ? null : history
 }
