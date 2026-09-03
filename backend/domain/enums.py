@@ -94,3 +94,25 @@ class ActionExecutorType(StrEnum):
     one new class, not a refactor."""
 
     SIMULATED_OPERATOR = "SIMULATED_OPERATOR"
+
+
+class RecommendationStatus(StrEnum):
+    """Avoid adding statuses with no immediate use (docs/design/demo_readiness_plan.md
+    section 10): approval and execution are synchronous in this pass, so
+    there is no persisted APPROVED-but-not-yet-executed state, and nothing
+    in the executor can currently fail once validation has passed, so
+    there is no FAILED state either."""
+
+    PENDING = "PENDING"
+    DISMISSED = "DISMISSED"
+    EXECUTED = "EXECUTED"
+    REJECTED_BY_VALIDATOR = "REJECTED_BY_VALIDATOR"
+
+
+class ApprovalSource(StrEnum):
+    """Who approved a recommendation - section 7's approved_by. Only one
+    member for now (every approval in this pass comes from a human
+    operator); a future AUTOMATION_POLICY approver is a new member, not a
+    refactor, same pattern as ActionExecutorType."""
+
+    HUMAN = "HUMAN"

@@ -39,9 +39,9 @@ def _seed(engine: Engine) -> None:
             greenhouse_id="gh_test",
             scenario_definition="gh_002",
             start_date=date(2026, 1, 1),
-            duration_days=2,
+            duration_days=3,
             random_seed=42,
-            total_steps=2,
+            total_steps=3,
         )
     )
 
@@ -83,7 +83,7 @@ def test_run_then_poll_status_walks_to_completed(client: TestClient) -> None:
 
     assert status is not None
     assert status["status"] == "COMPLETED"
-    assert status["current_step"] == 2
+    assert status["current_step"] == 3
 
 
 def test_run_returns_404_for_unknown_simulation(client: TestClient) -> None:
@@ -108,15 +108,54 @@ def test_next_day_advances_exactly_one_step(client: TestClient) -> None:
 
 
 def test_next_day_called_repeatedly_stops_at_each_day(client: TestClient) -> None:
-    first = client.post("/simulations/sim_test/next-day").json()
-    second = client.post("/simulations/sim_test/next-day").json()
+    # confirm_dismiss_remaining=True throughout: this test is about the day
+    # clock advancing, not about reviewing whatever the deterministic policy
+    # proposes along the way (day 2 reliably proposes a WATER_PLANT for this
+    # seed - see test_next_day_blocks_while_recommendations_are_pending).
+    first = client.post(
+        "/simulations/sim_test/next-day", params={"confirm_dismiss_remaining": True}
+    ).json()
+    second = client.post(
+        "/simulations/sim_test/next-day", params={"confirm_dismiss_remaining": True}
+    ).json()
+    third = client.post(
+        "/simulations/sim_test/next-day", params={"confirm_dismiss_remaining": True}
+    ).json()
 
     assert first["current_step"] == 1
     assert second["current_step"] == 2
-    assert second["status"] == "COMPLETED"
+    assert third["current_step"] == 3
+    assert third["status"] == "COMPLETED"
 
 
 def test_next_day_returns_404_for_unknown_simulation(client: TestClient) -> None:
     response = client.post("/simulations/does_not_exist/next-day")
 
     assert response.status_code == 404
+
+
+def test_next_day_blocks_while_recommendations_are_pending(client: TestClient) -> None:
+    client.post("/simulations/sim_test/next-day")  # day 1: no recommendations for this seed
+    client.post("/simulations/sim_test/next-day")  # day 2: proposes a WATER_PLANT
+    pending = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    assert len(pending) >= 1
+
+    response = client.post("/simulations/sim_test/next-day")
+
+    assert response.status_code == 409
+
+
+def test_next_day_proceeds_when_confirmed_and_dismisses_the_rest(client: TestClient) -> None:
+    client.post("/simulations/sim_test/next-day")
+    client.post("/simulations/sim_test/next-day")
+    pending = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    assert len(pending) >= 1
+
+    response = client.post(
+        "/simulations/sim_test/next-day", params={"confirm_dismiss_remaining": True}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["current_step"] == 3
+    day_2 = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    assert all(r["status"] == "DISMISSED" for r in day_2)

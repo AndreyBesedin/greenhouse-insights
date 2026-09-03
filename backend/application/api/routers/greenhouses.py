@@ -12,6 +12,7 @@ from application.greenhouse_service import (
 )
 from application.simulation_service import SimulationService
 from domain.management_trace import ManagementTrace
+from domain.recommendation import Recommendation
 from domain.state import GreenhouseState, PlantState
 
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
@@ -115,3 +116,12 @@ def get_management_history(
     if history is None:
         raise HTTPException(status_code=404, detail="greenhouse not found")
     return history
+
+
+@router.get("/{greenhouse_id}/recommendations")
+def get_recommendations(
+    greenhouse_id: str,
+    day: int,
+    simulation_service: SimulationService = Depends(get_simulation_service),
+) -> list[Recommendation]:
+    return simulation_service.list_recommendations(greenhouse_id, day)

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from application.api.dependencies import get_simulation_service
 from application.greenhouse_service import SimulationSummary
-from application.simulation_service import SimulationService
+from application.simulation_service import PendingRecommendationsExist, SimulationService
 from simulation.definitions import SimulationDefinition
 
 router = APIRouter(prefix="/simulations", tags=["simulations"])
@@ -20,9 +20,16 @@ async def run_simulation(
 
 @router.post("/{simulation_id}/next-day")
 async def advance_simulation_one_day(
-    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+    simulation_id: str,
+    confirm_dismiss_remaining: bool = False,
+    service: SimulationService = Depends(get_simulation_service),
 ) -> SimulationSummary:
-    definition = await service.advance_one_day(simulation_id)
+    try:
+        definition = await service.advance_one_day(
+            simulation_id, confirm_dismiss_remaining=confirm_dismiss_remaining
+        )
+    except PendingRecommendationsExist as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if definition is None:
         raise HTTPException(status_code=404, detail="simulation not found")
     return _to_summary(definition)

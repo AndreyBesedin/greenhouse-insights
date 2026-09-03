@@ -91,3 +91,24 @@ management_traces = Table(
     Column("simulated_day", Integer, primary_key=True),
     Column("trace_json", String, nullable=False),
 )
+
+recommendations = Table(
+    "recommendations",
+    metadata,
+    Column("recommendation_id", String, primary_key=True),
+    Column("simulation_id", String, nullable=False, index=True),
+    Column("greenhouse_id", String, nullable=False, index=True),
+    Column("simulated_day", Integer, nullable=False, index=True),
+    Column("plant_id", String, nullable=False, index=True),
+    Column("action_json", String, nullable=False),
+    Column("source_policy", String, nullable=False),
+    Column("status", String, nullable=False, index=True),
+    Column("reason", String, nullable=False),
+    Column("evidence_json", String, nullable=False),
+    Column("rejection_reason", String, nullable=True),
+    Column("approved_by", String, nullable=True),
+    Column("executed_by", String, nullable=True),
+    Column("requested_at", String, nullable=False),
+    Column("reviewed_at", String, nullable=True),
+    Column("executed_at", String, nullable=True),
+)

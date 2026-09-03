@@ -9,6 +9,7 @@ from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseSe
 from application.persistence.event_repository import EventRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
@@ -25,7 +26,9 @@ from domain.enums import (
 from domain.event import Event
 from domain.management_trace import ManagementTrace
 from domain.observation import Observation
+from domain.recommendation import Recommendation
 from domain.state import GreenhouseState, PlantState
+from management.validation.actions import WaterPlantAction
 from simulation.world_builder import initialize_world
 
 
@@ -416,6 +419,19 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
             completed_at=timestamp,
         )
     )
+    RecommendationRepository(engine).save(
+        Recommendation(
+            recommendation_id="rec_1",
+            simulation_id=simulation_id,
+            greenhouse_id=greenhouse_id,
+            simulated_day=1,
+            plant_id="gh_001_plant_001",
+            action=WaterPlantAction(plant_id="gh_001_plant_001", amount_ml=700),
+            source_policy=ManagementPolicyType.DETERMINISTIC,
+            reason="Soil moisture low.",
+            requested_at=timestamp,
+        )
+    )
 
     assert service.delete_greenhouse(greenhouse_id) is True
 
@@ -428,6 +444,7 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
     assert EventRepository(engine).list_for_greenhouse(greenhouse_id) == []
     assert ObservationRepository(engine).list_for_greenhouse(greenhouse_id) == []
     assert ManagementTraceRepository(engine).list_for_simulation(simulation_id) == []
+    assert RecommendationRepository(engine).list_for_day(greenhouse_id, 1) == []
 
     # The other bootstrapped greenhouse is untouched.
     assert service.get_greenhouse_detail("gh_002") is not None

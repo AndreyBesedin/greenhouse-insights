@@ -9,6 +9,7 @@ from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.persistence.state_repository import StateRepository
@@ -111,6 +112,7 @@ class GreenhouseService:
         self._observations = ObservationRepository(engine)
         self._events = EventRepository(engine)
         self._worlds = WorldRepository(engine)
+        self._recommendations = RecommendationRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         return [
@@ -238,8 +240,8 @@ class GreenhouseService:
     def delete_greenhouse(self, greenhouse_id: str) -> bool:
         """Deletes a greenhouse and everything derived from it: its simulation
         definition and scenario config (if any), management traces, world and
-        state snapshots, observations, and events. Returns False if the
-        greenhouse did not exist."""
+        state snapshots, observations, events, and recommendations. Returns
+        False if the greenhouse did not exist."""
         if self._greenhouses.get(greenhouse_id) is None:
             return False
 
@@ -252,6 +254,7 @@ class GreenhouseService:
         self._states.delete_for_greenhouse(greenhouse_id)
         self._events.delete_for_greenhouse(greenhouse_id)
         self._observations.delete_for_greenhouse(greenhouse_id)
+        self._recommendations.delete_for_greenhouse(greenhouse_id)
         self._greenhouses.delete(greenhouse_id)
         return True
 

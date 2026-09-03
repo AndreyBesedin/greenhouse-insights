@@ -125,6 +125,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Recommendations */
+        get: operations["get_recommendations_greenhouses__greenhouse_id__recommendations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/simulations/{simulation_id}/run": {
         parameters: {
             query?: never;
@@ -176,6 +193,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recommendations/{recommendation_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Recommendation */
+        post: operations["approve_recommendation_recommendations__recommendation_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recommendations/{recommendation_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Recommendation */
+        post: operations["dismiss_recommendation_recommendations__recommendation_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -191,6 +242,15 @@ export interface components {
          * @enum {string}
          */
         ActionExecutorType: "SIMULATED_OPERATOR";
+        /**
+         * ApprovalSource
+         * @description Who approved a recommendation - section 7's approved_by. Only one
+         *     member for now (every approval in this pass comes from a human
+         *     operator); a future AUTOMATION_POLICY approver is a new member, not a
+         *     refactor, same pattern as ActionExecutorType.
+         * @enum {string}
+         */
+        ApprovalSource: "HUMAN";
         /** CreateGreenhouseRequest */
         CreateGreenhouseRequest: {
             /** Name */
@@ -312,6 +372,30 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HarvestPlantAction */
+        HarvestPlantAction: {
+            /**
+             * Action Type
+             * @default HARVEST_PLANT
+             * @constant
+             */
+            action_type: "HARVEST_PLANT";
+            /** Plant Id */
+            plant_id: string;
+        };
+        /** LowerPlantAction */
+        LowerPlantAction: {
+            /**
+             * Action Type
+             * @default LOWER_PLANT
+             * @constant
+             */
+            action_type: "LOWER_PLANT";
+            /** Plant Id */
+            plant_id: string;
+            /** Amount Cm */
+            amount_cm: number;
         };
         /**
          * ManagementPolicyType
@@ -439,6 +523,81 @@ export interface components {
          */
         Provenance: "OBSERVED" | "REPORTED" | "DETERMINISTICALLY_DERIVED" | "INFERRED";
         /**
+         * Recommendation
+         * @description A persisted, reviewable proposal - the human-in-the-loop counterpart
+         *     to a bare RequestedAction (docs/design/demo_readiness_plan.md sections
+         *     10-11). The management policy still only ever proposes; this is what
+         *     the application layer turns that proposal into so a human can approve
+         *     or dismiss it before anything in the world changes.
+         *
+         *     requested_by is source_policy (which policy proposed this) rather than
+         *     a separate field - it already carries that meaning. approved_by and
+         *     executed_by are the new provenance section 7 asks for: who signed off,
+         *     and what actually carried the action out.
+         */
+        Recommendation: {
+            /** Recommendation Id */
+            recommendation_id: string;
+            /** Simulation Id */
+            simulation_id: string;
+            /** Greenhouse Id */
+            greenhouse_id: string;
+            /** Simulated Day */
+            simulated_day: number;
+            /** Plant Id */
+            plant_id: string;
+            /** Action */
+            action: components["schemas"]["WaterPlantAction"] | components["schemas"]["HarvestPlantAction"] | components["schemas"]["LowerPlantAction"] | components["schemas"]["ScheduleInspectionAction"];
+            source_policy: components["schemas"]["ManagementPolicyType"];
+            /** @default PENDING */
+            status: components["schemas"]["RecommendationStatus"];
+            /** Reason */
+            reason: string;
+            /**
+             * Evidence
+             * @default {}
+             */
+            evidence: {
+                [key: string]: number | string | null;
+            };
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+            approved_by?: components["schemas"]["ApprovalSource"] | null;
+            executed_by?: components["schemas"]["ActionExecutorType"] | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /** Executed At */
+            executed_at?: string | null;
+        };
+        /**
+         * RecommendationStatus
+         * @description Avoid adding statuses with no immediate use (docs/design/demo_readiness_plan.md
+         *     section 10): approval and execution are synchronous in this pass, so
+         *     there is no persisted APPROVED-but-not-yet-executed state, and nothing
+         *     in the executor can currently fail once validation has passed, so
+         *     there is no FAILED state either.
+         * @enum {string}
+         */
+        RecommendationStatus: "PENDING" | "DISMISSED" | "EXECUTED" | "REJECTED_BY_VALIDATOR";
+        /** ScheduleInspectionAction */
+        ScheduleInspectionAction: {
+            /**
+             * Action Type
+             * @default SCHEDULE_INSPECTION
+             * @constant
+             */
+            action_type: "SCHEDULE_INSPECTION";
+            /** Plant Id */
+            plant_id: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
          * SimulationStatus
          * @enum {string}
          */
@@ -490,6 +649,19 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WaterPlantAction */
+        WaterPlantAction: {
+            /**
+             * Action Type
+             * @default WATER_PLANT
+             * @constant
+             */
+            action_type: "WATER_PLANT";
+            /** Plant Id */
+            plant_id: string;
+            /** Amount Ml */
+            amount_ml: number;
         };
     };
     responses: never;
@@ -776,6 +948,39 @@ export interface operations {
             };
         };
     };
+    get_recommendations_greenhouses__greenhouse_id__recommendations_get: {
+        parameters: {
+            query: {
+                day: number;
+            };
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     run_simulation_simulations__simulation_id__run_post: {
         parameters: {
             query?: never;
@@ -809,7 +1014,9 @@ export interface operations {
     };
     advance_simulation_one_day_simulations__simulation_id__next_day_post: {
         parameters: {
-            query?: never;
+            query?: {
+                confirm_dismiss_remaining?: boolean;
+            };
             header?: never;
             path: {
                 simulation_id: string;
@@ -856,6 +1063,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SimulationSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_recommendation_recommendations__recommendation_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_recommendation_recommendations__recommendation_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
                 };
             };
             /** @description Validation Error */
