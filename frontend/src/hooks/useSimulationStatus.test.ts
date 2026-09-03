@@ -153,6 +153,35 @@ describe('useSimulationStatus', () => {
     expect(result.current.analysisProgress).toBeNull()
   })
 
+  it('nextDay clears isAdvancing and sets an error when the request throws', async () => {
+    mockedPost.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const { result } = renderHook(() => useSimulationStatus('sim_gh_002', NOT_STARTED))
+
+    const outcome = await act(async () => result.current.nextDay())
+
+    expect(outcome).toEqual({ blocked: false })
+    expect(result.current.isAdvancing).toBe(false)
+    expect(result.current.error).toMatch(/could not advance/i)
+    expect(result.current.status).toEqual(NOT_STARTED)
+  })
+
+  it('clearError resets the error, and a later nextDay call clears it too', async () => {
+    mockedPost.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    mockedPost.mockResolvedValueOnce(ok(RUNNING_1))
+
+    const { result } = renderHook(() => useSimulationStatus('sim_gh_002', NOT_STARTED))
+    await act(async () => result.current.nextDay())
+    expect(result.current.error).not.toBeNull()
+
+    act(() => result.current.clearError())
+    expect(result.current.error).toBeNull()
+
+    await act(async () => result.current.nextDay())
+    expect(result.current.error).toBeNull()
+    expect(result.current.status).toEqual(RUNNING_1)
+  })
+
   it('starts polling immediately when the initial status is already RUNNING', async () => {
     mockedGet.mockResolvedValueOnce(ok(COMPLETED))
 

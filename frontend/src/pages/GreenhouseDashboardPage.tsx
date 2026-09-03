@@ -141,10 +141,14 @@ function DashboardContent({
   simulation: SimulationSummary
 }) {
   const { greenhouse } = detail
-  const { status, isAdvancing, analysisProgress, nextDay } = useSimulationStatus(
-    initialSimulation.simulation_id,
-    initialSimulation,
-  )
+  const {
+    status,
+    isAdvancing,
+    analysisProgress,
+    error: advanceError,
+    nextDay,
+    clearError: clearAdvanceError,
+  } = useSimulationStatus(initialSimulation.simulation_id, initialSimulation)
   const isFinished = status.status === 'COMPLETED' || status.status === 'FAILED'
   const statusMeta = STATUS_META[status.status]
   const crop = greenhouse.plants[0]?.variety ?? 'tomato'
@@ -199,6 +203,7 @@ function DashboardContent({
   )
   const [isSubmittingAction, setIsSubmittingAction] = useState(false)
   const [isApprovingAll, setIsApprovingAll] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   // Advancing the day while a review action is still applying to the
   // world would race it (the backend now also guards this with a lock,
   // but disabling the trigger here avoids a pointless wait/confusion).
@@ -206,40 +211,66 @@ function DashboardContent({
 
   async function handleApprove(recommendationId: string) {
     setBusyRecommendationId(recommendationId)
-    await approve(recommendationId)
-    setBusyRecommendationId(null)
-    setStateRefreshToken((token) => token + 1)
+    setActionError(null)
+    try {
+      await approve(recommendationId)
+      setStateRefreshToken((token) => token + 1)
+    } catch {
+      setActionError('Could not approve that recommendation. Check your connection and try again.')
+    } finally {
+      setBusyRecommendationId(null)
+    }
   }
 
   async function handleDismiss(recommendationId: string) {
     setBusyRecommendationId(recommendationId)
-    await dismiss(recommendationId)
-    setBusyRecommendationId(null)
+    setActionError(null)
+    try {
+      await dismiss(recommendationId)
+    } catch {
+      setActionError('Could not dismiss that recommendation. Check your connection and try again.')
+    } finally {
+      setBusyRecommendationId(null)
+    }
   }
 
   async function handleApproveAll() {
     setIsApprovingAll(true)
-    await approveAll()
-    setIsApprovingAll(false)
-    setStateRefreshToken((token) => token + 1)
+    setActionError(null)
+    try {
+      await approveAll()
+      setStateRefreshToken((token) => token + 1)
+    } catch {
+      setActionError('Could not approve all recommendations. Check your connection and try again.')
+    } finally {
+      setIsApprovingAll(false)
+    }
   }
 
   async function handleSubmitManualAction(action: RequestedAction) {
     if (!selectedPlantId) return
     setIsSubmittingAction(true)
-    const { data } = await apiClient.POST(
-      '/greenhouses/{greenhouse_id}/plants/{plant_id}/actions',
-      {
-        params: {
-          path: { greenhouse_id: greenhouse.greenhouse_id, plant_id: selectedPlantId },
+    setActionError(null)
+    try {
+      const { data } = await apiClient.POST(
+        '/greenhouses/{greenhouse_id}/plants/{plant_id}/actions',
+        {
+          params: {
+            path: { greenhouse_id: greenhouse.greenhouse_id, plant_id: selectedPlantId },
+          },
+          body: action,
         },
-        body: action,
-      },
-    )
-    setIsSubmittingAction(false)
-    if (data) {
-      add(data)
-      setStateRefreshToken((token) => token + 1)
+      )
+      if (data) {
+        add(data)
+        setStateRefreshToken((token) => token + 1)
+      } else {
+        setActionError('Could not submit that action. Check your connection and try again.')
+      }
+    } catch {
+      setActionError('Could not submit that action. Check your connection and try again.')
+    } finally {
+      setIsSubmittingAction(false)
     }
   }
 
@@ -300,6 +331,22 @@ function DashboardContent({
           <div className="mt-3 flex items-center gap-2 rounded-md bg-ink-800 px-4 py-2.5 text-xs text-mist outline-1 -outline-offset-1 outline-white/[0.07]">
             <span className="size-1.5 animate-pulse rounded-full bg-brand" />
             <span className="text-paper">{analysisProgress.message}</span>
+          </div>
+        )}
+
+        {(advanceError ?? actionError) && (
+          <div className="mt-3 flex items-center justify-between rounded-md bg-terra/[0.08] px-4 py-2.5 outline-1 -outline-offset-1 outline-terra/30">
+            <span className="text-xs text-terra">{advanceError ?? actionError}</span>
+            <button
+              type="button"
+              onClick={() => {
+                clearAdvanceError()
+                setActionError(null)
+              }}
+              className="text-xs text-mist hover:text-paper"
+            >
+              Close
+            </button>
           </div>
         )}
 

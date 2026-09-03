@@ -14,6 +14,7 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
   const [isPolling, setIsPolling] = useState(initialStatus.status === 'RUNNING')
   const [isAdvancing, setIsAdvancing] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<ManagementProgress | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const run = useCallback(() => {
     setIsPolling(true)
@@ -25,22 +26,29 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
   const nextDay = useCallback(
     async (confirmDismissRemaining = false) => {
       setIsAdvancing(true)
-      const { data, response } = await apiClient.POST('/simulations/{simulation_id}/next-day', {
-        params: {
-          path: { simulation_id: simulationId },
-          query: { confirm_dismiss_remaining: confirmDismissRemaining },
-        },
-      })
-      setIsAdvancing(false)
-      setAnalysisProgress(null)
-      if (data) {
-        setStatus(data)
+      setError(null)
+      try {
+        const { data, response } = await apiClient.POST('/simulations/{simulation_id}/next-day', {
+          params: {
+            path: { simulation_id: simulationId },
+            query: { confirm_dismiss_remaining: confirmDismissRemaining },
+          },
+        })
+        if (data) {
+          setStatus(data)
+          return { blocked: false as const }
+        }
+        // 409: the current day still has PENDING recommendations - the
+        // caller decides whether to show a confirm-and-dismiss prompt and
+        // retry with confirmDismissRemaining=true.
+        return { blocked: response.status === 409 }
+      } catch {
+        setError('Could not advance the day. Check your connection and try again.')
         return { blocked: false as const }
+      } finally {
+        setIsAdvancing(false)
+        setAnalysisProgress(null)
       }
-      // 409: the current day still has PENDING recommendations - the caller
-      // decides whether to show a confirm-and-dismiss prompt and retry with
-      // confirmDismissRemaining=true.
-      return { blocked: response.status === 409 }
     },
     [simulationId],
   )
@@ -79,5 +87,7 @@ export function useSimulationStatus(simulationId: string, initialStatus: Simulat
     return () => clearInterval(intervalId)
   }, [isAdvancing, simulationId])
 
-  return { status, isPolling, isAdvancing, analysisProgress, run, nextDay }
+  const clearError = useCallback(() => setError(null), [])
+
+  return { status, isPolling, isAdvancing, analysisProgress, error, run, nextDay, clearError }
 }

@@ -254,6 +254,50 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
   })
 
+  it('recovers cleanly when approving a recommendation throws', async () => {
+    const pending = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: {},
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pending]))
+      return mockGetImplementation(path)
+    })
+    mockedPost.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    renderDashboard()
+    const approveButton = await screen.findByRole('button', { name: 'Water 700 ml' })
+
+    await act(async () => {
+      fireEvent.click(approveButton)
+    })
+
+    // The busy flag must clear (not get stuck) and the recommendation must
+    // stay reviewable so the operator can retry.
+    expect(await screen.findByText(/Could not approve that recommendation/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Water 700 ml' })).toBeEnabled()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    })
+    expect(screen.queryByText(/Could not approve that recommendation/)).not.toBeInTheDocument()
+  })
+
   it('disables next day while a single approval is still in flight', async () => {
     const pending = {
       recommendation_id: 'rec_1',
