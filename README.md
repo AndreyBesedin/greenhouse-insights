@@ -1,15 +1,12 @@
 # Greenhouse Insights
 
-A greenhouse intelligence and operational support platform POC. See
-`docs/design/greenhouse_intelligence_poc_brief.md` for
-the full product scope, `docs/design/` for all design documents, and
-`DEVELOPMENT_GUIDELINES.md` for how this project is built.
+Greenhouse Insights is a proof of concept for **greenhouse intelligence and operational decision support**.
 
-## What this demonstrates
+The project explores how software can turn imperfect longitudinal greenhouse data into useful, reviewable actions: sensors and vision-like observations are reconstructed into plant state, a management policy proposes interventions, a human reviews them, deterministic code validates accepted actions, and the consequences appear in later greenhouse state.
 
-This POC explores how an AI system can make operational recommendations from
-imperfect longitudinal data while keeping actions observable, constrained and
-evaluable:
+The greenhouse domain is useful because decisions have persistent consequences. The broader engineering goal is to explore **observable, constrained and evaluable agentic workflows**, rather than build another text-generation demo.
+
+## How it works
 
 ```text
 Hidden simulated world
@@ -18,7 +15,7 @@ Noisy observations
         ↓
 Observable plant state
         ↓
-Agent + read tools
+Management policy / agent + read tools
         ↓
 Recommendations
         ↓
@@ -33,148 +30,93 @@ Next simulated day
 Evaluation against hidden truth
 ```
 
-The agent only ever sees noisy observations, never the hidden world; every
-action it proposes still passes through a human and a deterministic
-validator before it can touch that world; and because the hidden world stays
-available to the eval harness (never to the agent), decision quality is
-something you can measure, not just eyeball.
+The agent never sees simulator-hidden ground truth and never mutates the greenhouse directly.
 
-**What this deliberately does not build:** production agronomic accuracy,
-detailed spatial climate modelling, disease simulation, additional crops,
-robotics or robot planning, autonomous climate control, multi-agent
-orchestration, a generic chatbot / natural-language analytics layer,
-production authentication, or a from-scratch visual redesign. All valid
-future directions; none of them change the engineering idea being
-demonstrated here.
+## Current application
 
-## Demo walkthrough
+The current POC supports:
 
-The fastest way to see the whole loop, once the backend and frontend are
-both running (see **Running locally** below - no seeding needed, every
-greenhouse mentioned here is created automatically on first backend
-startup):
+- multiple configurable greenhouses;
+- a causal day-by-day tomato greenhouse simulator with persistent plant, truss, fruit and water state;
+- noisy sensor / vision-like observations derived from hidden simulation state;
+- manual simulation progression — one click advances exactly one simulated day;
+- historical navigation without rewinding the underlying simulation;
+- deterministic and agentic management policies;
+- agent tools for inspecting current plant state and recent history;
+- recommendations for watering, harvesting, lowering plants and scheduling inspections;
+- human approval / dismissal before agent recommendations can affect the world;
+- manual operator actions through the same deterministic validation/execution path;
+- high-level agent progress in the UI while a day is being analysed;
+- persisted recommendation provenance and management traces;
+- deterministic evaluation against simulator ground truth;
+- a dedicated small **Agentic Demo Greenhouse** for a short live walkthrough.
 
-1. Open the frontend and pick **Agentic Demo Greenhouse** (badged
-   "Recommended demo") - 6 plants, 15 simulated days, `AGENTIC` policy,
-   tuned so it reaches every action type within about 9 days instead of the
-   ~30-40 `Simulation Greenhouse 001` / `Longitudinal Plant Demo` need (see
-   `backend/simulation/scenarios/greenhouse_demo.py`).
-2. Click **Next day →**. The simulator advances one hidden day and the agent
-   inspects the noisy, observable-only result - day 1 typically proposes a
-   few `SCHEDULE_INSPECTION` recommendations for ambiguous soil-moisture
-   readings.
-3. Open a recommendation card to see the evidence/reason behind it, then
-   **Approve** or **Dismiss** it. Approving runs the same deterministic
-   validator any action goes through, then executes and refreshes the
-   KPIs/plant state - nothing the agent proposes touches the world until a
-   human approves it.
-4. Keep clicking **Next day →**. Watering shows up almost immediately,
-   lowering by around day 7, harvesting by around day 9.
-5. Use the day slider to browse a past day - it is read-only (no
-   Approve/Dismiss), since only the current day accepts review.
-6. Run `make backend-eval` to print the agent decision-quality scorecard -
-   10 ground-truth cases graded against expected outcomes the agent never
-   sees.
+The frontend is React + TypeScript. The backend is Python + FastAPI with SQLite/SQLAlchemy persistence and Alembic migrations.
 
-Steps 2-4 run against `FakeAgentModelProvider` (scripted, free, deterministic)
-by default. Set `GREENHOUSE_AGENT_PROVIDER=anthropic` and an
-`ANTHROPIC_API_KEY` to run the same flow against a real Claude model instead
-- the recommendation cards, validator, and provenance trail are unchanged
-either way.
+## Quick demo
 
-## Status
+Start the backend and frontend, then open **Agentic Demo Greenhouse** (marked **Recommended demo**).
 
-**Milestone 1 (Backbone) — complete.** The app supports the full flow: select
-a greenhouse → run its simulation → watch it progress day-by-day (persisted
-each step) → reach the final day → navigate backwards/forwards through
-history → switch greenhouses. Both POC greenhouses work through the same,
-config-driven architecture (`Simulation Greenhouse 001`: 40 plants / 28 days,
-`Longitudinal Plant Demo`: 1 plant / 40 days).
+1. Click **Next day →** to generate the next day's greenhouse state.
+2. Watch the AI assistant inspect observable data and produce recommendations.
+3. Review the evidence on a recommendation and **Approve** or **Dismiss** it.
+4. Optionally apply a manual action from the plant detail panel.
+5. Advance another day to see the consequences of the chosen interventions.
+6. Use the day navigator to inspect earlier, read-only greenhouse state.
+7. Run `make backend-eval` to show the deterministic management-evaluation scorecard.
 
-State reconstruction is deliberately trivial for this milestone (latest
-observation restatement + one health threshold) — real reasoning, event
-inference, recommendations, and the evaluation harness are Milestone 2+, per
-the build order in `DEVELOPMENT_GUIDELINES.md`.
+By default the application uses a deterministic fake agent provider, so the complete workflow runs without external credentials. A real Anthropic provider can be enabled through environment variables.
 
-**Simulation engine (V0) — implemented**, per
-`docs/design/greenhouse_simulation_design.md`. The simulator now maintains a
-real hidden world per greenhouse (plants, trusses, individual fruits with
-growth/ripening curves, a soil-water reservoir and water stress) that evolves
-day over day, rather than generating independent random values each day. A
-built-in deterministic policy automatically waters, harvests, and lowers
-plants once per simulated day through a validated action boundary
-(`WATER_PLANT` / `HARVEST_PLANT` / `LOWER_PLANT` / `SCHEDULE_INSPECTION`), and
-sensor/vision observations are derived from that hidden state with
-configurable noise. This is what powers the harvest-mass KPIs on the
-dashboard and per-plant detail panel. The full spatial climate model and
-streamed progress events remain out of scope for now.
+## What is intentionally simplified
 
-**Agentic management (V1) — implemented**, per
-`docs/design/greenhouse_agentic_management_design.md`. Three separate
-concerns, deliberately: `backend/simulation/` owns world state and never
-decides anything; `backend/management/` owns decision-making (a greenhouse's
-`management_policy` - `NONE` / `DETERMINISTIC` / `AGENTIC` - is resolved
-once per simulated day into a policy that only sees observable state) and
-only ever *proposes* actions, never touching the world directly; carrying an
-accepted action out is a third, separate, swappable step
-(`simulation/executor.py`'s `ActionExecutor`, selected per simulation via
-`action_executor` - only `SIMULATED_OPERATOR`, instantaneous and complete,
-exists today, but a future simulated-robot or real executor is a new enum
-member plus one class, not a refactor). The agent can call `get_plant_state`
-/ `get_plant_history` under a configurable tool-call budget before
-finalizing its decision, and every agentic run is traced
-(`GET /greenhouses/{id}/management/history`). `management/evaluation/` holds
-10 ground-truth decision-quality cases with a scorecard
-(`make backend-eval`, or directly: `python -m management.evaluation` from
-`backend/`) - reproducible against whichever provider
-`GREENHOUSE_AGENT_PROVIDER` currently selects. The agent runs against
-`FakeAgentModelProvider` (scripted, no API calls, passes all 10 cases by
-construction) by default, or against a real Claude model via
-`AnthropicAgentModelProvider` when configured - see `GREENHOUSE_AGENT_PROVIDER`
-below. The real provider scored 7/10 on this scorecard as of its last
-recorded run; the failures were left as-is rather than tuned against, since
-the point of the harness is catching real reasoning gaps, not chasing 100%.
-Because an `AGENTIC` greenhouse makes one real, billed LLM call per simulated
-day, `POST /greenhouses` rejects `duration_days` over 30 or `rows * columns`
-over 25 for that policy (see `MAX_AGENTIC_DURATION_DAYS` /
-`MAX_AGENTIC_PLANT_COUNT` in `application/greenhouse_service.py`); the
-Anthropic provider itself also carries a request timeout, retry cap, and
-max-tokens ceiling, all configurable
-(`GREENHOUSE_AGENT_REQUEST_TIMEOUT_SECONDS` / `GREENHOUSE_AGENT_MAX_RETRIES` /
-`GREENHOUSE_AGENT_MAX_TOKENS`, see `.env.example`).
+This is an engineering POC, not an agronomic production model. Current simplifications include:
+
+- simplified tomato biology and greenhouse physics;
+- no detailed spatial climate model;
+- no disease model;
+- simulated observations instead of real cameras/sensors;
+- a single-process application architecture;
+- human-reviewed management rather than production-grade autonomous control;
+- no real robot / actuator integration;
+- no production authentication or multi-tenant organisation model.
+
+## Possible next steps
+
+The most interesting directions from here are:
+
+- connect real greenhouse sensor and vision data to the same observable-state interface;
+- improve state reconstruction and uncertainty handling;
+- add disease / anomaly detection and operational forecasting;
+- extend evaluation from action correctness to longer-term outcome quality;
+- add labour planning and workload forecasting;
+- support real human/automation/robot executors behind the existing action boundary;
+- compare different management policies on identical greenhouse scenarios;
+- expand from the current greenhouse-level POC toward sites, zones and multiple crop types.
+
+More detailed architecture and implementation notes live in [`docs/technical_reference.md`](docs/technical_reference.md). Product and subsystem design documents are under [`docs/design/`](docs/design/), and engineering conventions are in [`DEVELOPMENT_GUIDELINES.md`](DEVELOPMENT_GUIDELINES.md).
 
 ## Running locally
 
-Requires Python 3.12+, [Poetry](https://python-poetry.org/docs/#installation)
-2.0+, and Node 22+ (see `frontend/.nvmrc`). Also see `make help` at the repo
-root for shortcuts to everything below (`make backend-dev`, `make test`, ...).
+Requirements:
 
-**Backend:**
+- Python 3.12+
+- Poetry 2.0+
+- Node 22+ (`frontend/.nvmrc`)
+
+### Backend
 
 ```bash
 cd backend
-poetry install                 # creates backend/.venv (poetry.toml sets in-project venvs)
-cp .env.example .env   # fill in any values you need to override, see below
+poetry install
+cp .env.example .env
 poetry run uvicorn application.api.main:app --reload
 ```
 
-Serves the API at `http://localhost:8000`. The app loads `backend/.env`
-automatically on startup if it exists (`.env` is gitignored - never commit
-it; `.env.example` documents every variable). Everything in it can also be
-set as a real environment variable instead, which always takes precedence.
-Notable ones: `GREENHOUSE_STEP_DELAY_SECONDS` controls the simulated-day
-pace (default 1.0s/day), `GREENHOUSE_DATABASE_URL` changes where the SQLite
-file lives (default `backend/data/greenhouse.db`, created on first run).
+API: `http://localhost:8000`
 
-To run `AGENTIC` greenhouses against a real Claude model instead of the
-scripted `FakeAgentModelProvider`, set `GREENHOUSE_AGENT_PROVIDER=anthropic`
-and `ANTHROPIC_API_KEY=<your key>` (get one at console.anthropic.com, and
-set a spend limit there too). Optionally set `GREENHOUSE_AGENT_MODEL` to
-override the model (default `claude-sonnet-5`). A bare `alembic` command run
-from the CLI does not read `.env` - export `GREENHOUSE_DATABASE_URL` in your
-shell first if you need it for a manual migration command.
+The default SQLite database is created automatically at `backend/data/greenhouse.db`.
 
-**Frontend:**
+### Frontend
 
 ```bash
 cd frontend
@@ -183,43 +125,66 @@ npm install
 npm run dev
 ```
 
-Serves the app at `http://localhost:5173`. If the backend's API surface
-changes, regenerate the typed client:
+Frontend: `http://localhost:5173`
+
+### Real agent provider
+
+The default provider is deterministic and requires no external API.
+
+To run agentic greenhouses against Anthropic instead:
 
 ```bash
-cd backend && poetry run python scripts/export_openapi.py ../frontend/openapi.json
-cd frontend && npm run generate:api
+GREENHOUSE_AGENT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
 ```
 
-## Tests
+Put these values in `backend/.env` or export them in the environment. See `backend/.env.example` for optional model, timeout, retry and token settings.
+
+## Tests and evaluation
+
+Backend tests:
 
 ```bash
-cd backend && poetry run pytest
-cd frontend && npm test
+cd backend
+poetry run pytest
 ```
 
-`pre-commit run --all-files` runs the full lint/format/type-check/test suite
-for both. (The pre-commit hooks still `source .venv/bin/activate` directly -
-that keeps working unchanged since `poetry.toml` makes Poetry create the
-venv in-project at `backend/.venv`, same as before.)
-
-## Running with Docker
+Frontend tests:
 
 ```bash
-cp backend/.env.example backend/.env   # fill in real values first
+cd frontend
+npm test
+```
+
+Run the repository-wide pre-commit checks:
+
+```bash
+pre-commit run --all-files
+```
+
+Run the management evaluation scorecard:
+
+```bash
+make backend-eval
+```
+
+If the backend API schema changes, regenerate the typed frontend client:
+
+```bash
+cd backend
+poetry run python scripts/export_openapi.py ../frontend/openapi.json
+
+cd ../frontend
+npm run generate:api
+```
+
+## Docker
+
+```bash
+cp backend/.env.example backend/.env
 docker compose up -d --build
 ```
 
-Serves the frontend at `http://localhost:8080` and the API at
-`http://localhost:8000`, with the SQLite database persisted in a named
-Docker volume (`greenhouse_data`) so it survives container restarts.
-`docker compose down -v` also removes that volume, wiping the database.
+This serves the frontend at `http://localhost:8080` and the API at `http://localhost:8000`.
 
-The frontend image bakes `VITE_API_BASE_URL` in at build time (Vite env vars
-are compile-time, not runtime) - `docker-compose.yml`'s default points it at
-`http://localhost:8000` for local compose testing. Deploying the two images
-to different hosts/domains means rebuilding the frontend image with
-`--build-arg VITE_API_BASE_URL=https://your-real-api-domain` pointed at
-wherever the backend actually ends up, and setting
-`GREENHOUSE_ALLOWED_ORIGINS` on the backend to match the frontend's real
-origin.
+See [`docs/technical_reference.md`](docs/technical_reference.md) for persistence, deployment, provider, concurrency and architecture details.
