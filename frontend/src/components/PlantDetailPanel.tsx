@@ -178,36 +178,54 @@ export function PlantDetailPanel({
           </div>
 
           {tab === 'overview' && (
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {state.latest_soil_moisture_pct != null && (
-                <MetricTile label="Soil moisture" value={`${state.latest_soil_moisture_pct}%`} />
-              )}
-              {state.latest_visible_fruit_count != null && (
-                <MetricTile
-                  label="Visible fruit"
-                  value={String(state.latest_visible_fruit_count)}
-                  hint={
-                    state.latest_ripe_fruit_count != null
-                      ? `${state.latest_ripe_fruit_count} ripe`
-                      : undefined
-                  }
-                />
-              )}
-              {state.latest_estimated_ripe_mass_g != null && (
-                <MetricTile
-                  label="Ripe mass"
-                  value={formatMass(state.latest_estimated_ripe_mass_g)}
-                  hint="ready to harvest"
-                />
-              )}
-              <MetricTile
-                label="Harvested total"
-                value={formatMass(state.harvested_total_g)}
-                hint="cumulative this cycle"
-              />
-              {state.last_event_type && (
-                <MetricTile label="Last event" value={state.last_event_type} />
-              )}
+            <div className="mt-4 space-y-4">
+              <div>
+                <h3 className="text-[11px] font-medium text-mist">Today's sensor reading</h3>
+                <p className="mt-0.5 text-[10px] text-mist/70">
+                  Taken once per simulated day - an action approved today will not move these until
+                  tomorrow's reading.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  {state.latest_soil_moisture_pct != null && (
+                    <MetricTile
+                      label="Soil moisture"
+                      value={`${state.latest_soil_moisture_pct}%`}
+                    />
+                  )}
+                  {state.latest_visible_fruit_count != null && (
+                    <MetricTile
+                      label="Visible fruit"
+                      value={String(state.latest_visible_fruit_count)}
+                      hint={
+                        state.latest_ripe_fruit_count != null
+                          ? `${state.latest_ripe_fruit_count} ripe`
+                          : undefined
+                      }
+                    />
+                  )}
+                  {state.latest_estimated_ripe_mass_g != null && (
+                    <MetricTile
+                      label="Ripe mass"
+                      value={formatMass(state.latest_estimated_ripe_mass_g)}
+                      hint="ready to harvest"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-[11px] font-medium text-mist">Updates immediately</h3>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <MetricTile
+                    label="Harvested total"
+                    value={formatMass(state.harvested_total_g)}
+                    hint="cumulative this cycle"
+                  />
+                  {state.last_event_type && (
+                    <MetricTile label="Last event" value={state.last_event_type} />
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

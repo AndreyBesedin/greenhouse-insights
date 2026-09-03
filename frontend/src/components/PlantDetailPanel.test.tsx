@@ -60,6 +60,13 @@ describe('PlantDetailPanel', () => {
     expect(screen.getByText('WATERING')).toBeInTheDocument()
   })
 
+  it('labels sensor-derived metrics separately from ones that update immediately', () => {
+    render(<PlantDetailPanel detail={DETAIL} {...baseProps()} />)
+
+    expect(screen.getByText("Today's sensor reading")).toBeInTheDocument()
+    expect(screen.getByText('Updates immediately')).toBeInTheDocument()
+  })
+
   it('shows a neutral message when the plant has no state yet', () => {
     render(
       <PlantDetailPanel
