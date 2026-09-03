@@ -16,7 +16,7 @@ from domain.enums import (
 )
 from domain.management_progress import ManagementProgress
 from domain.recommendation import Recommendation
-from management.validation.actions import RequestedAction
+from management.validation.actions import ActionResult, RequestedAction
 from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
 
@@ -60,6 +60,20 @@ class SimulationService:
         self._runner = SimulationRunner(engine, step_delay_seconds=step_delay_seconds)
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._progress: dict[str, ManagementProgress] = {}
+        # One lock per simulation, held for the duration of anything that
+        # reads-then-writes a simulation's world/recommendations (advancing
+        # a day, approving/dismissing one or all recommendations, a manual
+        # action) - without it, e.g. a next-day request racing an in-flight
+        # approve-all could advance the day while the approval is still
+        # applying actions meant for the day just left behind.
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def _lock_for(self, simulation_id: str) -> asyncio.Lock:
+        lock = self._locks.get(simulation_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[simulation_id] = lock
+        return lock
 
     async def start_simulation(self, simulation_id: str) -> SimulationDefinition | None:
         definition = self._simulations.get(simulation_id)
@@ -99,33 +113,37 @@ class SimulationService:
         unreviewed recommendations and confirm_dismiss_remaining is False;
         pass True to dismiss them and proceed.
         """
-        definition = self._simulations.get(simulation_id)
-        if definition is None or definition.status == SimulationStatus.COMPLETED:
-            return definition
-        if self.is_running(simulation_id):
-            return definition
+        async with self._lock_for(simulation_id):
+            definition = self._simulations.get(simulation_id)
+            if definition is None or definition.status == SimulationStatus.COMPLETED:
+                return definition
+            if self.is_running(simulation_id):
+                return definition
 
-        next_day = definition.current_step + 1
-        if next_day > definition.total_steps:
-            return definition
+            next_day = definition.current_step + 1
+            if next_day > definition.total_steps:
+                return definition
 
-        if definition.current_step > 0:
-            pending = self._recommendations.list_pending_for_day(
-                definition.greenhouse_id, definition.current_step
-            )
-            if pending:
-                if not confirm_dismiss_remaining:
-                    raise PendingRecommendationsExist(len(pending))
-                now = datetime.now(UTC)
-                for recommendation in pending:
-                    self._recommendations.save(
-                        recommendation.model_copy(
-                            update={"status": RecommendationStatus.DISMISSED, "reviewed_at": now}
+            if definition.current_step > 0:
+                pending = self._recommendations.list_pending_for_day(
+                    definition.greenhouse_id, definition.current_step
+                )
+                if pending:
+                    if not confirm_dismiss_remaining:
+                        raise PendingRecommendationsExist(len(pending))
+                    now = datetime.now(UTC)
+                    for recommendation in pending:
+                        self._recommendations.save(
+                            recommendation.model_copy(
+                                update={
+                                    "status": RecommendationStatus.DISMISSED,
+                                    "reviewed_at": now,
+                                }
+                            )
                         )
-                    )
 
-        await asyncio.to_thread(self._propose_day, simulation_id, next_day)
-        return self._simulations.get(simulation_id)
+            await asyncio.to_thread(self._propose_day, simulation_id, next_day)
+            return self._simulations.get(simulation_id)
 
     def _propose_day(self, simulation_id: str, day: int) -> None:
         try:
@@ -175,98 +193,125 @@ class SimulationService:
         (current_step == 0, so no world snapshot exists to act against).
         """
         simulation_id = f"sim_{greenhouse_id}"
-        definition = self._simulations.get(simulation_id)
-        if definition is None:
-            raise LookupError(f"no simulation found for greenhouse {greenhouse_id!r}")
-        if definition.current_step == 0:
-            raise ManualActionNotAllowed(greenhouse_id)
-        day = definition.current_step
+        async with self._lock_for(simulation_id):
+            definition = self._simulations.get(simulation_id)
+            if definition is None:
+                raise LookupError(f"no simulation found for greenhouse {greenhouse_id!r}")
+            if definition.current_step == 0:
+                raise ManualActionNotAllowed(greenhouse_id)
+            day = definition.current_step
 
-        result = await asyncio.to_thread(
-            self._runner.execute_recommendation_action, simulation_id, day, action
-        )
-        now = datetime.now(UTC)
-        recommendation = Recommendation(
-            recommendation_id=f"rec_{uuid4().hex[:10]}",
-            simulation_id=simulation_id,
-            greenhouse_id=greenhouse_id,
-            simulated_day=day,
-            plant_id=action.plant_id,
-            action=action,
-            source_policy=ManagementPolicyType.NONE,
-            status=(
-                RecommendationStatus.EXECUTED
-                if result.accepted
-                else RecommendationStatus.REJECTED_BY_VALIDATOR
-            ),
-            reason="Manually requested by operator.",
-            rejection_reason=None if result.accepted else result.reason,
-            approved_by=ApprovalSource.HUMAN,
-            executed_by=definition.action_executor if result.accepted else None,
-            requested_at=now,
-            reviewed_at=now,
-            executed_at=now if result.accepted else None,
-        )
-        self._recommendations.save(recommendation)
-        if result.accepted:
-            await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
-        return recommendation
+            result = await asyncio.to_thread(
+                self._runner.execute_recommendation_action, simulation_id, day, action
+            )
+            now = datetime.now(UTC)
+            recommendation = Recommendation(
+                recommendation_id=f"rec_{uuid4().hex[:10]}",
+                simulation_id=simulation_id,
+                greenhouse_id=greenhouse_id,
+                simulated_day=day,
+                plant_id=action.plant_id,
+                action=action,
+                source_policy=ManagementPolicyType.NONE,
+                status=(
+                    RecommendationStatus.EXECUTED
+                    if result.accepted
+                    else RecommendationStatus.REJECTED_BY_VALIDATOR
+                ),
+                reason="Manually requested by operator.",
+                rejection_reason=None if result.accepted else result.reason,
+                approved_by=ApprovalSource.HUMAN,
+                executed_by=definition.action_executor if result.accepted else None,
+                requested_at=now,
+                reviewed_at=now,
+                executed_at=now if result.accepted else None,
+            )
+            self._recommendations.save(recommendation)
+            if result.accepted:
+                await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
+            return recommendation
 
     async def approve_recommendation(self, recommendation_id: str) -> Recommendation | None:
         recommendation = self._recommendations.get(recommendation_id)
         if recommendation is None:
             return None
-        if recommendation.status != RecommendationStatus.PENDING:
-            raise RecommendationAlreadyReviewed(recommendation_id, recommendation.status)
 
-        definition = self._simulations.get(recommendation.simulation_id)
-        if definition is None:
-            raise LookupError(
-                f"no simulation definition found for {recommendation.simulation_id!r}"
+        async with self._lock_for(recommendation.simulation_id):
+            # Re-fetch inside the lock: another operation (e.g. an
+            # approve-all that was already in flight) may have reviewed
+            # this recommendation while we were waiting for the lock.
+            recommendation = self._recommendations.get(recommendation_id)
+            if recommendation is None:
+                return None
+            if recommendation.status != RecommendationStatus.PENDING:
+                raise RecommendationAlreadyReviewed(recommendation_id, recommendation.status)
+
+            definition = self._simulations.get(recommendation.simulation_id)
+            if definition is None:
+                raise LookupError(
+                    f"no simulation definition found for {recommendation.simulation_id!r}"
+                )
+
+            results = await asyncio.to_thread(
+                self._runner.execute_recommendation_actions,
+                recommendation.simulation_id,
+                recommendation.simulated_day,
+                [recommendation.action],
             )
-
-        updated = await self._execute_and_review(recommendation, definition)
-        await asyncio.to_thread(
-            self._runner.refresh_day_state,
-            recommendation.simulation_id,
-            recommendation.simulated_day,
-        )
-        return updated
+            updated = self._review(recommendation, results[0], definition)
+            self._recommendations.save(updated)
+            await asyncio.to_thread(
+                self._runner.refresh_day_state,
+                recommendation.simulation_id,
+                recommendation.simulated_day,
+            )
+            return updated
 
     async def approve_all_pending(self, greenhouse_id: str, day: int) -> list[Recommendation]:
         """Approves and executes every PENDING recommendation for a day in
         one go (docs/design/demo_readiness_plan.md section 6: a
         presentation-layer convenience, not a new simulator primitive -
-        each action is still validated, executed and persisted
-        individually, exactly like a single approve_recommendation call,
-        just with one state refresh at the end instead of one per action)."""
-        pending = self._recommendations.list_pending_for_day(greenhouse_id, day)
-        if not pending:
-            return []
+        each action is still validated and persisted individually,
+        exactly like approving one at a time). Executes them as a single
+        batch against the runner rather than one at a time, so the
+        (potentially large) world snapshot is read and saved once instead
+        of once per recommendation - approving many actions on a large
+        greenhouse was previously O(pending count) world round-trips.
+        """
+        simulation_id = f"sim_{greenhouse_id}"
+        async with self._lock_for(simulation_id):
+            pending = self._recommendations.list_pending_for_day(greenhouse_id, day)
+            if not pending:
+                return []
 
-        simulation_id = pending[0].simulation_id
-        definition = self._simulations.get(simulation_id)
-        if definition is None:
-            raise LookupError(f"no simulation definition found for {simulation_id!r}")
+            definition = self._simulations.get(simulation_id)
+            if definition is None:
+                raise LookupError(f"no simulation definition found for {simulation_id!r}")
 
-        updated = [
-            await self._execute_and_review(recommendation, definition) for recommendation in pending
-        ]
-        await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
-        return updated
+            results = await asyncio.to_thread(
+                self._runner.execute_recommendation_actions,
+                simulation_id,
+                day,
+                [recommendation.action for recommendation in pending],
+            )
+            updated = []
+            for recommendation, result in zip(pending, results, strict=True):
+                reviewed = self._review(recommendation, result, definition)
+                self._recommendations.save(reviewed)
+                updated.append(reviewed)
 
-    async def _execute_and_review(
-        self, recommendation: Recommendation, definition: SimulationDefinition
+            await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
+            return updated
+
+    def _review(
+        self,
+        recommendation: Recommendation,
+        result: ActionResult,
+        definition: SimulationDefinition,
     ) -> Recommendation:
-        result = await asyncio.to_thread(
-            self._runner.execute_recommendation_action,
-            recommendation.simulation_id,
-            recommendation.simulated_day,
-            recommendation.action,
-        )
         now = datetime.now(UTC)
         if result.accepted:
-            updated = recommendation.model_copy(
+            return recommendation.model_copy(
                 update={
                     "status": RecommendationStatus.EXECUTED,
                     "approved_by": ApprovalSource.HUMAN,
@@ -275,27 +320,32 @@ class SimulationService:
                     "executed_at": now,
                 }
             )
-        else:
-            updated = recommendation.model_copy(
-                update={
-                    "status": RecommendationStatus.REJECTED_BY_VALIDATOR,
-                    "approved_by": ApprovalSource.HUMAN,
-                    "rejection_reason": result.reason,
-                    "reviewed_at": now,
-                }
-            )
-        self._recommendations.save(updated)
-        return updated
+        return recommendation.model_copy(
+            update={
+                "status": RecommendationStatus.REJECTED_BY_VALIDATOR,
+                "approved_by": ApprovalSource.HUMAN,
+                "rejection_reason": result.reason,
+                "reviewed_at": now,
+            }
+        )
 
     async def dismiss_recommendation(self, recommendation_id: str) -> Recommendation | None:
         recommendation = self._recommendations.get(recommendation_id)
         if recommendation is None:
             return None
-        if recommendation.status != RecommendationStatus.PENDING:
-            raise RecommendationAlreadyReviewed(recommendation_id, recommendation.status)
 
-        updated = recommendation.model_copy(
-            update={"status": RecommendationStatus.DISMISSED, "reviewed_at": datetime.now(UTC)}
-        )
-        self._recommendations.save(updated)
-        return updated
+        async with self._lock_for(recommendation.simulation_id):
+            recommendation = self._recommendations.get(recommendation_id)
+            if recommendation is None:
+                return None
+            if recommendation.status != RecommendationStatus.PENDING:
+                raise RecommendationAlreadyReviewed(recommendation_id, recommendation.status)
+
+            updated = recommendation.model_copy(
+                update={
+                    "status": RecommendationStatus.DISMISSED,
+                    "reviewed_at": datetime.now(UTC),
+                }
+            )
+            self._recommendations.save(updated)
+            return updated

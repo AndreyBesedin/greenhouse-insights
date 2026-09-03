@@ -159,6 +159,7 @@ function DashboardContent({
   const [busyRecommendationId, setBusyRecommendationId] = useState<string | null>(null)
 
   async function handleNextDay() {
+    if (isReviewBusy) return
     const result = await nextDay()
     if (result.blocked) {
       setConfirmDismissPending(true)
@@ -171,6 +172,7 @@ function DashboardContent({
   }
 
   async function handleConfirmDismissAndAdvance() {
+    if (isReviewBusy) return
     const result = await nextDay(true)
     if (!result.blocked) {
       setConfirmDismissPending(false)
@@ -197,6 +199,10 @@ function DashboardContent({
   )
   const [isSubmittingAction, setIsSubmittingAction] = useState(false)
   const [isApprovingAll, setIsApprovingAll] = useState(false)
+  // Advancing the day while a review action is still applying to the
+  // world would race it (the backend now also guards this with a lock,
+  // but disabling the trigger here avoids a pointless wait/confusion).
+  const isReviewBusy = busyRecommendationId !== null || isApprovingAll || isSubmittingAction
 
   async function handleApprove(recommendationId: string) {
     setBusyRecommendationId(recommendationId)
@@ -281,10 +287,11 @@ function DashboardContent({
             <button
               type="button"
               onClick={handleNextDay}
-              disabled={isAdvancing || isFinished}
+              disabled={isAdvancing || isFinished || isReviewBusy}
+              title={isReviewBusy ? 'Wait for the current review action to finish' : undefined}
               className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isAdvancing ? 'Advancing…' : 'Next day →'}
+              {isAdvancing ? 'Advancing…' : isReviewBusy ? 'Reviewing…' : 'Next day →'}
             </button>
           </div>
         </div>
@@ -322,7 +329,7 @@ function DashboardContent({
               <button
                 type="button"
                 onClick={handleConfirmDismissAndAdvance}
-                disabled={isAdvancing}
+                disabled={isAdvancing || isReviewBusy}
                 className="text-xs font-medium text-amber hover:underline disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Continue and dismiss remaining

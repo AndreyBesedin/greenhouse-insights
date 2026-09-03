@@ -244,6 +244,21 @@ class SimulationRunner:
         merely because a human approved it or an agent proposed it
         (docs/design/greenhouse_agentic_management_design.md section 19).
         """
+        return self.execute_recommendation_actions(simulation_id, day, [action])[0]
+
+    def execute_recommendation_actions(
+        self, simulation_id: str, day: int, actions: list[RequestedAction]
+    ) -> list[ActionResult]:
+        """Batch counterpart to execute_recommendation_action: validates
+        and applies every action against a single in-memory world, then
+        persists the resulting events and the final world state once,
+        instead of once per action. The single-action path above still
+        does exactly the same validation and execution per action - this
+        only removes the O(actions) world snapshot read/writes, which is
+        what made approving many recommendations at once slow for larger
+        greenhouses (get_latest/save round-trip the entire, potentially
+        large, world JSON blob every time).
+        """
         definition = self._simulations.get(simulation_id)
         if definition is None:
             raise LookupError(f"no simulation definition found for {simulation_id!r}")
@@ -255,20 +270,25 @@ class SimulationRunner:
         if world is None:
             raise LookupError(f"no world snapshot found for {definition.greenhouse_id!r}")
 
-        result = validate_action(world, action)
-        if not result.accepted:
-            return result
-
         timestamp = datetime.combine(definition.start_date, datetime.min.time(), tzinfo=UTC)
         timestamp += timedelta(days=day - 1)
-
         executor = self._resolve_executor(definition.action_executor)
-        world, event = executor.apply(world, action, config, day=day, timestamp=timestamp)
 
-        self._events.save_many([event])
-        self._worlds.save(world)
+        results: list[ActionResult] = []
+        events = []
+        for action in actions:
+            result = validate_action(world, action)
+            results.append(result)
+            if not result.accepted:
+                continue
+            world, event = executor.apply(world, action, config, day=day, timestamp=timestamp)
+            events.append(event)
 
-        return result
+        if events:
+            self._events.save_many(events)
+            self._worlds.save(world)
+
+        return results
 
     def refresh_day_state(self, simulation_id: str, day: int) -> None:
         """Re-derives and re-saves day N's GreenhouseState from its

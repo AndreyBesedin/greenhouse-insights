@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from datetime import UTC, date, datetime
 
 import pytest
@@ -27,6 +28,7 @@ from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from domain.recommendation import Recommendation
 from management.validation.actions import HarvestPlantAction, WaterPlantAction
 from simulation.definitions import SimulationDefinition
+from simulation.runner import SimulationRunner
 from simulation.scenarios import SCENARIO_REGISTRY
 from simulation.world_builder import initialize_world
 
@@ -347,35 +349,43 @@ def test_approve_recommendation_rejects_an_invalid_action_via_validator(engine: 
     assert result.executed_at is None
 
 
+def _manual_pending_recommendation(
+    recommendation_id: str, action: WaterPlantAction | HarvestPlantAction
+) -> Recommendation:
+    return Recommendation(
+        recommendation_id=recommendation_id,
+        simulation_id=_MANUAL_SIM_ID,
+        greenhouse_id=_MANUAL_GH_ID,
+        simulated_day=1,
+        plant_id=_MANUAL_PLANT_ID,
+        action=action,
+        source_policy=ManagementPolicyType.DETERMINISTIC,
+        reason="Soil moisture low.",
+        requested_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+
 def test_approve_all_pending_executes_every_pending_recommendation_for_the_day(
     engine: Engine,
 ) -> None:
-    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
-    _set_current_step(engine, 1)
-    _seed_world(engine, day=1)
+    _seed_manual(engine)
     repo = RecommendationRepository(engine)
     # Two different action kinds for the same plant/day - two WATER_PLANT
     # events for the same plant on the same day would collide on event_id
     # (simulation/actions.py derives it from greenhouse/day/plant/kind),
     # which a real policy never proposes twice in one run anyway.
-    repo.save(_pending_recommendation("rec_1", amount_ml=500))
     repo.save(
-        Recommendation(
-            recommendation_id="rec_2",
-            simulation_id="sim_test",
-            greenhouse_id="gh_test",
-            simulated_day=1,
-            plant_id=PLANT_ID,
-            action=HarvestPlantAction(plant_id=PLANT_ID),
-            source_policy=ManagementPolicyType.DETERMINISTIC,
-            reason="Ripe fruit ready.",
-            requested_at=datetime(2026, 1, 1, tzinfo=UTC),
+        _manual_pending_recommendation(
+            "rec_1", WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
         )
+    )
+    repo.save(
+        _manual_pending_recommendation("rec_2", HarvestPlantAction(plant_id=_MANUAL_PLANT_ID))
     )
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending("gh_test", 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
 
     results = asyncio.run(scenario())
 
@@ -388,16 +398,22 @@ def test_approve_all_pending_executes_every_pending_recommendation_for_the_day(
 
 
 def test_approve_all_pending_handles_a_mix_of_accepted_and_rejected(engine: Engine) -> None:
-    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
-    _set_current_step(engine, 1)
-    _seed_world(engine, day=1)
+    _seed_manual(engine)
     repo = RecommendationRepository(engine)
-    repo.save(_pending_recommendation("rec_1", amount_ml=500))
-    repo.save(_pending_recommendation("rec_2", amount_ml=0))
+    repo.save(
+        _manual_pending_recommendation(
+            "rec_1", WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
+        )
+    )
+    repo.save(
+        _manual_pending_recommendation(
+            "rec_2", WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=0)
+        )
+    )
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending("gh_test", 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
 
     results = asyncio.run(scenario())
     by_id = {r.recommendation_id: r for r in results}
@@ -410,13 +426,70 @@ def test_approve_all_pending_handles_a_mix_of_accepted_and_rejected(engine: Engi
 def test_approve_all_pending_returns_an_empty_list_when_nothing_is_pending(
     engine: Engine,
 ) -> None:
-    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
+    _seed_manual(engine)
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending("gh_test", 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
 
     assert asyncio.run(scenario()) == []
+
+
+def test_advance_one_day_waits_for_an_in_flight_approve_all(
+    engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression test for a real race: clicking Next Day while an
+    approve-all was still applying actions used to let the day advance
+    (and even propose tomorrow's recommendations) before the approval had
+    finished, corrupting provenance. The per-simulation lock in
+    SimulationService must make advance_one_day wait for an in-flight
+    approve_all_pending to fully finish before it does anything."""
+    _seed_manual(engine)
+    RecommendationRepository(engine).save(
+        _manual_pending_recommendation(
+            "rec_1", WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
+        )
+    )
+    service = SimulationService(engine)
+
+    release = threading.Event()
+    original = SimulationRunner.execute_recommendation_actions
+
+    def slow_execute_recommendation_actions(self, simulation_id, day, actions):  # type: ignore[no-untyped-def]
+        assert release.wait(timeout=2), "test setup did not release in time"
+        return original(self, simulation_id, day, actions)
+
+    monkeypatch.setattr(
+        SimulationRunner, "execute_recommendation_actions", slow_execute_recommendation_actions
+    )
+
+    order: list[str] = []
+
+    async def run_approve_all() -> None:
+        await service.approve_all_pending(_MANUAL_GH_ID, 1)
+        order.append("approve_all_done")
+
+    async def run_advance() -> None:
+        await asyncio.sleep(0.01)  # let approve-all acquire the lock first
+        await service.advance_one_day(_MANUAL_SIM_ID)
+        order.append("advance_done")
+
+    async def scenario() -> None:
+        approve_task = asyncio.create_task(run_approve_all())
+        advance_task = asyncio.create_task(run_advance())
+        await asyncio.sleep(0.05)  # let advance_one_day block on the lock too
+        release.set()
+        await asyncio.gather(approve_task, advance_task)
+
+    asyncio.run(scenario())
+
+    assert order == ["approve_all_done", "advance_done"]
+    rec_1 = RecommendationRepository(engine).get("rec_1")
+    assert rec_1 is not None
+    assert rec_1.status == RecommendationStatus.EXECUTED
+    definition = SimulationRepository(engine).get(_MANUAL_SIM_ID)
+    assert definition is not None
+    assert definition.current_step == 2
 
 
 def test_dismiss_recommendation_marks_it_dismissed_without_executing(engine: Engine) -> None:

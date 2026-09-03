@@ -254,6 +254,59 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
   })
 
+  it('disables next day while a single approval is still in flight', async () => {
+    const pending = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: {},
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pending]))
+      return mockGetImplementation(path)
+    })
+    let resolveApprove: (() => void) | null = null
+    mockedPost.mockImplementation((path: string) => {
+      if (path === '/recommendations/{recommendation_id}/approve') {
+        return new Promise((resolve) => {
+          resolveApprove = () =>
+            resolve(ok({ ...pending, status: 'EXECUTED', approved_by: 'HUMAN' }))
+        })
+      }
+      return Promise.resolve(ok(RUNNING_1))
+    })
+
+    renderDashboard()
+    const nextDayButton = await screen.findByRole('button', { name: 'Next day →' })
+    expect(nextDayButton).toBeEnabled()
+    const approveButton = await screen.findByRole('button', { name: 'Water 700 ml' })
+
+    await act(async () => {
+      fireEvent.click(approveButton)
+    })
+
+    expect(screen.getByRole('button', { name: 'Reviewing…' })).toBeDisabled()
+
+    await act(async () => {
+      resolveApprove?.()
+    })
+
+    expect(await screen.findByRole('button', { name: 'Next day →' })).toBeEnabled()
+  })
+
   it('approve all executes every pending recommendation in one click', async () => {
     const pendingA = {
       recommendation_id: 'rec_1',
