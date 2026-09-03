@@ -88,10 +88,28 @@ describe('useSimulationStatus', () => {
     })
 
     expect(mockedPost).toHaveBeenCalledWith('/simulations/{simulation_id}/next-day', {
-      params: { path: { simulation_id: 'sim_gh_002' } },
+      params: {
+        path: { simulation_id: 'sim_gh_002' },
+        query: { confirm_dismiss_remaining: false },
+      },
     })
     expect(result.current.status).toEqual(RUNNING_1)
     expect(result.current.isAdvancing).toBe(false)
+  })
+
+  it('nextDay reports blocked on a 409 without changing status', async () => {
+    mockedPost.mockResolvedValue({
+      data: undefined,
+      error: { detail: 'pending recommendations' },
+      response: new Response(null, { status: 409 }),
+    })
+
+    const { result } = renderHook(() => useSimulationStatus('sim_gh_002', NOT_STARTED))
+
+    const outcome = await act(async () => result.current.nextDay())
+
+    expect(outcome).toEqual({ blocked: true })
+    expect(result.current.status).toEqual(NOT_STARTED)
   })
 
   it('starts polling immediately when the initial status is already RUNNING', async () => {

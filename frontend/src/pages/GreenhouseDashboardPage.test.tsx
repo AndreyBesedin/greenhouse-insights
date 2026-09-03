@@ -85,6 +85,7 @@ function mockGetImplementation(path: string) {
     return Promise.resolve(ok(PLANT_DETAIL))
   if (path === '/greenhouses/{greenhouse_id}/plants/{plant_id}/history')
     return Promise.resolve(ok([]))
+  if (path === '/greenhouses/{greenhouse_id}/recommendations') return Promise.resolve(ok([]))
   throw new Error(`unexpected GET ${path}`)
 }
 
@@ -157,7 +158,10 @@ describe('GreenhouseDashboardPage', () => {
     })
 
     expect(mockedPost).toHaveBeenCalledWith('/simulations/{simulation_id}/next-day', {
-      params: { path: { simulation_id: 'sim_gh_001' } },
+      params: {
+        path: { simulation_id: 'sim_gh_001' },
+        query: { confirm_dismiss_remaining: false },
+      },
     })
     expect(screen.getByText('Day 1 / 28')).toBeInTheDocument()
     expect(screen.getByText('1 healthy | 0 monitor | 0 action required')).toBeInTheDocument()
@@ -204,5 +208,132 @@ describe('GreenhouseDashboardPage', () => {
 
     expect(screen.queryByText(/viewing day/i)).not.toBeInTheDocument()
     expect(await screen.findByText('0 healthy | 0 monitor | 1 action required')).toBeInTheDocument()
+  })
+
+  it('shows a pending recommendation and approving it marks it executed', async () => {
+    const pending = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: { soil_moisture_pct: 12 },
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pending]))
+      return mockGetImplementation(path)
+    })
+    mockedPost.mockResolvedValue(ok({ ...pending, status: 'EXECUTED', approved_by: 'HUMAN' }))
+
+    renderDashboard()
+
+    expect(await screen.findByText('plant_017 · Water')).toBeInTheDocument()
+    expect(screen.getByText('Soil moisture at 12%.')).toBeInTheDocument()
+    const approveButton = screen.getByRole('button', { name: 'Water 700 ml' })
+
+    await act(async () => {
+      fireEvent.click(approveButton)
+    })
+
+    expect(mockedPost).toHaveBeenCalledWith('/recommendations/{recommendation_id}/approve', {
+      params: { path: { recommendation_id: 'rec_1' } },
+    })
+    expect(await screen.findByText('Executed')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
+  })
+
+  it('recommendations are read-only when viewing a historical day', async () => {
+    const COMPLETED_DETAIL = {
+      ...DETAIL,
+      simulation: { ...DETAIL.simulation, status: 'COMPLETED', current_step: 28 },
+    } as const
+    const resolved = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 14,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'EXECUTED',
+      reason: 'Soil moisture at 12%.',
+      evidence: { soil_moisture_pct: 12 },
+      rejection_reason: null,
+      approved_by: 'HUMAN',
+      executed_by: 'SIMULATED_OPERATOR',
+      requested_at: '2026-01-14T00:00:00Z',
+      reviewed_at: '2026-01-14T00:00:01Z',
+      executed_at: '2026-01-14T00:00:01Z',
+    } as const
+
+    mockedGet.mockImplementation(
+      (path: string, options?: { params?: { query?: { day?: number } } }) => {
+        if (path === '/greenhouses/{greenhouse_id}') return Promise.resolve(ok(COMPLETED_DETAIL))
+        if (path === '/greenhouses/{greenhouse_id}/state') return Promise.resolve(ok(STATE_DAY_1))
+        if (path === '/greenhouses/{greenhouse_id}/recommendations') {
+          const day = options?.params?.query?.day
+          return Promise.resolve(ok(day === 14 ? [resolved] : []))
+        }
+        return mockGetImplementation(path)
+      },
+    )
+
+    renderDashboard()
+    await screen.findByText('Day 28 / 28')
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Day'), { target: { value: '14' } })
+    })
+
+    expect(await screen.findByText('plant_017 · Water')).toBeInTheDocument()
+    expect(screen.getByText('Executed')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+  })
+
+  it('next day shows a confirm prompt when recommendations are still pending, and proceeds when confirmed', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+    mockedPost.mockResolvedValueOnce({
+      data: undefined,
+      error: { detail: '1 pending recommendation(s) must be reviewed before advancing' },
+      response: new Response(null, { status: 409 }),
+    })
+    mockedPost.mockResolvedValueOnce(ok(RUNNING_1))
+
+    renderDashboard()
+    const nextDayButton = await screen.findByRole('button', { name: 'Next day →' })
+
+    await act(async () => {
+      fireEvent.click(nextDayButton)
+    })
+
+    const confirmButton = await screen.findByRole('button', {
+      name: 'Continue and dismiss remaining',
+    })
+
+    await act(async () => {
+      fireEvent.click(confirmButton)
+    })
+
+    expect(mockedPost).toHaveBeenNthCalledWith(2, '/simulations/{simulation_id}/next-day', {
+      params: {
+        path: { simulation_id: 'sim_gh_001' },
+        query: { confirm_dismiss_remaining: true },
+      },
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Continue and dismiss remaining' }),
+    ).not.toBeInTheDocument()
   })
 })

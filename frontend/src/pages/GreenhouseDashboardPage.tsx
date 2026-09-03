@@ -5,10 +5,12 @@ import { apiClient } from '../api/client'
 import { AppShell } from '../components/AppShell'
 import { DayNavigator } from '../components/DayNavigator'
 import { GreenhouseMap } from '../components/GreenhouseMap'
+import { ManagementPanel } from '../components/ManagementPanel'
 import { PlantDetailPanel } from '../components/PlantDetailPanel'
 import { useGreenhouseState } from '../hooks/useGreenhouseState'
 import { usePlantDetail } from '../hooks/usePlantDetail'
 import { usePlantHistory } from '../hooks/usePlantHistory'
+import { useRecommendations } from '../hooks/useRecommendations'
 import { useSimulationStatus } from '../hooks/useSimulationStatus'
 import { formatCropLabel, formatMass } from '../lib/format'
 import { cn } from '../lib/utils'
@@ -156,17 +158,52 @@ function DashboardContent({
   const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null)
   const [manualViewingDay, setManualViewingDay] = useState<number | null>(null)
   const viewingDay = manualViewingDay ?? status.current_step
+  const isViewingCurrentDay = viewingDay === status.current_step
+
+  const [confirmDismissPending, setConfirmDismissPending] = useState(false)
+  const [stateRefreshToken, setStateRefreshToken] = useState(0)
+  const [busyRecommendationId, setBusyRecommendationId] = useState<string | null>(null)
 
   async function handleNextDay() {
-    await nextDay()
+    const result = await nextDay()
+    if (result.blocked) {
+      setConfirmDismissPending(true)
+      return
+    }
+    setConfirmDismissPending(false)
     // Advancing is an action on "today" - snap the view back to the new
     // current day even if the operator was browsing history.
     setManualViewingDay(null)
   }
 
-  const state = useGreenhouseState(greenhouse.greenhouse_id, viewingDay)
+  async function handleConfirmDismissAndAdvance() {
+    const result = await nextDay(true)
+    if (!result.blocked) {
+      setConfirmDismissPending(false)
+      setManualViewingDay(null)
+    }
+  }
+
+  const state = useGreenhouseState(greenhouse.greenhouse_id, viewingDay, stateRefreshToken)
   const plantDetail = usePlantDetail(greenhouse.greenhouse_id, selectedPlantId, viewingDay)
   const plantHistory = usePlantHistory(greenhouse.greenhouse_id, selectedPlantId, viewingDay)
+  const { recommendations, approve, dismiss } = useRecommendations(
+    greenhouse.greenhouse_id,
+    viewingDay,
+  )
+
+  async function handleApprove(recommendationId: string) {
+    setBusyRecommendationId(recommendationId)
+    await approve(recommendationId)
+    setBusyRecommendationId(null)
+    setStateRefreshToken((token) => token + 1)
+  }
+
+  async function handleDismiss(recommendationId: string) {
+    setBusyRecommendationId(recommendationId)
+    await dismiss(recommendationId)
+    setBusyRecommendationId(null)
+  }
 
   const healthByPlantId = new Map<string, PlantHealth>(
     (state?.plant_states ?? []).map((plantState) => [plantState.plant_id, plantState.health]),
@@ -230,6 +267,31 @@ function DashboardContent({
           />
         </div>
 
+        {confirmDismissPending && (
+          <div className="mt-3 flex items-center justify-between rounded-md bg-amber/[0.08] px-4 py-2.5 outline-1 -outline-offset-1 outline-amber/30">
+            <span className="text-xs text-paper">
+              This day still has recommendations awaiting review.
+            </span>
+            <div className="flex shrink-0 gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDismissPending(false)}
+                className="text-xs text-mist hover:text-paper"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDismissAndAdvance}
+                disabled={isAdvancing}
+                className="text-xs font-medium text-amber hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Continue and dismiss remaining
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
           <Kpi
             label="Plants"
@@ -250,6 +312,18 @@ function DashboardContent({
             hint="cumulative this cycle"
           />
         </div>
+
+        {status.management_policy !== 'NONE' && (
+          <div className="mt-4">
+            <ManagementPanel
+              recommendations={recommendations}
+              interactive={isViewingCurrentDay}
+              busyId={busyRecommendationId}
+              onApprove={handleApprove}
+              onDismiss={handleDismiss}
+            />
+          </div>
+        )}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
           <section className="rounded-lg bg-ink-850 p-5 outline-1 -outline-offset-1 outline-white/[0.06]">

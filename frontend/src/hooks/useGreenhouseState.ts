@@ -5,7 +5,14 @@ import type { components } from '../../generated/schema'
 
 type GreenhouseState = components['schemas']['GreenhouseState']
 
-export function useGreenhouseState(greenhouseId: string, day: number): GreenhouseState | null {
+export function useGreenhouseState(
+  greenhouseId: string,
+  day: number,
+  // Bump this (e.g. after approving a recommendation, which can change this
+  // day's state) to force a refetch without waiting for greenhouseId/day to
+  // change.
+  refreshToken: number = 0,
+): GreenhouseState | null {
   const [state, setState] = useState<GreenhouseState | null>(null)
 
   useEffect(() => {
@@ -20,7 +27,7 @@ export function useGreenhouseState(greenhouseId: string, day: number): Greenhous
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, day])
+  }, [greenhouseId, day, refreshToken])
 
   return state
 }
