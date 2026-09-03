@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
@@ -7,6 +7,7 @@ import type { components } from '../../generated/schema'
 
 type SourceType = components['schemas']['SourceType']
 type ManagementPolicyType = components['schemas']['ManagementPolicyType']
+type AgentProviderStatus = components['schemas']['AgentProviderStatus']
 
 const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: 'SIMULATION', label: 'Simulation' },
@@ -34,8 +35,19 @@ export function NewGreenhousePage() {
   const [managementPolicy, setManagementPolicy] = useState<ManagementPolicyType>('DETERMINISTIC')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [agentProviderStatus, setAgentProviderStatus] = useState<AgentProviderStatus | null>(null)
 
   const isSimulation = sourceType === 'SIMULATION'
+
+  useEffect(() => {
+    let cancelled = false
+    apiClient.GET('/system/agent-provider').then(({ data }) => {
+      if (!cancelled) setAgentProviderStatus(data ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -221,13 +233,30 @@ export function NewGreenhousePage() {
                   </option>
                 ))}
               </select>
-              {managementPolicy === 'AGENTIC' && (
+              {managementPolicy === 'AGENTIC' && agentProviderStatus?.status === 'CONFIGURED' && (
                 <p className="mt-1.5 text-[11px] text-mist">
-                  Agentic currently runs a scripted stand-in policy until a real LLM provider is
-                  configured — the tool-calling and validation pipeline is real, the decisions are
-                  not yet made by a model.
+                  Agentic is configured to use a real model ({agentProviderStatus.model}) via the
+                  Anthropic API — decisions are made by that model, and validated the same way as
+                  any other policy before anything executes.
                 </p>
               )}
+              {managementPolicy === 'AGENTIC' && agentProviderStatus?.status === 'FAKE' && (
+                <p className="mt-1.5 text-[11px] text-terra">
+                  No real language model is configured — Agentic will run a scripted stand-in policy
+                  instead of an actual model. The tool-calling and validation pipeline is real
+                  either way. Please contact the application admin, or see the README (
+                  GREENHOUSE_AGENT_PROVIDER / ANTHROPIC_API_KEY) to configure a real provider.
+                </p>
+              )}
+              {managementPolicy === 'AGENTIC' &&
+                agentProviderStatus?.status === 'MISCONFIGURED' && (
+                  <p className="mt-1.5 text-[11px] text-terra">
+                    {agentProviderStatus.detail
+                      ? `Agentic is misconfigured: ${agentProviderStatus.detail} `
+                      : 'Agentic is misconfigured. '}
+                    Please contact the application admin, or see the README to fix this.
+                  </p>
+                )}
             </div>
           )}
 

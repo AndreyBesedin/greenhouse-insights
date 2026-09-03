@@ -1,5 +1,5 @@
 import os
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
@@ -148,3 +148,41 @@ def build_default_provider() -> AgentModelProvider:
     if provider_name != "fake":
         raise ValueError(f"unknown GREENHOUSE_AGENT_PROVIDER: {provider_name!r}")
     return FakeAgentModelProvider()
+
+
+class AgentProviderStatus(BaseModel):
+    """What build_default_provider() would currently select, for the
+    frontend to show an honest status instead of a static hint that never
+    reflected whether a real provider was actually configured."""
+
+    status: Literal["FAKE", "CONFIGURED", "MISCONFIGURED"]
+    provider: str
+    model: str | None = None
+    detail: str | None = None
+
+
+def describe_agent_provider() -> AgentProviderStatus:
+    """Reports the same GREENHOUSE_AGENT_PROVIDER selection
+    build_default_provider() would make, without constructing the provider -
+    constructing AnthropicAgentModelProvider builds a real Anthropic API
+    client and can raise if ANTHROPIC_API_KEY is missing, which this must
+    not do just to report status."""
+    provider_name = os.environ.get("GREENHOUSE_AGENT_PROVIDER", "fake")
+    if provider_name == "fake":
+        return AgentProviderStatus(status="FAKE", provider=provider_name)
+    if provider_name == "anthropic":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return AgentProviderStatus(
+                status="MISCONFIGURED",
+                provider=provider_name,
+                detail="GREENHOUSE_AGENT_PROVIDER=anthropic but ANTHROPIC_API_KEY is not set.",
+            )
+        from management.agent.providers.anthropic_provider import DEFAULT_MODEL
+
+        model = os.environ.get("GREENHOUSE_AGENT_MODEL", DEFAULT_MODEL)
+        return AgentProviderStatus(status="CONFIGURED", provider=provider_name, model=model)
+    return AgentProviderStatus(
+        status="MISCONFIGURED",
+        provider=provider_name,
+        detail=f"unknown GREENHOUSE_AGENT_PROVIDER: {provider_name!r}",
+    )

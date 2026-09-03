@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from application.api.routers import greenhouses, recommendations, simulations
+from application.api.routers import greenhouses, recommendations, simulations, system
 from application.bootstrap import bootstrap_greenhouses
 from application.db import create_engine_and_tables
 from application.simulation_service import SimulationService
@@ -53,3 +53,4 @@ app.add_middleware(
 app.include_router(greenhouses.router)
 app.include_router(simulations.router)
 app.include_router(recommendations.router)
+app.include_router(system.router)

@@ -22,7 +22,7 @@ from management.context import GreenhouseManagementContext
 from management.validation.actions import RequestedAction
 from simulation.scenarios.config import ScenarioConfig
 
-_DEFAULT_MODEL = "claude-sonnet-5"
+DEFAULT_MODEL = "claude-sonnet-5"
 _DEFAULT_MAX_TOKENS = 1536
 _DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
 _DEFAULT_MAX_RETRIES = 2
@@ -138,7 +138,7 @@ class AnthropicAgentModelProvider:
         # key or network access, matching the type: ignore already at the call
         # site for the same reason.
         self._client = client if client is not None else _build_default_client()
-        self._model = model or os.environ.get("GREENHOUSE_AGENT_MODEL", _DEFAULT_MODEL)
+        self._model = model or os.environ.get("GREENHOUSE_AGENT_MODEL", DEFAULT_MODEL)
         self._max_tokens = max_tokens or int(
             os.environ.get("GREENHOUSE_AGENT_MAX_TOKENS", _DEFAULT_MAX_TOKENS)
         )
