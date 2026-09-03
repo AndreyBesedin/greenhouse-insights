@@ -55,12 +55,12 @@ class SimulationRunner:
             if next_day > definition.total_steps:
                 return
 
-            await asyncio.to_thread(self._run_one_day, simulation_id, next_day)
+            await asyncio.to_thread(self.run_one_day, simulation_id, next_day)
 
             if next_day < definition.total_steps:
                 await asyncio.sleep(self._step_delay_seconds)
 
-    def _run_one_day(self, simulation_id: str, day: int) -> None:
+    def run_one_day(self, simulation_id: str, day: int) -> None:
         definition = self._simulations.get(simulation_id)
         if definition is None:
             raise LookupError(f"no simulation definition found for {simulation_id!r}")
