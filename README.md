@@ -5,6 +5,83 @@ A greenhouse intelligence and operational support platform POC. See
 the full product scope, `docs/design/` for all design documents, and
 `DEVELOPMENT_GUIDELINES.md` for how this project is built.
 
+## What this demonstrates
+
+This POC explores how an AI system can make operational recommendations from
+imperfect longitudinal data while keeping actions observable, constrained and
+evaluable:
+
+```text
+Hidden simulated world
+        ↓
+Noisy observations
+        ↓
+Observable plant state
+        ↓
+Agent + read tools
+        ↓
+Recommendations
+        ↓
+Human approval / dismissal
+        ↓
+Deterministic validator
+        ↓
+Action executor
+        ↓
+Next simulated day
+        ↓
+Evaluation against hidden truth
+```
+
+The agent only ever sees noisy observations, never the hidden world; every
+action it proposes still passes through a human and a deterministic
+validator before it can touch that world; and because the hidden world stays
+available to the eval harness (never to the agent), decision quality is
+something you can measure, not just eyeball.
+
+**What this deliberately does not build:** production agronomic accuracy,
+detailed spatial climate modelling, disease simulation, additional crops,
+robotics or robot planning, autonomous climate control, multi-agent
+orchestration, a generic chatbot / natural-language analytics layer,
+production authentication, or a from-scratch visual redesign. All valid
+future directions; none of them change the engineering idea being
+demonstrated here.
+
+## Demo walkthrough
+
+The fastest way to see the whole loop, once the backend and frontend are
+both running (see **Running locally** below - no seeding needed, every
+greenhouse mentioned here is created automatically on first backend
+startup):
+
+1. Open the frontend and pick **Agentic Demo Greenhouse** (badged
+   "Recommended demo") - 6 plants, 15 simulated days, `AGENTIC` policy,
+   tuned so it reaches every action type within about 9 days instead of the
+   ~30-40 `Simulation Greenhouse 001` / `Longitudinal Plant Demo` need (see
+   `backend/simulation/scenarios/greenhouse_demo.py`).
+2. Click **Next day →**. The simulator advances one hidden day and the agent
+   inspects the noisy, observable-only result - day 1 typically proposes a
+   few `SCHEDULE_INSPECTION` recommendations for ambiguous soil-moisture
+   readings.
+3. Open a recommendation card to see the evidence/reason behind it, then
+   **Approve** or **Dismiss** it. Approving runs the same deterministic
+   validator any action goes through, then executes and refreshes the
+   KPIs/plant state - nothing the agent proposes touches the world until a
+   human approves it.
+4. Keep clicking **Next day →**. Watering shows up almost immediately,
+   lowering by around day 7, harvesting by around day 9.
+5. Use the day slider to browse a past day - it is read-only (no
+   Approve/Dismiss), since only the current day accepts review.
+6. Run `make backend-eval` to print the agent decision-quality scorecard -
+   10 ground-truth cases graded against expected outcomes the agent never
+   sees.
+
+Steps 2-4 run against `FakeAgentModelProvider` (scripted, free, deterministic)
+by default. Set `GREENHOUSE_AGENT_PROVIDER=anthropic` and an
+`ANTHROPIC_API_KEY` to run the same flow against a real Claude model instead
+- the recommendation cards, validator, and provenance trail are unchanged
+either way.
+
 ## Status
 
 **Milestone 1 (Backbone) — complete.** The app supports the full flow: select
