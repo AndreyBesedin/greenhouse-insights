@@ -18,6 +18,16 @@ async def run_simulation(
     return _to_summary(definition)
 
 
+@router.post("/{simulation_id}/next-day")
+async def advance_simulation_one_day(
+    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+) -> SimulationSummary:
+    definition = await service.advance_one_day(simulation_id)
+    if definition is None:
+        raise HTTPException(status_code=404, detail="simulation not found")
+    return _to_summary(definition)
+
+
 @router.get("/{simulation_id}/status")
 def get_simulation_status(
     simulation_id: str, service: SimulationService = Depends(get_simulation_service)

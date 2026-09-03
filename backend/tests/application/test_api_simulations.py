@@ -96,3 +96,27 @@ def test_get_status_returns_404_for_unknown_simulation(client: TestClient) -> No
     response = client.get("/simulations/does_not_exist/status")
 
     assert response.status_code == 404
+
+
+def test_next_day_advances_exactly_one_step(client: TestClient) -> None:
+    response = client.post("/simulations/sim_test/next-day")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "RUNNING"
+    assert body["current_step"] == 1
+
+
+def test_next_day_called_repeatedly_stops_at_each_day(client: TestClient) -> None:
+    first = client.post("/simulations/sim_test/next-day").json()
+    second = client.post("/simulations/sim_test/next-day").json()
+
+    assert first["current_step"] == 1
+    assert second["current_step"] == 2
+    assert second["status"] == "COMPLETED"
+
+
+def test_next_day_returns_404_for_unknown_simulation(client: TestClient) -> None:
+    response = client.post("/simulations/does_not_exist/next-day")
+
+    assert response.status_code == 404

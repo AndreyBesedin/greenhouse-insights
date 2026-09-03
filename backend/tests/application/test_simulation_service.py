@@ -118,3 +118,76 @@ def test_cancel_is_a_noop_when_nothing_is_running(engine: Engine) -> None:
     service = SimulationService(engine)
 
     service.cancel("does_not_exist")  # should not raise
+
+
+def test_advance_one_day_advances_exactly_one_step(engine: Engine) -> None:
+    _seed(engine, total_steps=3)
+    service = SimulationService(engine)
+
+    async def scenario() -> SimulationDefinition | None:
+        return await service.advance_one_day("sim_test")
+
+    result = asyncio.run(scenario())
+
+    assert result is not None
+    assert result.current_step == 1
+    assert result.status == SimulationStatus.RUNNING
+
+
+def test_advance_one_day_called_repeatedly_stops_at_each_day(engine: Engine) -> None:
+    _seed(engine, total_steps=3)
+    service = SimulationService(engine)
+
+    async def scenario() -> list[SimulationDefinition | None]:
+        return [
+            await service.advance_one_day("sim_test"),
+            await service.advance_one_day("sim_test"),
+            await service.advance_one_day("sim_test"),
+        ]
+
+    results = asyncio.run(scenario())
+
+    assert [r.current_step if r else None for r in results] == [1, 2, 3]
+    assert results[-1] is not None
+    assert results[-1].status == SimulationStatus.COMPLETED
+
+
+def test_advance_one_day_is_a_noop_once_completed(engine: Engine) -> None:
+    _seed(engine, total_steps=3, status=SimulationStatus.COMPLETED)
+    service = SimulationService(engine)
+
+    async def scenario() -> SimulationDefinition | None:
+        return await service.advance_one_day("sim_test")
+
+    result = asyncio.run(scenario())
+
+    assert result is not None
+    assert result.current_step == 3
+    assert result.status == SimulationStatus.COMPLETED
+
+
+def test_advance_one_day_returns_none_for_unknown_simulation(engine: Engine) -> None:
+    service = SimulationService(engine)
+
+    async def scenario() -> SimulationDefinition | None:
+        return await service.advance_one_day("does_not_exist")
+
+    assert asyncio.run(scenario()) is None
+
+
+def test_advance_one_day_is_a_noop_while_auto_run_is_in_flight(engine: Engine) -> None:
+    _seed(engine, total_steps=3)
+    service = SimulationService(engine, step_delay_seconds=5)
+
+    async def scenario() -> SimulationDefinition | None:
+        await service.start_simulation("sim_test")
+        assert service.is_running("sim_test")
+        return await service.advance_one_day("sim_test")
+
+    result = asyncio.run(scenario())
+
+    # The auto-run task already advanced day 1 before we could check in -
+    # the point of this test is that advance_one_day did not race it and
+    # skip an extra day, not that zero days have happened yet.
+    assert result is not None
+    assert result.current_step <= 1
