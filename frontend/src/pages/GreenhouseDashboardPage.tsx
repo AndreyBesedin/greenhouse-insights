@@ -13,6 +13,7 @@ import { usePlantHistory } from '../hooks/usePlantHistory'
 import { useRecommendations } from '../hooks/useRecommendations'
 import { useSimulationStatus } from '../hooks/useSimulationStatus'
 import { formatCropLabel, formatMass } from '../lib/format'
+import { MANAGEMENT_POLICY_LABEL } from '../lib/managementPolicy'
 import { cn } from '../lib/utils'
 import type { components } from '../../generated/schema'
 
@@ -20,19 +21,12 @@ type GreenhouseDetail = components['schemas']['GreenhouseDetail']
 type SimulationSummary = components['schemas']['SimulationSummary']
 type PlantHealth = components['schemas']['PlantState']['health']
 type SimulationStatus = components['schemas']['SimulationStatus']
-type ManagementPolicyType = components['schemas']['ManagementPolicyType']
 
 const STATUS_META: Record<SimulationStatus, { label: string; dotCls: string }> = {
   NOT_STARTED: { label: 'Not started', dotCls: 'bg-amber' },
   RUNNING: { label: 'Running', dotCls: 'bg-brand' },
   COMPLETED: { label: 'Simulation completed', dotCls: 'bg-brand' },
   FAILED: { label: 'Failed', dotCls: 'bg-terra' },
-}
-
-const MANAGEMENT_POLICY_META: Record<ManagementPolicyType, string> = {
-  NONE: 'Manual',
-  DETERMINISTIC: 'Deterministic autopilot',
-  AGENTIC: 'Agentic (scripted stand-in)',
 }
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -233,7 +227,7 @@ function DashboardContent({
                 </span>
               </span>
               <span className="inline-flex items-center rounded-full bg-ink-800 px-3 py-1 text-xs text-mist outline-1 -outline-offset-1 outline-white/[0.07]">
-                {MANAGEMENT_POLICY_META[status.management_policy]}
+                {MANAGEMENT_POLICY_LABEL[status.management_policy]}
               </span>
             </div>
             <p className="mt-2 text-xs text-mist">

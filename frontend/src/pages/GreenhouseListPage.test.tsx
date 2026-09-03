@@ -24,6 +24,7 @@ const GREENHOUSES = [
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 28,
+    management_policy: 'DETERMINISTIC',
   },
   {
     greenhouse_id: 'gh_002',
@@ -35,6 +36,19 @@ const GREENHOUSES = [
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 40,
+    management_policy: 'DETERMINISTIC',
+  },
+  {
+    greenhouse_id: 'gh_demo',
+    name: 'Agentic Demo Greenhouse',
+    description: 'Recommended walkthrough greenhouse',
+    source_type: 'SIMULATION',
+    crop: 'cherry_tomato',
+    plant_count: 6,
+    status: 'NOT_STARTED',
+    current_step: 0,
+    total_steps: 15,
+    management_policy: 'AGENTIC',
   },
 ]
 
@@ -60,6 +74,14 @@ describe('GreenhouseListPage', () => {
     expect(screen.getByText('Longitudinal Plant Demo')).toBeInTheDocument()
     expect(screen.getByText(/40 plants/)).toBeInTheDocument()
     expect(screen.getByText(/28 simulated days/)).toBeInTheDocument()
+  })
+
+  it('badges the agentic greenhouse as the recommended demo', async () => {
+    renderList()
+
+    expect(await screen.findByText('Agentic Demo Greenhouse')).toBeInTheDocument()
+    expect(screen.getByText('Recommended demo')).toBeInTheDocument()
+    expect(screen.getByText(/Agentic \(scripted stand-in\)/)).toBeInTheDocument()
   })
 
   it('asks for confirmation before deleting, and cancel backs out without calling the API', async () => {

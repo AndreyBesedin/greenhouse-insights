@@ -47,4 +47,5 @@ def _simulation_definition_from_config(config: ScenarioConfig) -> SimulationDefi
         duration_days=config.duration_days,
         random_seed=config.random_seed,
         total_steps=config.duration_days,
+        management_policy=config.management_policy,
     )

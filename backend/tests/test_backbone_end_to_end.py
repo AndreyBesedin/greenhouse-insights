@@ -46,9 +46,9 @@ def _run_to_completion(client: TestClient, simulation_id: str, *, total_steps: i
 
 
 def test_backbone_flow_across_both_poc_greenhouses(client: TestClient) -> None:
-    # 1. Greenhouse selection screen lists both configured greenhouses, NOT_STARTED.
+    # 1. Greenhouse selection screen lists every configured greenhouse, NOT_STARTED.
     listed = client.get("/greenhouses").json()
-    assert {item["greenhouse_id"] for item in listed} == {"gh_001", "gh_002"}
+    assert {item["greenhouse_id"] for item in listed} == {"gh_001", "gh_002", "gh_demo"}
     assert all(item["status"] == "NOT_STARTED" for item in listed)
 
     # 2. Open GH002 (the small, config-driven demo greenhouse) at Day 0.

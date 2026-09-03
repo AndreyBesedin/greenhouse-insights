@@ -25,12 +25,12 @@ def client(engine: Engine) -> Iterator[TestClient]:
     app.dependency_overrides.clear()
 
 
-def test_list_greenhouses_returns_both_seeded_greenhouses(client: TestClient) -> None:
+def test_list_greenhouses_returns_all_seeded_greenhouses(client: TestClient) -> None:
     response = client.get("/greenhouses")
 
     assert response.status_code == 200
     body = response.json()
-    assert {item["greenhouse_id"] for item in body} == {"gh_001", "gh_002"}
+    assert {item["greenhouse_id"] for item in body} == {"gh_001", "gh_002", "gh_demo"}
     assert all(item["status"] == "NOT_STARTED" for item in body)
 
 
@@ -286,7 +286,7 @@ def test_delete_greenhouse_removes_it_and_returns_204(client: TestClient) -> Non
     assert response.status_code == 204
     assert client.get("/greenhouses/gh_001").status_code == 404
     remaining = {item["greenhouse_id"] for item in client.get("/greenhouses").json()}
-    assert remaining == {"gh_002"}
+    assert remaining == {"gh_002", "gh_demo"}
 
 
 def test_delete_greenhouse_returns_404_for_unknown_greenhouse(client: TestClient) -> None:

@@ -2,6 +2,8 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from domain.enums import ManagementPolicyType
+
 
 class ScenarioConfig(BaseModel):
     greenhouse_id: str
@@ -13,6 +15,10 @@ class ScenarioConfig(BaseModel):
     start_date: date
     duration_days: int
     random_seed: int
+    # Which policy the bootstrapped demo greenhouse for this scenario runs
+    # under (backend/application/bootstrap.py) - defaults to DETERMINISTIC
+    # so gh_001/gh_002 are unaffected.
+    management_policy: ManagementPolicyType = ManagementPolicyType.DETERMINISTIC
 
     # Environment: bounds the smooth day-to-day drift stays within.
     air_temperature_bounds: tuple[float, float] = (18.0, 32.0)

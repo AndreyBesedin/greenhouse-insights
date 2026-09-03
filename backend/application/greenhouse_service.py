@@ -32,6 +32,7 @@ class GreenhouseListItem(BaseModel):
     status: SimulationStatus | None
     current_step: int | None
     total_steps: int | None
+    management_policy: ManagementPolicyType | None
 
 
 class SimulationSummary(BaseModel):
@@ -286,4 +287,5 @@ def _list_item(
         status=simulation.status if simulation is not None else None,
         current_step=simulation.current_step if simulation is not None else None,
         total_steps=simulation.total_steps if simulation is not None else None,
+        management_policy=simulation.management_policy if simulation is not None else None,
     )

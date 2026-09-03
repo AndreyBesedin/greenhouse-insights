@@ -354,6 +354,7 @@ export interface components {
             current_step: number | null;
             /** Total Steps */
             total_steps: number | null;
+            management_policy: components["schemas"]["ManagementPolicyType"] | null;
         };
         /** GreenhouseState */
         GreenhouseState: {

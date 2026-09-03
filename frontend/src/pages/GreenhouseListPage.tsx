@@ -7,6 +7,7 @@ import { CropIcon } from '../components/CropIcon'
 import type { components } from '../../generated/schema'
 import { cropIconVariant } from '../lib/crop'
 import { formatCropLabel } from '../lib/format'
+import { MANAGEMENT_POLICY_LABEL } from '../lib/managementPolicy'
 import { cn } from '../lib/utils'
 
 type GreenhouseListItem = components['schemas']['GreenhouseListItem']
@@ -53,10 +54,20 @@ function GreenhouseCard({
             <CropIcon crop={cropIconVariant(greenhouse.crop)} size="md" />
           </span>
           <div>
-            <div className="font-display text-base font-medium">{greenhouse.name}</div>
+            <div className="flex items-center gap-2">
+              <div className="font-display text-base font-medium">{greenhouse.name}</div>
+              {greenhouse.management_policy === 'AGENTIC' && (
+                <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand outline-1 -outline-offset-1 outline-brand/30">
+                  Recommended demo
+                </span>
+              )}
+            </div>
             <div className="text-xs text-mist">
               {formatCropLabel(greenhouse.crop)} · {greenhouse.plant_count.toLocaleString()} plants
               {hasSimulation ? ` · ${totalSteps} simulated days` : ''}
+              {greenhouse.management_policy
+                ? ` · ${MANAGEMENT_POLICY_LABEL[greenhouse.management_policy]}`
+                : ''}
             </div>
           </div>
         </div>

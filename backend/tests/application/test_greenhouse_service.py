@@ -32,13 +32,13 @@ from management.validation.actions import WaterPlantAction
 from simulation.world_builder import initialize_world
 
 
-def test_list_greenhouses_returns_both_seeded_greenhouses(engine: Engine) -> None:
+def test_list_greenhouses_returns_all_seeded_greenhouses(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
     items = service.list_greenhouses()
 
-    assert {item.greenhouse_id for item in items} == {"gh_001", "gh_002"}
+    assert {item.greenhouse_id for item in items} == {"gh_001", "gh_002", "gh_demo"}
 
 
 def test_list_greenhouses_reports_plant_count_crop_and_not_started_status(
