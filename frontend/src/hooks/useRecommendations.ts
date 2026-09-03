@@ -53,5 +53,21 @@ export function useRecommendations(greenhouseId: string, day: number) {
     setRecommendations((current) => [...(current ?? []), recommendation])
   }
 
-  return { recommendations, approve, dismiss, add }
+  async function approveAll() {
+    const { data } = await apiClient.POST(
+      '/greenhouses/{greenhouse_id}/recommendations/approve-all',
+      {
+        params: { path: { greenhouse_id: greenhouseId }, query: { day } },
+      },
+    )
+    if (data) {
+      const byId = new Map(data.map((r) => [r.recommendation_id, r]))
+      setRecommendations((current) =>
+        (current ?? []).map((r) => byId.get(r.recommendation_id) ?? r),
+      )
+    }
+    return data
+  }
+
+  return { recommendations, approve, dismiss, add, approveAll }
 }

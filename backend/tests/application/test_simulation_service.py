@@ -25,7 +25,7 @@ from domain.enums import (
 )
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from domain.recommendation import Recommendation
-from management.validation.actions import WaterPlantAction
+from management.validation.actions import HarvestPlantAction, WaterPlantAction
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios import SCENARIO_REGISTRY
 from simulation.world_builder import initialize_world
@@ -345,6 +345,78 @@ def test_approve_recommendation_rejects_an_invalid_action_via_validator(engine: 
     assert result.approved_by == ApprovalSource.HUMAN
     assert result.rejection_reason is not None
     assert result.executed_at is None
+
+
+def test_approve_all_pending_executes_every_pending_recommendation_for_the_day(
+    engine: Engine,
+) -> None:
+    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
+    _set_current_step(engine, 1)
+    _seed_world(engine, day=1)
+    repo = RecommendationRepository(engine)
+    # Two different action kinds for the same plant/day - two WATER_PLANT
+    # events for the same plant on the same day would collide on event_id
+    # (simulation/actions.py derives it from greenhouse/day/plant/kind),
+    # which a real policy never proposes twice in one run anyway.
+    repo.save(_pending_recommendation("rec_1", amount_ml=500))
+    repo.save(
+        Recommendation(
+            recommendation_id="rec_2",
+            simulation_id="sim_test",
+            greenhouse_id="gh_test",
+            simulated_day=1,
+            plant_id=PLANT_ID,
+            action=HarvestPlantAction(plant_id=PLANT_ID),
+            source_policy=ManagementPolicyType.DETERMINISTIC,
+            reason="Ripe fruit ready.",
+            requested_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    service = SimulationService(engine)
+
+    async def scenario() -> list[Recommendation]:
+        return await service.approve_all_pending("gh_test", 1)
+
+    results = asyncio.run(scenario())
+
+    assert {r.recommendation_id for r in results} == {"rec_1", "rec_2"}
+    assert all(r.status == RecommendationStatus.EXECUTED for r in results)
+    assert all(r.approved_by == ApprovalSource.HUMAN for r in results)
+    persisted = repo.get("rec_1")
+    assert persisted is not None
+    assert persisted.status == RecommendationStatus.EXECUTED
+
+
+def test_approve_all_pending_handles_a_mix_of_accepted_and_rejected(engine: Engine) -> None:
+    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
+    _set_current_step(engine, 1)
+    _seed_world(engine, day=1)
+    repo = RecommendationRepository(engine)
+    repo.save(_pending_recommendation("rec_1", amount_ml=500))
+    repo.save(_pending_recommendation("rec_2", amount_ml=0))
+    service = SimulationService(engine)
+
+    async def scenario() -> list[Recommendation]:
+        return await service.approve_all_pending("gh_test", 1)
+
+    results = asyncio.run(scenario())
+    by_id = {r.recommendation_id: r for r in results}
+
+    assert by_id["rec_1"].status == RecommendationStatus.EXECUTED
+    assert by_id["rec_2"].status == RecommendationStatus.REJECTED_BY_VALIDATOR
+    assert by_id["rec_2"].rejection_reason is not None
+
+
+def test_approve_all_pending_returns_an_empty_list_when_nothing_is_pending(
+    engine: Engine,
+) -> None:
+    _seed(engine, total_steps=3, status=SimulationStatus.RUNNING)
+    service = SimulationService(engine)
+
+    async def scenario() -> list[Recommendation]:
+        return await service.approve_all_pending("gh_test", 1)
+
+    assert asyncio.run(scenario()) == []
 
 
 def test_dismiss_recommendation_marks_it_dismissed_without_executing(engine: Engine) -> None:

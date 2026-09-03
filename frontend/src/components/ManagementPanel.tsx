@@ -14,6 +14,8 @@ interface ManagementPanelProps {
   busyId: string | null
   onApprove: (recommendationId: string) => void
   onDismiss: (recommendationId: string) => void
+  isApprovingAll: boolean
+  onApproveAll: () => void
 }
 
 export function ManagementPanel({
@@ -22,6 +24,8 @@ export function ManagementPanel({
   busyId,
   onApprove,
   onDismiss,
+  isApprovingAll,
+  onApproveAll,
 }: ManagementPanelProps) {
   const [isOpen, setIsOpen] = useState(true)
   const bodyId = useId()
@@ -59,6 +63,8 @@ export function ManagementPanel({
               busyId={busyId}
               onApprove={onApprove}
               onDismiss={onDismiss}
+              isApprovingAll={isApprovingAll}
+              onApproveAll={onApproveAll}
             />
           )}
         </div>
@@ -106,6 +112,8 @@ function RecommendationLists({
   busyId,
   onApprove,
   onDismiss,
+  isApprovingAll,
+  onApproveAll,
 }: Omit<ManagementPanelProps, 'recommendations'> & { recommendations: Recommendation[] }) {
   const pending = recommendations.filter((r) => r.status === 'PENDING')
   const resolved = recommendations.filter((r) => r.status !== 'PENDING')
@@ -114,6 +122,18 @@ function RecommendationLists({
     <>
       {pending.length > 0 && (
         <div className="mt-3 space-y-2">
+          {interactive && pending.length > 1 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={isApprovingAll}
+                onClick={onApproveAll}
+                className="rounded-md bg-brand px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isApprovingAll ? 'Approving all…' : `Approve all (${pending.length})`}
+              </button>
+            </div>
+          )}
           {pending.map((recommendation) => (
             <RecommendationCard
               key={recommendation.recommendation_id}

@@ -350,3 +350,28 @@ def test_submit_manual_action_returns_404_for_unknown_greenhouse(client: TestCli
     )
 
     assert response.status_code == 404
+
+
+def test_approve_all_recommendations_executes_every_pending_one(client: TestClient) -> None:
+    client.post("/simulations/sim_gh_002/next-day")  # day 1: no recommendations for this seed
+    client.post("/simulations/sim_gh_002/next-day")  # day 2: proposes a WATER_PLANT
+
+    response = client.post("/greenhouses/gh_002/recommendations/approve-all", params={"day": 2})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["status"] == "EXECUTED"
+    assert body[0]["approved_by"] == "HUMAN"
+
+    remaining = client.get("/greenhouses/gh_002/recommendations", params={"day": 2}).json()
+    assert all(r["status"] != "PENDING" for r in remaining)
+
+
+def test_approve_all_recommendations_returns_empty_list_when_nothing_pending(
+    client: TestClient,
+) -> None:
+    response = client.post("/greenhouses/gh_002/recommendations/approve-all", params={"day": 1})
+
+    assert response.status_code == 200
+    assert response.json() == []

@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/greenhouses/{greenhouse_id}/recommendations/approve-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve All Recommendations */
+        post: operations["approve_all_recommendations_greenhouses__greenhouse_id__recommendations_approve_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/greenhouses/{greenhouse_id}/plants/{plant_id}/actions": {
         parameters: {
             query?: never;
@@ -1014,6 +1031,39 @@ export interface operations {
         };
     };
     get_recommendations_greenhouses__greenhouse_id__recommendations_get: {
+        parameters: {
+            query: {
+                day: number;
+            };
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_all_recommendations_greenhouses__greenhouse_id__recommendations_approve_all_post: {
         parameters: {
             query: {
                 day: number;

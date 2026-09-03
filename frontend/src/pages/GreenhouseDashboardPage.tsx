@@ -191,11 +191,12 @@ function DashboardContent({
     viewingDay,
     stateRefreshToken,
   )
-  const { recommendations, approve, dismiss, add } = useRecommendations(
+  const { recommendations, approve, dismiss, add, approveAll } = useRecommendations(
     greenhouse.greenhouse_id,
     viewingDay,
   )
   const [isSubmittingAction, setIsSubmittingAction] = useState(false)
+  const [isApprovingAll, setIsApprovingAll] = useState(false)
 
   async function handleApprove(recommendationId: string) {
     setBusyRecommendationId(recommendationId)
@@ -208,6 +209,13 @@ function DashboardContent({
     setBusyRecommendationId(recommendationId)
     await dismiss(recommendationId)
     setBusyRecommendationId(null)
+  }
+
+  async function handleApproveAll() {
+    setIsApprovingAll(true)
+    await approveAll()
+    setIsApprovingAll(false)
+    setStateRefreshToken((token) => token + 1)
   }
 
   async function handleSubmitManualAction(action: RequestedAction) {
@@ -352,6 +360,8 @@ function DashboardContent({
               busyId={busyRecommendationId}
               onApprove={handleApprove}
               onDismiss={handleDismiss}
+              isApprovingAll={isApprovingAll}
+              onApproveAll={handleApproveAll}
             />
           </div>
         )}

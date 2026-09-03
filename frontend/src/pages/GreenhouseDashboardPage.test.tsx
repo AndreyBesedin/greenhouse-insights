@@ -254,6 +254,90 @@ describe('GreenhouseDashboardPage', () => {
     expect(screen.queryByRole('button', { name: 'Water 700 ml' })).not.toBeInTheDocument()
   })
 
+  it('approve all executes every pending recommendation in one click', async () => {
+    const pendingA = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: {},
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    const pendingB = {
+      ...pendingA,
+      recommendation_id: 'rec_2',
+      plant_id: 'plant_018',
+      action: { action_type: 'HARVEST_PLANT', plant_id: 'plant_018' },
+      reason: 'Ripe fruit ready.',
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pendingA, pendingB]))
+      return mockGetImplementation(path)
+    })
+    mockedPost.mockResolvedValue(
+      ok([
+        { ...pendingA, status: 'EXECUTED', approved_by: 'HUMAN' },
+        { ...pendingB, status: 'EXECUTED', approved_by: 'HUMAN' },
+      ]),
+    )
+
+    renderDashboard()
+    const approveAllButton = await screen.findByRole('button', { name: 'Approve all (2)' })
+
+    await act(async () => {
+      fireEvent.click(approveAllButton)
+    })
+
+    expect(mockedPost).toHaveBeenCalledWith(
+      '/greenhouses/{greenhouse_id}/recommendations/approve-all',
+      { params: { path: { greenhouse_id: 'gh_001' }, query: { day: 0 } } },
+    )
+    expect(await screen.findAllByText('Executed')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Approve all (2)' })).not.toBeInTheDocument()
+  })
+
+  it('hides approve all when only one recommendation is pending', async () => {
+    const pending = {
+      recommendation_id: 'rec_1',
+      simulation_id: 'sim_gh_001',
+      greenhouse_id: 'gh_001',
+      simulated_day: 0,
+      plant_id: 'plant_017',
+      action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
+      source_policy: 'DETERMINISTIC',
+      status: 'PENDING',
+      reason: 'Soil moisture at 12%.',
+      evidence: {},
+      rejection_reason: null,
+      approved_by: null,
+      executed_by: null,
+      requested_at: '2026-01-01T00:00:00Z',
+      reviewed_at: null,
+      executed_at: null,
+    } as const
+    mockedGet.mockImplementation((path: string) => {
+      if (path === '/greenhouses/{greenhouse_id}/recommendations')
+        return Promise.resolve(ok([pending]))
+      return mockGetImplementation(path)
+    })
+
+    renderDashboard()
+
+    expect(await screen.findByText('plant_017 · Water')).toBeInTheDocument()
+    expect(screen.queryByText(/Approve all/)).not.toBeInTheDocument()
+  })
+
   it('the AI assistant panel starts open and collapses/expands on click', async () => {
     const pending = {
       recommendation_id: 'rec_1',

@@ -128,6 +128,15 @@ def get_recommendations(
     return simulation_service.list_recommendations(greenhouse_id, day)
 
 
+@router.post("/{greenhouse_id}/recommendations/approve-all")
+async def approve_all_recommendations(
+    greenhouse_id: str,
+    day: int,
+    simulation_service: SimulationService = Depends(get_simulation_service),
+) -> list[Recommendation]:
+    return await simulation_service.approve_all_pending(greenhouse_id, day)
+
+
 @router.post("/{greenhouse_id}/plants/{plant_id}/actions", status_code=201)
 async def submit_manual_action(
     greenhouse_id: str,

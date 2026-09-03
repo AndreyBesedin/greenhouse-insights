@@ -225,6 +225,39 @@ class SimulationService:
                 f"no simulation definition found for {recommendation.simulation_id!r}"
             )
 
+        updated = await self._execute_and_review(recommendation, definition)
+        await asyncio.to_thread(
+            self._runner.refresh_day_state,
+            recommendation.simulation_id,
+            recommendation.simulated_day,
+        )
+        return updated
+
+    async def approve_all_pending(self, greenhouse_id: str, day: int) -> list[Recommendation]:
+        """Approves and executes every PENDING recommendation for a day in
+        one go (docs/design/demo_readiness_plan.md section 6: a
+        presentation-layer convenience, not a new simulator primitive -
+        each action is still validated, executed and persisted
+        individually, exactly like a single approve_recommendation call,
+        just with one state refresh at the end instead of one per action)."""
+        pending = self._recommendations.list_pending_for_day(greenhouse_id, day)
+        if not pending:
+            return []
+
+        simulation_id = pending[0].simulation_id
+        definition = self._simulations.get(simulation_id)
+        if definition is None:
+            raise LookupError(f"no simulation definition found for {simulation_id!r}")
+
+        updated = [
+            await self._execute_and_review(recommendation, definition) for recommendation in pending
+        ]
+        await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
+        return updated
+
+    async def _execute_and_review(
+        self, recommendation: Recommendation, definition: SimulationDefinition
+    ) -> Recommendation:
         result = await asyncio.to_thread(
             self._runner.execute_recommendation_action,
             recommendation.simulation_id,
@@ -252,11 +285,6 @@ class SimulationService:
                 }
             )
         self._recommendations.save(updated)
-        await asyncio.to_thread(
-            self._runner.refresh_day_state,
-            recommendation.simulation_id,
-            recommendation.simulated_day,
-        )
         return updated
 
     async def dismiss_recommendation(self, recommendation_id: str) -> Recommendation | None:
