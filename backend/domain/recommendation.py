@@ -8,6 +8,7 @@ from domain.enums import (
     ManagementPolicyType,
     RecommendationStatus,
 )
+from domain.provenance import RecordSource
 from management.validation.actions import RequestedAction
 
 
@@ -21,11 +22,15 @@ class Recommendation(BaseModel):
     requested_by is source_policy (which policy proposed this) rather than
     a separate field - it already carries that meaning. approved_by and
     executed_by are the new provenance section 7 asks for: who signed off,
-    and what actually carried the action out.
+    and what actually carried the action out. source is a different kind
+    of provenance - which system/run produced the recommendation (today
+    always a simulation run) - kept separate from simulation identity so a
+    Recommendation stays valid for live operation too
+    (docs/design/domain_model_eval_refactor_plan.md, PR 1).
     """
 
     recommendation_id: str
-    simulation_id: str
+    source: RecordSource
     greenhouse_id: str
     simulated_day: int
     plant_id: str

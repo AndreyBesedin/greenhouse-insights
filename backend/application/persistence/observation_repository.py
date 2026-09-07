@@ -3,6 +3,7 @@ from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import observations
 from domain.observation import Observation
+from domain.provenance import RecordSource
 
 
 class ObservationRepository:
@@ -49,7 +50,8 @@ def _observation_to_row(observation: Observation) -> dict[str, object]:
         "timestamp": observation.timestamp.isoformat(),
         "observation_type": observation.observation_type.value,
         "value": observation.value,
-        "source_type": observation.source_type.value,
+        "source_type": observation.source.type.value,
+        "source_id": observation.source.source_id,
     }
 
 
@@ -62,5 +64,5 @@ def _row_to_observation(mapping: RowMapping) -> Observation:
         timestamp=mapping["timestamp"],
         observation_type=mapping["observation_type"],
         value=mapping["value"],
-        source_type=mapping["source_type"],
+        source=RecordSource(type=mapping["source_type"], source_id=mapping["source_id"]),
     )

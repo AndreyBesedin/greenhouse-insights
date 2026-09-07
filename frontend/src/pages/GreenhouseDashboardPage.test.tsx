@@ -214,7 +214,7 @@ describe('GreenhouseDashboardPage', () => {
   it('shows a pending recommendation and approving it marks it executed', async () => {
     const pending = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -257,7 +257,7 @@ describe('GreenhouseDashboardPage', () => {
   it('recovers cleanly when approving a recommendation throws', async () => {
     const pending = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -301,7 +301,7 @@ describe('GreenhouseDashboardPage', () => {
   it('disables next day while a single approval is still in flight', async () => {
     const pending = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -354,7 +354,7 @@ describe('GreenhouseDashboardPage', () => {
   it('approve all executes every pending recommendation in one click', async () => {
     const pendingA = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -407,7 +407,7 @@ describe('GreenhouseDashboardPage', () => {
   it('hides approve all when only one recommendation is pending', async () => {
     const pending = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -438,7 +438,7 @@ describe('GreenhouseDashboardPage', () => {
   it('the AI assistant panel starts open and collapses/expands on click', async () => {
     const pending = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 0,
       plant_id: 'plant_017',
@@ -488,7 +488,7 @@ describe('GreenhouseDashboardPage', () => {
     } as const
     const resolved = {
       recommendation_id: 'rec_1',
-      simulation_id: 'sim_gh_001',
+      source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
       simulated_day: 14,
       plant_id: 'plant_017',

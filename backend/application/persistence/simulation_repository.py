@@ -43,6 +43,18 @@ class SimulationRepository:
             row = connection.execute(statement).mappings().one_or_none()
         return None if row is None else _row_to_definition(row)
 
+    def get_by_greenhouse(self, greenhouse_id: str) -> SimulationDefinition | None:
+        """The simulation run for a greenhouse, looked up rather than
+        derived from the greenhouse id - a greenhouse's simulation is a
+        real relationship, not a naming convention
+        (docs/design/domain_model_eval_refactor_plan.md, PR 1)."""
+        statement = select(simulation_definitions).where(
+            simulation_definitions.c.greenhouse_id == greenhouse_id
+        )
+        with self._engine.connect() as connection:
+            row = connection.execute(statement).mappings().one_or_none()
+        return None if row is None else _row_to_definition(row)
+
     def delete(self, simulation_id: str) -> None:
         statement = delete(simulation_definitions).where(
             simulation_definitions.c.simulation_id == simulation_id

@@ -260,7 +260,7 @@ class GreenhouseService:
         return True
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition | None:
-        return self._simulations.get(f"sim_{greenhouse_id}")
+        return self._simulations.get_by_greenhouse(greenhouse_id)
 
 
 def _to_summary(simulation: SimulationDefinition) -> SimulationSummary:

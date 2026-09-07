@@ -5,6 +5,7 @@ from sqlalchemy import Engine
 from application.persistence.observation_repository import ObservationRepository
 from domain.enums import ObservationType, SourceType
 from domain.observation import Observation
+from domain.provenance import RecordSource
 
 
 def _make_observation(plant_id: str, simulated_day: int, observation_id: str) -> Observation:
@@ -16,7 +17,7 @@ def _make_observation(plant_id: str, simulated_day: int, observation_id: str) ->
         timestamp=datetime(2026, 1, 1, tzinfo=UTC),
         observation_type=ObservationType.SOIL_MOISTURE_PCT,
         value=38.0,
-        source_type=SourceType.SIMULATION,
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_001"),
     )
 
 
@@ -82,7 +83,7 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_observations(engine
         timestamp=datetime(2026, 1, 1, tzinfo=UTC),
         observation_type=ObservationType.SOIL_MOISTURE_PCT,
         value=40.0,
-        source_type=SourceType.SIMULATION,
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_002"),
     )
     repo.save_many([other])
 

@@ -8,7 +8,9 @@ from domain.enums import (
     ApprovalSource,
     ManagementPolicyType,
     RecommendationStatus,
+    SourceType,
 )
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from management.validation.actions import WaterPlantAction
 
@@ -20,7 +22,7 @@ def _recommendation(
 ) -> Recommendation:
     defaults: dict[str, object] = dict(
         recommendation_id=recommendation_id,
-        simulation_id="sim_gh_001",
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_001"),
         greenhouse_id="gh_001",
         simulated_day=day,
         plant_id="gh_001_plant_001",
@@ -90,7 +92,14 @@ def test_list_for_day_returns_only_that_greenhouse_and_day_in_requested_order(
         )
     )
     repo.save(_recommendation("rec_3", day=2))
-    repo.save(_recommendation("rec_4", day=1, greenhouse_id="gh_002", simulation_id="sim_gh_002"))
+    repo.save(
+        _recommendation(
+            "rec_4",
+            day=1,
+            greenhouse_id="gh_002",
+            source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_002"),
+        )
+    )
 
     result = repo.list_for_day("gh_001", 1)
 
@@ -116,7 +125,13 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_recommendations(
 ) -> None:
     repo = RecommendationRepository(engine)
     repo.save(_recommendation("rec_1"))
-    repo.save(_recommendation("rec_2", greenhouse_id="gh_002", simulation_id="sim_gh_002"))
+    repo.save(
+        _recommendation(
+            "rec_2",
+            greenhouse_id="gh_002",
+            source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_002"),
+        )
+    )
 
     repo.delete_for_greenhouse("gh_001")
 

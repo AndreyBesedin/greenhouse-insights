@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from domain.enums import EventSource, EventType, ObservationType, PlantHealth, SourceType
 from domain.event import Event
 from domain.observation import Observation
+from domain.provenance import RecordSource
 from intelligence.state_reconstruction import (
     reconstruct_greenhouse_state,
     reconstruct_plant_state,
@@ -20,7 +21,7 @@ def _obs(plant_id: str, observation_type: ObservationType, value: float) -> Obse
         timestamp=TIMESTAMP,
         observation_type=observation_type,
         value=value,
-        source_type=SourceType.SIMULATION,
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_001"),
     )
 
 
