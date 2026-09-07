@@ -5,6 +5,14 @@ from pydantic import BaseModel
 from domain.enums import EventType, PlantHealth, Provenance
 
 
+class EnvironmentState(BaseModel):
+    """The reconstructed environment around a plant: soil moisture today,
+    with room for future readings (air temperature, humidity, ...). This is
+    not plant health - see PlantHealth."""
+
+    soil_moisture_pct: float | None = None
+
+
 class PlantState(BaseModel):
     plant_id: str
     greenhouse_id: str

@@ -3,7 +3,6 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
-from domain.enums import PlantHealth
 from domain.state import PlantState
 from management.agent.tools import AgentToolkit, ToolBudgetExceededError
 from management.context import GreenhouseManagementContext
@@ -40,12 +39,17 @@ class FakeAgentModelProvider:
     Anthropic/OpenAI adapter implementing the same protocol is a drop-in
     replacement (see build_default_provider()).
 
-    Still genuinely uses the tools: plants already known HEALTHY are acted on
-    directly from the initial context (no need to investigate the obvious),
-    but anything else is investigated via get_plant_history first, and only
-    watered if the low-moisture reading is sustained across recent days —
-    otherwise it schedules an inspection instead of guessing, per the design
-    doc's "when evidence is ambiguous, prefer inspection or no action".
+    Still genuinely uses the tools: harvest/lower are unambiguous mechanical
+    actions decided directly from the current reading. Watering is the one
+    ambiguous case - a single low-moisture reading could be noise - so it is
+    investigated via get_plant_history first and only acted on if the low
+    reading is sustained across recent days; otherwise it schedules an
+    inspection instead of guessing, per the design doc's "when evidence is
+    ambiguous, prefer inspection or no action". This reads the plant's own
+    soil-moisture reading (environment data), not PlantState.health -
+    plant condition and "does this evidence need a closer look" are
+    different questions (docs/design/domain_model_eval_refactor_plan.md
+    PR 2).
     """
 
     def decide(
@@ -54,43 +58,31 @@ class FakeAgentModelProvider:
         actions: list[RequestedAction] = []
 
         for plant in context.plant_states:
-            if plant.health == PlantHealth.HEALTHY:
-                actions.extend(self._mechanical_actions(plant, config))
-                continue
-
-            try:
-                history = toolkit.get_plant_history(plant.plant_id, _HISTORY_WINDOW_DAYS)
-            except ToolBudgetExceededError:
-                actions.append(
-                    ScheduleInspectionAction(
-                        plant_id=plant.plant_id,
-                        reason="unable to investigate within the tool-call budget",
-                    )
-                )
-                continue
-
-            actions.extend(self._investigated_actions(plant, history, config))
+            actions.extend(self._harvest_and_lower_actions(plant, config))
+            actions.extend(self._watering_decision(plant, toolkit, config))
 
         return AgentDecision(actions=actions, provider="fake", model="scripted-v1")
 
-    def _mechanical_actions(
-        self, plant: PlantState, config: ScenarioConfig
+    def _watering_decision(
+        self, plant: PlantState, toolkit: AgentToolkit, config: ScenarioConfig
     ) -> list[RequestedAction]:
-        actions: list[RequestedAction] = []
-        if (
+        looks_low = (
             plant.latest_soil_moisture_pct is not None
             and plant.latest_soil_moisture_pct < config.watering_trigger_reservoir_pct
-        ):
-            actions.append(
-                WaterPlantAction(plant_id=plant.plant_id, amount_ml=config.watering_amount_ml)
-            )
-        actions.extend(self._harvest_and_lower_actions(plant, config))
-        return actions
+        )
+        if not looks_low:
+            return []
 
-    def _investigated_actions(
-        self, plant: PlantState, history: list[PlantState], config: ScenarioConfig
-    ) -> list[RequestedAction]:
-        actions: list[RequestedAction] = []
+        try:
+            history = toolkit.get_plant_history(plant.plant_id, _HISTORY_WINDOW_DAYS)
+        except ToolBudgetExceededError:
+            return [
+                ScheduleInspectionAction(
+                    plant_id=plant.plant_id,
+                    reason="unable to investigate within the tool-call budget",
+                )
+            ]
+
         low_moisture_readings = [
             entry
             for entry in [*history, plant]
@@ -98,21 +90,13 @@ class FakeAgentModelProvider:
             and entry.latest_soil_moisture_pct < config.watering_trigger_reservoir_pct
         ]
         if len(low_moisture_readings) >= _SUSTAINED_LOW_MOISTURE_DAYS:
-            actions.append(
-                WaterPlantAction(plant_id=plant.plant_id, amount_ml=config.watering_amount_ml)
+            return [WaterPlantAction(plant_id=plant.plant_id, amount_ml=config.watering_amount_ml)]
+        return [
+            ScheduleInspectionAction(
+                plant_id=plant.plant_id,
+                reason="soil moisture below threshold but not yet sustained",
             )
-        elif (
-            plant.latest_soil_moisture_pct is not None
-            and plant.latest_soil_moisture_pct < config.watering_trigger_reservoir_pct
-        ):
-            actions.append(
-                ScheduleInspectionAction(
-                    plant_id=plant.plant_id,
-                    reason="soil moisture below threshold but not yet sustained",
-                )
-            )
-        actions.extend(self._harvest_and_lower_actions(plant, config))
-        return actions
+        ]
 
     def _harvest_and_lower_actions(
         self, plant: PlantState, config: ScenarioConfig

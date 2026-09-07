@@ -40,17 +40,11 @@ def _decide(
     return decision, toolkit
 
 
-def test_waters_a_healthy_plant_with_low_moisture_without_investigating() -> None:
-    decision, toolkit = _decide(_plant_state(latest_soil_moisture_pct=0.0))
-
-    assert any(isinstance(a, WaterPlantAction) for a in decision.actions)
-    assert toolkit.calls == []  # healthy plants are acted on directly, no tool calls needed
-
-
-def test_does_not_water_a_healthy_well_watered_plant() -> None:
-    decision, _ = _decide(_plant_state(latest_soil_moisture_pct=90.0))
+def test_does_not_investigate_or_water_a_well_watered_plant() -> None:
+    decision, toolkit = _decide(_plant_state(latest_soil_moisture_pct=90.0))
 
     assert not any(isinstance(a, WaterPlantAction) for a in decision.actions)
+    assert toolkit.calls == []  # adequate moisture needs no closer look
 
 
 def test_harvests_once_enough_fruit_is_ripe() -> None:
@@ -69,8 +63,10 @@ def test_lowers_a_tall_plant() -> None:
     assert any(isinstance(a, LowerPlantAction) for a in decision.actions)
 
 
-def test_investigates_a_monitor_plant_via_history_before_deciding() -> None:
-    plant = _plant_state(health=PlantHealth.MONITOR, latest_soil_moisture_pct=10.0)
+def test_investigates_a_single_low_reading_via_history_before_deciding() -> None:
+    """A single low-moisture reading is ambiguous (could be noise) - it
+    must be investigated before acting, regardless of plant condition."""
+    plant = _plant_state(latest_soil_moisture_pct=10.0)
 
     decision, toolkit = _decide(plant, history=[])
 
@@ -80,8 +76,8 @@ def test_investigates_a_monitor_plant_via_history_before_deciding() -> None:
     assert any(isinstance(a, ScheduleInspectionAction) for a in decision.actions)
 
 
-def test_waters_a_monitor_plant_once_low_moisture_is_sustained_in_history() -> None:
-    plant = _plant_state(health=PlantHealth.MONITOR, latest_soil_moisture_pct=10.0)
+def test_waters_once_low_moisture_is_sustained_in_history() -> None:
+    plant = _plant_state(latest_soil_moisture_pct=10.0)
     sustained_history = [_plant_state(latest_soil_moisture_pct=8.0)]
 
     decision, _ = _decide(plant, history=sustained_history)
@@ -90,7 +86,7 @@ def test_waters_a_monitor_plant_once_low_moisture_is_sustained_in_history() -> N
 
 
 def test_schedules_inspection_when_budget_is_exhausted_before_investigating() -> None:
-    plant = _plant_state(health=PlantHealth.ACTION_REQUIRED, latest_soil_moisture_pct=10.0)
+    plant = _plant_state(latest_soil_moisture_pct=10.0)
     context = GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[plant])
     toolkit = AgentToolkit(context, history_reader=lambda plant_id, days: [], budget=0)
 

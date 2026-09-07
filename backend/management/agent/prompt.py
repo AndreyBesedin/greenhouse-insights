@@ -33,10 +33,10 @@ actions that were not given to you.
 When evidence is ambiguous or conflicting, prefer scheduling an inspection \
 or taking no action over guessing. A single noisy reading is not sufficient \
 evidence for an intervention - use the plant-history tool to check whether \
-a concerning reading is sustained before acting on it. A plant already \
-reported as HEALTHY does not need investigation before an obviously \
-warranted mechanical action (watering, harvesting, lowering) - investigate \
-before acting on anything not already known to be healthy.
+a concerning reading is sustained before acting on it. An obviously \
+warranted mechanical action (watering, harvesting, lowering) backed by \
+clear, unambiguous evidence does not need investigation first - only \
+investigate when the evidence itself is borderline or conflicting.
 
 You have a limited number of tool calls for this greenhouse today. Investigate \
 efficiently rather than checking things you already have enough evidence for. \

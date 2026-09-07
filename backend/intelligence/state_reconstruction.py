@@ -3,10 +3,28 @@ from datetime import datetime
 from domain.enums import ObservationType, PlantHealth
 from domain.event import Event
 from domain.observation import Observation
-from domain.state import GreenhouseState, PlantState
+from domain.state import EnvironmentState, GreenhouseState, PlantState
 
-_ACTION_REQUIRED_SOIL_MOISTURE_PCT = 20.0
-_MONITOR_SOIL_MOISTURE_PCT = 40.0
+
+def reconstruct_environment_state(
+    plant_id: str, observations: list[Observation]
+) -> EnvironmentState:
+    plant_observations = [obs for obs in observations if obs.plant_id == plant_id]
+    return EnvironmentState(
+        soil_moisture_pct=_latest_value(plant_observations, ObservationType.SOIL_MOISTURE_PCT)
+    )
+
+
+def assess_plant_condition(plant_id: str, observations: list[Observation]) -> PlantHealth:
+    """The plant's own condition - see PlantHealth's docstring for what
+    that means and why this intentionally never reads soil moisture or any
+    other environment reading (a plant can need watering while still being
+    HEALTHY). UNKNOWN only when nothing has been observed for the plant
+    yet."""
+    plant_observations = [obs for obs in observations if obs.plant_id == plant_id]
+    if not plant_observations:
+        return PlantHealth.UNKNOWN
+    return PlantHealth.HEALTHY
 
 
 def reconstruct_plant_state(
@@ -21,7 +39,8 @@ def reconstruct_plant_state(
     plant_observations = [obs for obs in observations if obs.plant_id == plant_id]
     plant_events = [event for event in events if event.plant_id == plant_id]
 
-    soil_moisture = _latest_value(plant_observations, ObservationType.SOIL_MOISTURE_PCT)
+    environment = reconstruct_environment_state(plant_id, observations)
+    condition = assess_plant_condition(plant_id, observations)
     visible_fruit_count = _latest_value(plant_observations, ObservationType.VISIBLE_FRUIT_COUNT)
     ripe_fruit_count = _latest_value(plant_observations, ObservationType.RIPE_FRUIT_COUNT)
     ripe_mass_g = _latest_value(plant_observations, ObservationType.ESTIMATED_RIPE_MASS_G)
@@ -33,8 +52,8 @@ def reconstruct_plant_state(
         greenhouse_id=greenhouse_id,
         simulated_day=day,
         timestamp=timestamp,
-        health=_health_from_soil_moisture(soil_moisture),
-        latest_soil_moisture_pct=soil_moisture,
+        health=condition,
+        latest_soil_moisture_pct=environment.soil_moisture_pct,
         latest_visible_fruit_count=int(visible_fruit_count)
         if visible_fruit_count is not None
         else None,
@@ -67,13 +86,3 @@ def _latest_value(
     matching = [obs for obs in observations if obs.observation_type == observation_type]
     latest = max(matching, key=lambda obs: obs.timestamp, default=None)
     return latest.value if latest is not None else None
-
-
-def _health_from_soil_moisture(soil_moisture_pct: float | None) -> PlantHealth:
-    if soil_moisture_pct is None:
-        return PlantHealth.UNKNOWN
-    if soil_moisture_pct < _ACTION_REQUIRED_SOIL_MOISTURE_PCT:
-        return PlantHealth.ACTION_REQUIRED
-    if soil_moisture_pct < _MONITOR_SOIL_MOISTURE_PCT:
-        return PlantHealth.MONITOR
-    return PlantHealth.HEALTHY
