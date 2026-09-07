@@ -85,6 +85,24 @@ def test_waters_once_low_moisture_is_sustained_in_history() -> None:
     assert any(isinstance(a, WaterPlantAction) for a in decision.actions)
 
 
+def test_schedules_inspection_for_a_non_healthy_condition_without_a_tool_call() -> None:
+    """A plant condition concern (PR 3) is its own reason to inspect - no
+    history check needed, since the concern is the reconstructed condition
+    itself, not something ambiguous evidence needs confirming."""
+    plant = _plant_state(health=PlantHealth.MONITOR, latest_soil_moisture_pct=80.0)
+
+    decision, toolkit = _decide(plant)
+
+    assert any(isinstance(a, ScheduleInspectionAction) for a in decision.actions)
+    assert toolkit.calls == []
+
+
+def test_does_not_schedule_inspection_for_a_healthy_plant() -> None:
+    decision, _ = _decide(_plant_state(health=PlantHealth.HEALTHY, latest_soil_moisture_pct=80.0))
+
+    assert not any(isinstance(a, ScheduleInspectionAction) for a in decision.actions)
+
+
 def test_schedules_inspection_when_budget_is_exhausted_before_investigating() -> None:
     plant = _plant_state(latest_soil_moisture_pct=10.0)
     context = GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[plant])

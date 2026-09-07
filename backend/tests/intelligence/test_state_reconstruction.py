@@ -77,8 +77,12 @@ def test_reconstruct_plant_state_restates_latest_visible_height() -> None:
 def test_reconstruct_plant_state_stays_healthy_despite_critically_low_soil_moisture() -> None:
     """The environment/health distinction (PR 2): low soil moisture is
     environment data that may trigger watering, but it does not by itself
-    make the plant's own condition unhealthy."""
-    observations = [_obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, 5.0)]
+    make the plant's own condition unhealthy - as long as the plant's own
+    readings (fruit/height) were otherwise captured today."""
+    observations = [
+        _obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, 5.0),
+        _obs("plant_017", ObservationType.VISIBLE_FRUIT_COUNT, 3.0),
+    ]
 
     state = reconstruct_plant_state(
         plant_id="plant_017",
@@ -95,7 +99,10 @@ def test_reconstruct_plant_state_stays_healthy_despite_critically_low_soil_moist
 
 def test_reconstruct_plant_state_stays_healthy_across_the_full_moisture_range() -> None:
     for moisture_pct in (2.0, 15.0, 32.0, 55.0, 95.0):
-        observations = [_obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, moisture_pct)]
+        observations = [
+            _obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, moisture_pct),
+            _obs("plant_017", ObservationType.VISIBLE_FRUIT_COUNT, 3.0),
+        ]
 
         state = reconstruct_plant_state(
             plant_id="plant_017",
@@ -107,6 +114,25 @@ def test_reconstruct_plant_state_stays_healthy_across_the_full_moisture_range() 
         )
 
         assert state.health == PlantHealth.HEALTHY
+
+
+def test_reconstruct_plant_state_flags_monitor_when_only_environment_data_arrives() -> None:
+    """A soil-moisture reading with none of the plant's own visible/fruit
+    readings (e.g. the vision pipeline is down) is a genuine condition
+    concern, independent of what the moisture value itself is (PR 3)."""
+    observations = [_obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, 75.0)]
+
+    state = reconstruct_plant_state(
+        plant_id="plant_017",
+        greenhouse_id="gh_001",
+        day=8,
+        timestamp=TIMESTAMP,
+        observations=observations,
+        events=[],
+    )
+
+    assert state.latest_soil_moisture_pct == 75.0
+    assert state.health == PlantHealth.MONITOR
 
 
 def test_reconstruct_plant_state_ignores_other_plants_observations() -> None:
@@ -146,7 +172,10 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
             greenhouse_id="gh_001",
             day=8,
             timestamp=TIMESTAMP,
-            observations=[_obs("plant_001", ObservationType.SOIL_MOISTURE_PCT, 55.0)],
+            observations=[
+                _obs("plant_001", ObservationType.SOIL_MOISTURE_PCT, 55.0),
+                _obs("plant_001", ObservationType.VISIBLE_FRUIT_COUNT, 4.0),
+            ],
             events=[],
         ),
         reconstruct_plant_state(
@@ -171,9 +200,10 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
         greenhouse_id="gh_001", day=8, timestamp=TIMESTAMP, plant_states=plant_states
     )
 
-    # plant_003 has no observations yet (UNKNOWN), so it falls into neither
-    # bucket - only plant_001 and plant_002 count as healthy, regardless of
-    # plant_002's low soil moisture.
-    assert state.plants_healthy == 2
-    assert state.plants_monitor == 0
+    # plant_001 has its full daily reading set (HEALTHY), plant_002 only a
+    # moisture reading despite low moisture not being the point here
+    # (MONITOR - its own state is unconfirmed), plant_003 has no
+    # observations yet (UNKNOWN, falls into no bucket).
+    assert state.plants_healthy == 1
+    assert state.plants_monitor == 1
     assert state.plants_action_required == 0
