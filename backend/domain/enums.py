@@ -67,7 +67,7 @@ class Provenance(StrEnum):
 
 class PlantHealth(StrEnum):
     """The plant's own condition, assessed independently of environmental
-    readings such as soil moisture (docs/design/domain_model_eval_refactor_plan.md
+    readings such as soil moisture (docs/archive/design-history/domain_model_eval_refactor_plan.md
     PR 2) - a plant needing water is not automatically unhealthy. For this
     POC there is one implemented condition signal beyond presence/absence
     of observations: MONITOR when the plant's own visible/fruit readings
@@ -108,8 +108,9 @@ class ActionExecutorType(StrEnum):
 
 
 class RecommendationStatus(StrEnum):
-    """Avoid adding statuses with no immediate use (docs/design/demo_readiness_plan.md
-    section 10): approval and execution are synchronous in this pass, so
+    """Avoid adding statuses with no immediate use
+    (docs/archive/design-history/demo_readiness_plan.md section 10):
+    approval and execution are synchronous in this pass, so
     there is no persisted APPROVED-but-not-yet-executed state, and nothing
     in the executor can currently fail once validation has passed, so
     there is no FAILED state either."""

@@ -14,7 +14,7 @@ from management.validation.actions import RequestedAction
 
 class Recommendation(BaseModel):
     """A persisted, reviewable proposal - the human-in-the-loop counterpart
-    to a bare RequestedAction (docs/design/demo_readiness_plan.md sections
+    to a bare RequestedAction (docs/archive/design-history/demo_readiness_plan.md sections
     10-11). The management policy still only ever proposes; this is what
     the application layer turns that proposal into so a human can approve
     or dismiss it before anything in the world changes.
@@ -26,7 +26,7 @@ class Recommendation(BaseModel):
     of provenance - which system/run produced the recommendation (today
     always a simulation run) - kept separate from simulation identity so a
     Recommendation stays valid for live operation too
-    (docs/design/domain_model_eval_refactor_plan.md, PR 1).
+    (docs/archive/design-history/domain_model_eval_refactor_plan.md, PR 1).
     """
 
     recommendation_id: str

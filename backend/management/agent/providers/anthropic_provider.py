@@ -1,6 +1,7 @@
 """A real AgentModelProvider backed by the Anthropic Messages API.
 
-Implements the tool-calling loop from docs/design/greenhouse_agentic_management_design.md
+Implements the tool-calling loop from
+docs/archive/design-history/greenhouse_agentic_management_design.md
 section 23: the model may call get_plant_state / get_plant_history any
 number of times up to the configured budget, then must finalize its
 decision by calling submit_management_decision exactly once. Forcing the

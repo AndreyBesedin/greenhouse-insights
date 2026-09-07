@@ -2,7 +2,7 @@
 
 This document contains implementation details that are useful when developing, reviewing, or deploying the POC but are intentionally kept out of the main README.
 
-For product intent and subsystem designs, see `docs/design/`. For day-to-day engineering conventions, see `DEVELOPMENT_GUIDELINES.md`.
+For the original product intent and subsystem designs (archived, historical), see `docs/archive/design-history/`. For day-to-day engineering conventions, see `DEVELOPMENT_GUIDELINES.md`.
 
 ## Architecture
 

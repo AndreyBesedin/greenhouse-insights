@@ -43,7 +43,8 @@ class ActionResult(BaseModel):
 def validate_action(world: GreenhouseWorld, action: RequestedAction) -> ActionResult:
     """Checks a requested action against real system state before execution.
 
-    This is a hard-constraint check (docs/design/greenhouse_agentic_management_design.md
+    This is a hard-constraint check
+    (docs/archive/design-history/greenhouse_agentic_management_design.md
     §18-19), independent of which policy proposed the action or how it will be
     executed. `world` stands in for "current real system state" - in a real
     deployment this would be live sensor/controller state instead of the

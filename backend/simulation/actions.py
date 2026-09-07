@@ -24,7 +24,8 @@ def apply_action(
 ) -> tuple[GreenhouseWorld, Event]:
     """Applies an already-validated action, returning the updated world and its Event.
 
-    This is the simulation's actioner (docs/design/greenhouse_agentic_management_design.md
+    This is the simulation's actioner
+    (docs/archive/design-history/greenhouse_agentic_management_design.md
     §45): a real deployment would replace this with human approval, task
     creation, or a robot/climate controller instead of mutating GreenhouseWorld
     directly. The management layer that decided the action is unaware of this.

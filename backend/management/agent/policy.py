@@ -41,7 +41,7 @@ class AgenticPolicy:
         self.last_run: AgentRunSummary | None = None
         # Set by the runner before decide() when it wants high-level,
         # tool-call-derived progress updates for a currently-polling
-        # frontend (docs/design/demo_readiness_plan.md section 14) - kept
+        # frontend (docs/archive/design-history/demo_readiness_plan.md section 14) - kept
         # off the shared ManagementPolicy.decide() signature since only the
         # agentic policy has anything meaningful to report mid-flight.
         self.progress_callback: Callable[[ToolCallTrace], None] | None = None

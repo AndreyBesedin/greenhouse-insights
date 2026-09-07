@@ -7,8 +7,9 @@ class GreenhouseManagementContext(BaseModel):
     """The observable boundary a management policy is allowed to see.
 
     No hidden simulator truth (GreenhouseWorld) — only reconstructed,
-    production-plausible plant state, matching the agentic-management design
-    doc's information boundary (docs/design/greenhouse_agentic_management_design.md, §5/§32).
+    production-plausible plant state, matching the agentic-management
+    design doc's information boundary
+    (docs/archive/design-history/greenhouse_agentic_management_design.md, §5/§32).
     """
 
     greenhouse_id: str

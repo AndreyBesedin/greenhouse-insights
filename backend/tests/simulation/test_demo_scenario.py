@@ -10,7 +10,7 @@ from simulation.scenarios import SCENARIO_REGISTRY
 
 CONFIG = SCENARIO_REGISTRY["gh_demo"]
 
-# docs/design/demo_readiness_plan.md section 21 (Phase 5): this scenario is
+# docs/archive/design-history/demo_readiness_plan.md section 21 (Phase 5): this scenario is
 # tuned so ordinary simulator dynamics reach every action type within the
 # first ~9 of its 15 days, instead of the ~26-40 days gh_001/gh_002 need -
 # this test pins that story so future changes to growth/ripening defaults or

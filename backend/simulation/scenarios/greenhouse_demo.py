@@ -3,7 +3,7 @@ from datetime import date
 from domain.enums import ManagementPolicyType
 from simulation.scenarios.config import ScenarioConfig
 
-# Interview-demo scenario (docs/design/demo_readiness_plan.md section 21,
+# Interview-demo scenario (docs/archive/design-history/demo_readiness_plan.md section 21,
 # Phase 5): a small AGENTIC greenhouse tuned so ordinary simulator dynamics
 # - not scripted outcomes - reach watering, an ambiguous/inspection-worthy
 # reading, and a harvest within about the first ten simulated days, instead

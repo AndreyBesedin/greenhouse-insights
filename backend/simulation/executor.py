@@ -3,7 +3,7 @@
 Before this, simulation/runner.py called simulation.actions.apply_action
 directly - the one and only way an accepted action could ever be carried
 out. That conflated "the simulation executes actions" (true, and correct:
-docs/design/greenhouse_agentic_management_design.md §45) with "there is
+docs/archive/design-history/greenhouse_agentic_management_design.md §45) with "there is
 exactly one way execution happens" (an accident of how it was first built,
 not a real constraint - the same design doc section explicitly expects
 execution to be replaceable independently of who decided the action).

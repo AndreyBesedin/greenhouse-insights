@@ -1,6 +1,6 @@
 """The agent's system prompt and per-call context rendering.
 
-Per docs/design/greenhouse_agentic_management_design.md section 18: hard
+Per docs/archive/design-history/greenhouse_agentic_management_design.md section 18: hard
 constraints (amount bounds, plant existence, ...) live in code
 (management/validation/actions.py) and cannot be overridden by the model.
 This prompt carries only the *soft* policy (section 18's "avoid unnecessary
