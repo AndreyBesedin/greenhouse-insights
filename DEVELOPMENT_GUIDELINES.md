@@ -1,4 +1,4 @@
-# Greenhouse Intelligence POC — Development Guidelines
+# Greenhouse Intelligence — Development Guidelines
 
 This document defines how we build this project day to day. It is itself the current,
 maintained reference for *how* we write and ship code - see also `README.md` and
@@ -134,7 +134,7 @@ greenhouse-insights/
    (`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `eval`). `eval` is its own type
    because evaluation harness changes are a distinct, trackable category of work here.
 6. Push frequently; keep branches short-lived if branches are used at all at this stage of
-   the project (solo/small-team POC — direct small commits to a mainline are fine unless a
+   the project (solo/small-team development — direct small commits to a mainline are fine unless a
    change is large or risky enough to warrant review first).
 
 Avoid:
@@ -155,7 +155,7 @@ Map tests to the domain boundaries, not to implementation files:
 | `intelligence/` | Feature extraction, reconciliation, inference rules | Unit tests with hand-built observation/event fixtures + property tests where useful |
 | `evaluation/` | Metrics computed correctly against known ground truth | Unit tests on the metric functions themselves |
 | `application/` | API contracts, persistence round-trips | Integration tests (real DB or in-memory equivalent, real FastAPI TestClient) |
-| `frontend/` | Component behavior, historical navigation logic | Component tests; E2E only for the one end-to-end demo flow (§49 in the brief), not for every screen |
+| `frontend/` | Component behavior, historical navigation logic | Component tests; E2E only for the one end-to-end flow (§49 in the brief), not for every screen |
 
 Rules of thumb:
 - If a bug is found, add a regression test before fixing it.
@@ -190,7 +190,7 @@ Because the simulator is the source of truth, treat evaluation as a spec, not a 
 - [`mypy`](https://mypy-lang.org/) — static typing, run in strict-ish mode on `domain/` and
   `intelligence/` at minimum.
 - [`pytest`](https://docs.pytest.org/) (+ `pytest-cov` for coverage visibility, not as a gate
-  at POC stage).
+  at the current stage).
 
 **Frontend (TypeScript/React):**
 - `eslint` + `typescript-eslint` — linting.

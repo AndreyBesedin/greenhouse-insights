@@ -1,7 +1,7 @@
 [project]
 name = "greenhouse-insights-backend"
 version = "0.1.0"
-description = "Greenhouse Intelligence POC backend"
+description = "Greenhouse Insights backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
