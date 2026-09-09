@@ -45,7 +45,7 @@ def _run_to_completion(client: TestClient, simulation_id: str, *, total_steps: i
     pytest.fail(f"{simulation_id} did not complete in time")
 
 
-def test_backbone_flow_across_both_poc_greenhouses(client: TestClient) -> None:
+def test_backbone_flow_across_configured_greenhouses(client: TestClient) -> None:
     # 1. Greenhouse selection screen lists every configured greenhouse, NOT_STARTED.
     listed = client.get("/greenhouses").json()
     assert {item["greenhouse_id"] for item in listed} == {"gh_001", "gh_002", "gh_demo"}
