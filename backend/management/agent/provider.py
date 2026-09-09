@@ -3,6 +3,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
+from domain.enums import PlantHealth
 from domain.state import PlantState
 from management.agent.tools import AgentToolkit, ToolBudgetExceededError
 from management.context import GreenhouseManagementContext
@@ -17,6 +18,10 @@ from simulation.scenarios.config import ScenarioConfig
 
 _HISTORY_WINDOW_DAYS = 3
 _SUSTAINED_LOW_MOISTURE_DAYS = 2
+
+
+def _has_inspection_for(actions: list[RequestedAction], plant_id: str) -> bool:
+    return any(isinstance(a, ScheduleInspectionAction) and a.plant_id == plant_id for a in actions)
 
 
 class AgentDecision(BaseModel):
@@ -41,15 +46,20 @@ class FakeAgentModelProvider:
 
     Still genuinely uses the tools: harvest/lower are unambiguous mechanical
     actions decided directly from the current reading. Watering is the one
-    ambiguous case - a single low-moisture reading could be noise - so it is
-    investigated via get_plant_history first and only acted on if the low
-    reading is sustained across recent days; otherwise it schedules an
-    inspection instead of guessing, per the design doc's "when evidence is
-    ambiguous, prefer inspection or no action". This reads the plant's own
-    soil-moisture reading (environment data), not PlantState.health -
-    plant condition and "does this evidence need a closer look" are
-    different questions (docs/design/domain_model_eval_refactor_plan.md
-    PR 2).
+    environmentally-ambiguous case - a single low-moisture reading could be
+    noise - so it is investigated via get_plant_history first and only
+    acted on if the low reading is sustained across recent days; otherwise
+    it schedules an inspection instead of guessing, per the design doc's
+    "when evidence is ambiguous, prefer inspection or no action". This
+    reads the plant's own soil-moisture reading (environment data), not
+    PlantState.health - "is this environment reading ambiguous" and "is
+    the plant's own condition a concern" are different questions
+    (docs/design/domain_model_eval_refactor_plan.md PR 2). The plant's own
+    condition is handled separately below (PR 3): a non-HEALTHY condition
+    (missing observations, or a same-day gap in the plant's own readings)
+    schedules an inspection on its own, with no tool call needed - the
+    concern is already the reconstructed condition itself, not something
+    history can confirm or rule out.
     """
 
     def decide(
@@ -59,9 +69,28 @@ class FakeAgentModelProvider:
 
         for plant in context.plant_states:
             actions.extend(self._harvest_and_lower_actions(plant, config))
-            actions.extend(self._watering_decision(plant, toolkit, config))
+            for action in [
+                *self._condition_concern_actions(plant),
+                *self._watering_decision(plant, toolkit, config),
+            ]:
+                if isinstance(action, ScheduleInspectionAction) and _has_inspection_for(
+                    actions, plant.plant_id
+                ):
+                    continue
+                actions.append(action)
 
         return AgentDecision(actions=actions, provider="fake", model="scripted-v1")
+
+    def _condition_concern_actions(self, plant: PlantState) -> list[RequestedAction]:
+        if plant.health == PlantHealth.HEALTHY:
+            return []
+        return [
+            ScheduleInspectionAction(
+                plant_id=plant.plant_id,
+                reason=f"plant condition is {plant.health.value} - visible/fruit state "
+                "could not be confirmed",
+            )
+        ]
 
     def _watering_decision(
         self, plant: PlantState, toolkit: AgentToolkit, config: ScenarioConfig

@@ -15,15 +15,35 @@ def reconstruct_environment_state(
     )
 
 
+_PLANT_OBSERVED_TYPES = frozenset(
+    {
+        ObservationType.VISIBLE_FRUIT_COUNT,
+        ObservationType.RIPE_FRUIT_COUNT,
+        ObservationType.ESTIMATED_RIPE_MASS_G,
+        ObservationType.VISIBLE_HEIGHT_CM,
+    }
+)
+
+
 def assess_plant_condition(plant_id: str, observations: list[Observation]) -> PlantHealth:
     """The plant's own condition - see PlantHealth's docstring for what
     that means and why this intentionally never reads soil moisture or any
     other environment reading (a plant can need watering while still being
-    HEALTHY). UNKNOWN only when nothing has been observed for the plant
-    yet."""
+    HEALTHY).
+
+    UNKNOWN when nothing has been observed for the plant at all. MONITOR
+    when a soil-moisture reading came in but none of the plant's own
+    visible/fruit readings did (docs/design/domain_model_eval_refactor_plan.md
+    PR 3) - a real, if simple, anomaly-across-observations signal: e.g. the
+    vision pipeline is down while the soil sensor still reports, so the
+    plant's own state cannot be confirmed today. HEALTHY otherwise.
+    """
     plant_observations = [obs for obs in observations if obs.plant_id == plant_id]
     if not plant_observations:
         return PlantHealth.UNKNOWN
+    observed_types = {obs.observation_type for obs in plant_observations}
+    if observed_types.isdisjoint(_PLANT_OBSERVED_TYPES):
+        return PlantHealth.MONITOR
     return PlantHealth.HEALTHY
 
 

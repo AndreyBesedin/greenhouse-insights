@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from management.agent.provider import AgentModelProvider
 from management.agent.tools import AgentToolkit
 from management.context import GreenhouseManagementContext
-from management.evaluation.cases import CASES, EvalCase
+from management.evaluation.cases import CASES, EvalCase, build_history, build_plant_state
 
 
 class CaseResult(BaseModel):
@@ -26,10 +26,18 @@ class CaseResult(BaseModel):
     unnecessary_action_types: frozenset[str]
     param_valid: bool
     investigation_correct: bool
+    condition_correct: bool = True
+    """Whether reconstruct_plant_state's health matched the case's
+    expected_condition - always True for cases that don't assert one."""
 
     @property
     def passed(self) -> bool:
-        return self.action_type_correct and self.param_valid and self.investigation_correct
+        return (
+            self.action_type_correct
+            and self.param_valid
+            and self.investigation_correct
+            and self.condition_correct
+        )
 
 
 class Scorecard(BaseModel):
@@ -69,6 +77,10 @@ class Scorecard(BaseModel):
     def investigation_correct_rate(self) -> float:
         return self._rate(lambda r: r.investigation_correct)
 
+    @property
+    def condition_correct_rate(self) -> float:
+        return self._rate(lambda r: r.condition_correct)
+
     def _rate(self, predicate: Callable[["CaseResult"], bool]) -> float:
         if not self.results:
             return 0.0
@@ -76,14 +88,16 @@ class Scorecard(BaseModel):
 
 
 def grade_case(case: EvalCase, provider: AgentModelProvider) -> tuple[CaseResult, str, str]:
+    plant_state = build_plant_state(case)
+    history = build_history(case)
     context = GreenhouseManagementContext(
-        greenhouse_id=case.plant_state.greenhouse_id,
-        day=case.plant_state.simulated_day,
-        plant_states=[case.plant_state],
+        greenhouse_id=case.greenhouse_id,
+        day=case.day,
+        plant_states=[plant_state],
     )
     toolkit = AgentToolkit(
         context,
-        history_reader=lambda plant_id, days: case.history,
+        history_reader=lambda plant_id, days: history[-days:],
         budget=case.config.agent_tool_call_budget,
     )
     decision = provider.decide(context, toolkit, case.config)
@@ -103,6 +117,9 @@ def grade_case(case: EvalCase, provider: AgentModelProvider) -> tuple[CaseResult
             param_valid = False
 
     investigated = any(call.tool == "get_plant_history" for call in toolkit.calls)
+    condition_correct = (
+        case.expected_condition is None or plant_state.health == case.expected_condition
+    )
 
     result = CaseResult(
         case_id=case.case_id,
@@ -112,6 +129,7 @@ def grade_case(case: EvalCase, provider: AgentModelProvider) -> tuple[CaseResult
         unnecessary_action_types=unnecessary,
         param_valid=param_valid,
         investigation_correct=investigated == case.requires_investigation,
+        condition_correct=condition_correct,
     )
     return result, decision.provider, decision.model
 
@@ -143,10 +161,13 @@ def format_report(scorecard: Scorecard) -> str:
             lines.append("       parameter out of acceptable range")
         if not result.investigation_correct:
             lines.append("       investigation (tool-call) behavior incorrect")
+        if not result.condition_correct:
+            lines.append("       reconstructed plant condition did not match expected")
     lines.append("")
     lines.append(f"action type accuracy:       {scorecard.action_type_accuracy:.0%}")
     lines.append(f"parameter validity rate:    {scorecard.parameter_validity_rate:.0%}")
     lines.append(f"unnecessary-action rate:    {scorecard.unnecessary_action_rate:.0%}")
     lines.append(f"missed-action rate:         {scorecard.missed_action_rate:.0%}")
     lines.append(f"investigation-correct rate: {scorecard.investigation_correct_rate:.0%}")
+    lines.append(f"condition-correct rate:     {scorecard.condition_correct_rate:.0%}")
     return "\n".join(lines)

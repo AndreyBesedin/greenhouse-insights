@@ -17,6 +17,9 @@ def test_fake_provider_passes_each_eval_case(case: EvalCase) -> None:
     )
     assert result.param_valid
     assert result.investigation_correct
+    assert (
+        result.condition_correct
+    ), f"expected condition {case.expected_condition}, got a different reconstructed health"
 
 
 def test_scorecard_is_all_green_for_the_fake_provider() -> None:
