@@ -1,6 +1,6 @@
 # Greenhouse Insights — Technical Reference
 
-This document contains implementation details that are useful when developing, reviewing, or deploying the POC but are intentionally kept out of the main README.
+This document contains implementation details that are useful when developing, reviewing, or deploying the project but are intentionally kept out of the main README.
 
 For the original product intent and subsystem designs (archived, historical), see `docs/archive/design-history/`. For day-to-day engineering conventions, see `DEVELOPMENT_GUIDELINES.md`.
 
@@ -43,7 +43,7 @@ The frontend is React + TypeScript and consumes a generated client from FastAPI'
 
 ## Manual simulation workflow
 
-The primary demo/application flow is manual rather than autoplay:
+The primary application flow is manual rather than autoplay:
 
 1. Advance one simulated day.
 2. Generate and persist noisy observations.
@@ -58,7 +58,7 @@ The primary demo/application flow is manual rather than autoplay:
 
 Historical days remain read-only. Browsing history never rewinds or mutates the current hidden simulation world.
 
-The legacy auto-run endpoint remains available for compatibility/testing, but the human-in-the-loop manual flow is the intended product/demo path.
+The legacy auto-run endpoint remains available for compatibility/testing, but the human-in-the-loop manual flow is the intended product path.
 
 ## Recommendations and provenance
 
@@ -116,11 +116,11 @@ Checking plant_003 history…
 
 These are workflow/tool-activity events, not chain-of-thought. The frontend currently polls the progress endpoint while a next-day request is in flight.
 
-## Demo scenario
+## Example scenario
 
-`Agentic Demo Greenhouse` is the recommended live-demo configuration.
+`Agentic Demo Greenhouse` is a small example configuration useful for quickly exercising the agentic workflow.
 
-It contains 6 plants over 15 simulated days and is tuned so ordinary simulator dynamics reach the principal management action types quickly enough for a live walkthrough. It is not a scripted sequence of outcomes: the demo still runs through the normal simulator dynamics with a fixed/configured scenario.
+It contains 6 plants over 15 simulated days and is tuned so ordinary simulator dynamics reach the principal management action types quickly. It is not a scripted sequence of outcomes: the scenario still runs through the normal simulator dynamics with a fixed/configured seed.
 
 The larger example greenhouses remain useful for longitudinal and scale-oriented testing.
 
@@ -189,11 +189,11 @@ The SQLite database lives in a named Docker volume so it survives container rest
 
 `VITE_API_BASE_URL` is a Vite build-time value. If frontend and backend are deployed to separate origins, rebuild the frontend with the correct API base URL and configure `GREENHOUSE_ALLOWED_ORIGINS` on the backend accordingly.
 
-## Concurrency / POC constraints
+## Concurrency constraints
 
-The application protects per-simulation read-modify-write operations with in-process async locks. This is appropriate for the current single-process POC/demo, but it is not a distributed locking strategy. A multi-worker or horizontally scaled deployment would need persistence-backed coordination / transactional concurrency control.
+The application protects per-simulation read-modify-write operations with in-process async locks. This is appropriate for the current single-process architecture, but it is not a distributed locking strategy. A multi-worker or horizontally scaled deployment would need persistence-backed coordination / transactional concurrency control.
 
-Management progress is also kept in process memory and is therefore intentionally POC-level rather than durable/distributed state.
+Management progress is also kept in process memory and is therefore currently ephemeral rather than durable/distributed state.
 
 ## Development approach
 
