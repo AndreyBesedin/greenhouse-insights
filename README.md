@@ -93,7 +93,7 @@ The most interesting directions from here are:
 - compare different management policies on identical greenhouse scenarios;
 - expand from the current greenhouse-level POC toward sites, zones and multiple crop types.
 
-More detailed architecture and implementation notes live in [`docs/technical_reference.md`](docs/technical_reference.md). Product and subsystem design documents are under [`docs/design/`](docs/design/), and engineering conventions are in [`DEVELOPMENT_GUIDELINES.md`](DEVELOPMENT_GUIDELINES.md).
+More detailed architecture and implementation notes live in [`docs/technical_reference.md`](docs/technical_reference.md). The original product and subsystem design documents are archived under [`docs/archive/design-history/`](docs/archive/design-history/) (historical, not current spec - see that folder's README), and engineering conventions are in [`DEVELOPMENT_GUIDELINES.md`](DEVELOPMENT_GUIDELINES.md).
 
 ## Running locally
 

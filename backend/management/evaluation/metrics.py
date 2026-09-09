@@ -1,6 +1,6 @@
 """Grades an AgentModelProvider against the eval cases in cases.py.
 
-Metrics follow docs/design/greenhouse_agentic_management_design.md §37,
+Metrics follow docs/archive/design-history/greenhouse_agentic_management_design.md §37,
 kept to the small initial set the doc asks for: action type accuracy,
 parameter validity, unnecessary-action rate, missed-action rate, and an
 investigation-correctness rate (folding in both "invalid tool-call rate" -

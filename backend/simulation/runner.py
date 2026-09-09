@@ -36,7 +36,7 @@ from simulation.world_builder import advance_world, initialize_world
 class DayProposal(BaseModel):
     """What prepare_day produces: the world has evolved and the management
     policy has proposed actions, but nothing has been validated or executed
-    yet - docs/design/demo_readiness_plan.md section 8's "important semantic
+    yet - docs/archive/design-history/demo_readiness_plan.md section 8's "important semantic
     decision" that advancing a day stops here until a human reviews it.
     """
 
@@ -244,7 +244,7 @@ class SimulationRunner:
         """Validates one action against the current world and, if accepted,
         executes and persists it. Never trusts that the action is valid
         merely because a human approved it or an agent proposed it
-        (docs/design/greenhouse_agentic_management_design.md section 19).
+        (docs/archive/design-history/greenhouse_agentic_management_design.md section 19).
         """
         return self.execute_recommendation_actions(simulation_id, day, [action])[0]
 

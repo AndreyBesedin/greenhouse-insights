@@ -8,7 +8,7 @@ class RecordSource(BaseModel):
     produced it (SIMULATION, REAL_SENSORS, ...) plus, where meaningful, the
     id of that specific run/sensor/import (source_id) so the record stays
     traceable without requiring the record itself to carry a simulation-
-    specific identity (docs/design/domain_model_eval_refactor_plan.md,
+    specific identity (docs/archive/design-history/domain_model_eval_refactor_plan.md,
     PR 1)."""
 
     model_config = ConfigDict(frozen=True)

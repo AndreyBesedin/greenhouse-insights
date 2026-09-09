@@ -1,15 +1,15 @@
 # Greenhouse Intelligence POC — Development Guidelines
 
-This document defines how we build this project day to day. The product scope lives in
-`docs/design/greenhouse_intelligence_poc_brief.md`; this doc is about *how* we write and
-ship the code that implements it. See `docs/design/` for all design documents, currently:
+This document defines how we build this project day to day. It is itself the current,
+maintained reference for *how* we write and ship code - see also `README.md` and
+`docs/technical_reference.md`.
 
-- `docs/design/greenhouse_intelligence_poc_brief.md` — overall product scope and vision.
-- `docs/design/greenhouse_simulation_design.md` — design of the simulation engine (hidden
-  world model, observation generation, scenario evolution).
-- `docs/design/greenhouse_agentic_management_design.md` — design of the agentic management
-  layer (policy interface, agent tools, action validation, evaluation).
-- `docs/design/greenhouse_ui_initial_brief.md` — initial brief for the frontend UI/UX.
+The original design documents (product scope, simulation engine design, agentic
+management design, UI brief) have been archived to `docs/archive/design-history/`
+now that the domain-model/eval refactor they described is complete - they are
+historical snapshots, not current specifications, but code comments/docstrings still
+cite them by path as design rationale. See that folder's `README.md` for the full
+archive policy.
 
 ---
 
@@ -47,7 +47,9 @@ Monorepo, single git repository:
 ```text
 greenhouse-insights/
 ├── docs/
-│   └── design/             # all design docs (product brief, subsystem designs, ...)
+│   ├── technical_reference.md  # current, maintained technical reference
+│   └── archive/
+│       └── design-history/ # archived original design docs - historical, not current spec
 ├── backend/
 │   ├── domain/            # greenhouse, plants, observations, events, state
 │   ├── simulation/        # world model: definitions, scenarios, runner, evolution, actioner
@@ -94,7 +96,7 @@ greenhouse-insights/
   protocol (`SimulatedOperatorExecutor` today: instantaneous, complete execution), selected
   per simulation via `SimulationDefinition.action_executor`
   (`domain.enums.ActionExecutorType`) the same way `management_policy` is. This mirrors
-  `docs/design/greenhouse_agentic_management_design.md` §43/§45: the same management code
+  `docs/archive/design-history/greenhouse_agentic_management_design.md` §43/§45: the same management code
   should later run against a real greenhouse by swapping simulated observations for real
   sensors and simulated execution for human approval/robot scheduling/a real robot, with the
   decision logic unchanged - and now the execution side is a real swap point (a future

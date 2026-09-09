@@ -1,6 +1,6 @@
 """One deterministic end-to-end (Level B) eval case.
 
-Per docs/design/domain_model_eval_refactor_plan.md PR 3: Level A cases
+Per docs/archive/design-history/domain_model_eval_refactor_plan.md PR 3: Level A cases
 (test_metrics.py, management/evaluation/cases.py) build the smallest
 realistic observation set and reconstruct from it. This is the
 complementary Level B case - a fixed seed/config run through the real

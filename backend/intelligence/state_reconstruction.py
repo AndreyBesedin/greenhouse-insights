@@ -33,7 +33,7 @@ def assess_plant_condition(plant_id: str, observations: list[Observation]) -> Pl
 
     UNKNOWN when nothing has been observed for the plant at all. MONITOR
     when a soil-moisture reading came in but none of the plant's own
-    visible/fruit readings did (docs/design/domain_model_eval_refactor_plan.md
+    visible/fruit readings did (docs/archive/design-history/domain_model_eval_refactor_plan.md
     PR 3) - a real, if simple, anomaly-across-observations signal: e.g. the
     vision pipeline is down while the soil sensor still reports, so the
     plant's own state cannot be confirmed today. HEALTHY otherwise.

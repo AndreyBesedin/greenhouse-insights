@@ -47,7 +47,7 @@ class SimulationRepository:
         """The simulation run for a greenhouse, looked up rather than
         derived from the greenhouse id - a greenhouse's simulation is a
         real relationship, not a naming convention
-        (docs/design/domain_model_eval_refactor_plan.md, PR 1)."""
+        (docs/archive/design-history/domain_model_eval_refactor_plan.md, PR 1)."""
         statement = select(simulation_definitions).where(
             simulation_definitions.c.greenhouse_id == greenhouse_id
         )

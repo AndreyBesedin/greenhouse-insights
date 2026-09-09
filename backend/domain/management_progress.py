@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class ManagementProgress(BaseModel):
     """High-level, structured progress for an in-flight agentic day
-    analysis - docs/design/demo_readiness_plan.md section 14. Never carries
+    analysis - docs/archive/design-history/demo_readiness_plan.md section 14. Never carries
     chain-of-thought, only tool-call-derived milestones (Inspecting Plant X,
     Checking Plant X history, ...) so a real LLM call does not look like a
     frozen UI while it runs."""

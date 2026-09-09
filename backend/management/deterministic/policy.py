@@ -11,7 +11,8 @@ from simulation.scenarios.config import ScenarioConfig
 class DeterministicPolicy:
     """A simple rule-based operator: waters, harvests, and lowers plants that need it.
 
-    Reads only observable plant state (docs/design/greenhouse_agentic_management_design.md
+    Reads only observable plant state
+    (docs/archive/design-history/greenhouse_agentic_management_design.md
     §21/§51: the baseline must use the same observable data the future agent
     gets, never hidden simulator truth), so it is a fair comparison point for
     AgenticPolicy under the same seed.

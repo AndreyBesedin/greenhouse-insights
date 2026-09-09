@@ -1,12 +1,12 @@
 """Ground-truth eval cases for agent decision quality.
 
-Per docs/design/greenhouse_agentic_management_design.md §35-37: each case
+Per docs/archive/design-history/greenhouse_agentic_management_design.md §35-37: each case
 pairs an observable context (what any AgentModelProvider is allowed to see)
 with a private expected outcome (§36) the provider never sees. Kept small
 and provider-agnostic on purpose - these run against FakeAgentModelProvider
 today and against a real provider unchanged later.
 
-Per docs/design/domain_model_eval_refactor_plan.md PR 3 ("Level A" there):
+Per docs/archive/design-history/domain_model_eval_refactor_plan.md PR 3 ("Level A" there):
 every case's input is a plausible day's Observations (plus, where needed,
 prior days' Observations for history) run through the same
 reconstruct_plant_state the application uses - never a hand-set PlantState.

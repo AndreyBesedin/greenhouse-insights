@@ -493,7 +493,7 @@ export interface components {
         /**
          * ManagementProgress
          * @description High-level, structured progress for an in-flight agentic day
-         *     analysis - docs/design/demo_readiness_plan.md section 14. Never carries
+         *     analysis - docs/archive/design-history/demo_readiness_plan.md section 14. Never carries
          *     chain-of-thought, only tool-call-derived milestones (Inspecting Plant X,
          *     Checking Plant X history, ...) so a real LLM call does not look like a
          *     frozen UI while it runs.
@@ -597,6 +597,16 @@ export interface components {
         };
         /**
          * PlantHealth
+         * @description The plant's own condition, assessed independently of environmental
+         *     readings such as soil moisture (docs/archive/design-history/domain_model_eval_refactor_plan.md
+         *     PR 2) - a plant needing water is not automatically unhealthy. For this
+         *     POC there is one implemented condition signal beyond presence/absence
+         *     of observations: MONITOR when the plant's own visible/fruit readings
+         *     are missing today despite an environment reading coming in (PR 3's
+         *     intelligence.state_reconstruction.assess_plant_condition) - otherwise
+         *     HEALTHY once any observation exists, UNKNOWN before that.
+         *     ACTION_REQUIRED stays available for future condition-specific evidence
+         *     (visual symptoms, sustained deterioration, ...).
          * @enum {string}
          */
         PlantHealth: "HEALTHY" | "MONITOR" | "ACTION_REQUIRED" | "UNKNOWN";
@@ -643,7 +653,7 @@ export interface components {
         /**
          * Recommendation
          * @description A persisted, reviewable proposal - the human-in-the-loop counterpart
-         *     to a bare RequestedAction (docs/design/demo_readiness_plan.md sections
+         *     to a bare RequestedAction (docs/archive/design-history/demo_readiness_plan.md sections
          *     10-11). The management policy still only ever proposes; this is what
          *     the application layer turns that proposal into so a human can approve
          *     or dismiss it before anything in the world changes.
@@ -655,7 +665,7 @@ export interface components {
          *     of provenance - which system/run produced the recommendation (today
          *     always a simulation run) - kept separate from simulation identity so a
          *     Recommendation stays valid for live operation too
-         *     (docs/design/domain_model_eval_refactor_plan.md, PR 1).
+         *     (docs/archive/design-history/domain_model_eval_refactor_plan.md, PR 1).
          */
         Recommendation: {
             /** Recommendation Id */
@@ -697,7 +707,7 @@ export interface components {
         };
         /**
          * RecommendationStatus
-         * @description Avoid adding statuses with no immediate use (docs/design/demo_readiness_plan.md
+         * @description Avoid adding statuses with no immediate use (docs/archive/design-history/demo_readiness_plan.md
          *     section 10): approval and execution are synchronous in this pass, so
          *     there is no persisted APPROVED-but-not-yet-executed state, and nothing
          *     in the executor can currently fail once validation has passed, so
@@ -711,7 +721,7 @@ export interface components {
          *     produced it (SIMULATION, REAL_SENSORS, ...) plus, where meaningful, the
          *     id of that specific run/sensor/import (source_id) so the record stays
          *     traceable without requiring the record itself to carry a simulation-
-         *     specific identity (docs/design/domain_model_eval_refactor_plan.md,
+         *     specific identity (docs/archive/design-history/domain_model_eval_refactor_plan.md,
          *     PR 1).
          */
         RecordSource: {

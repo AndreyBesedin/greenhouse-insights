@@ -54,7 +54,7 @@ class FakeAgentModelProvider:
     reads the plant's own soil-moisture reading (environment data), not
     PlantState.health - "is this environment reading ambiguous" and "is
     the plant's own condition a concern" are different questions
-    (docs/design/domain_model_eval_refactor_plan.md PR 2). The plant's own
+    (docs/archive/design-history/domain_model_eval_refactor_plan.md PR 2). The plant's own
     condition is handled separately below (PR 3): a non-HEALTHY condition
     (missing observations, or a same-day gap in the plant's own readings)
     schedules an inspection on its own, with no tool call needed - the

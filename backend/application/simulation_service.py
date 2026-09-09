@@ -26,7 +26,7 @@ from simulation.runner import SimulationRunner
 class PendingRecommendationsExist(Exception):
     """Raised by advance_one_day when the current day still has PENDING
     recommendations and the caller did not pass confirm_dismiss_remaining -
-    docs/design/demo_readiness_plan.md section 12: never silently lose an
+    docs/archive/design-history/demo_readiness_plan.md section 12: never silently lose an
     agent suggestion by advancing past it."""
 
     def __init__(self, count: int) -> None:
@@ -37,7 +37,7 @@ class PendingRecommendationsExist(Exception):
 class RecommendationAlreadyReviewed(Exception):
     """Raised when approving/dismissing a recommendation that is not
     PENDING - repeated review must be rejected safely, not silently
-    re-applied (docs/design/demo_readiness_plan.md section 23)."""
+    re-applied (docs/archive/design-history/demo_readiness_plan.md section 23)."""
 
     def __init__(self, recommendation_id: str, status: RecommendationStatus) -> None:
         self.recommendation_id = recommendation_id
@@ -287,7 +287,7 @@ class SimulationService:
 
     async def approve_all_pending(self, greenhouse_id: str, day: int) -> list[Recommendation]:
         """Approves and executes every PENDING recommendation for a day in
-        one go (docs/design/demo_readiness_plan.md section 6: a
+        one go (docs/archive/design-history/demo_readiness_plan.md section 6: a
         presentation-layer convenience, not a new simulator primitive -
         each action is still validated and persisted individually,
         exactly like approving one at a time). Executes them as a single

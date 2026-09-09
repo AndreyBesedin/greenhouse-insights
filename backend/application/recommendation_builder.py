@@ -1,5 +1,5 @@
 """Turns a policy's bare RequestedAction into a persisted, human-facing
-Recommendation - docs/design/demo_readiness_plan.md section 11: "The
+Recommendation - docs/archive/design-history/demo_readiness_plan.md section 11: "The
 management-policy contract can still return requested actions internally,
 but the application layer must persist them as pending recommendations
 before execution." This is that application-layer step; management/ never

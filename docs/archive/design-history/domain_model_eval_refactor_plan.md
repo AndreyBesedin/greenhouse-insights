@@ -18,7 +18,7 @@ The cleanup should happen as a stacked set of PRs so each architectural change c
 
 # PR 1 — Separate simulation context from greenhouse domain identity
 
-**Suggested branch:** `refactor/simulation-context-boundary`  
+**Suggested branch:** `refactor/simulation-context-boundary`
 **Base:** `main`
 
 ## Goal
@@ -87,7 +87,7 @@ Also remove brittle assumptions such as deriving a simulation id from a greenhou
 
 # PR 2 — Separate observations, environment, plant condition, and reconstructed state
 
-**Suggested branch:** `refactor/state-model-separation`  
+**Suggested branch:** `refactor/state-model-separation`
 **Base:** `refactor/simulation-context-boundary`
 
 ## Goal
@@ -152,7 +152,7 @@ Management thresholds should read from the correct source of truth: environment,
 
 # PR 3 — Make eval cases reachable through the real pipeline
 
-**Suggested branch:** `eval/reachable-system-states`  
+**Suggested branch:** `eval/reachable-system-states`
 **Base:** `refactor/state-model-separation`
 
 ## Goal
@@ -231,7 +231,7 @@ Add at least:
 
 # PR 4 — Archive superseded design and implementation-planning documents
 
-**Suggested branch:** `docs/archive-design-history`  
+**Suggested branch:** `docs/archive-design-history`
 **Base:** `eval/reachable-system-states`
 
 ## Goal
