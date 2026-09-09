@@ -17,7 +17,7 @@ function ok<T>(data: T) {
 
 const PENDING = {
   recommendation_id: 'rec_1',
-  simulation_id: 'sim_gh_001',
+  source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
   greenhouse_id: 'gh_001',
   simulated_day: 2,
   plant_id: 'plant_017',

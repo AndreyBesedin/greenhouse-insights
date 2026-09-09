@@ -13,6 +13,8 @@ UI must show concise structured facts, not chain-of-thought (section 4).
 
 from datetime import datetime
 
+from domain.enums import SourceType
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from domain.state import PlantState
 from management.validation.actions import (
@@ -44,7 +46,7 @@ def build_recommendation(
 
     return Recommendation(
         recommendation_id=recommendation_id,
-        simulation_id=proposal.simulation_id,
+        source=RecordSource(type=SourceType.SIMULATION, source_id=proposal.simulation_id),
         greenhouse_id=proposal.greenhouse_id,
         simulated_day=proposal.simulated_day,
         plant_id=action.plant_id,

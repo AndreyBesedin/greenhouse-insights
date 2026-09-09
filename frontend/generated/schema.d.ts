@@ -651,13 +651,16 @@ export interface components {
          *     requested_by is source_policy (which policy proposed this) rather than
          *     a separate field - it already carries that meaning. approved_by and
          *     executed_by are the new provenance section 7 asks for: who signed off,
-         *     and what actually carried the action out.
+         *     and what actually carried the action out. source is a different kind
+         *     of provenance - which system/run produced the recommendation (today
+         *     always a simulation run) - kept separate from simulation identity so a
+         *     Recommendation stays valid for live operation too
+         *     (docs/design/domain_model_eval_refactor_plan.md, PR 1).
          */
         Recommendation: {
             /** Recommendation Id */
             recommendation_id: string;
-            /** Simulation Id */
-            simulation_id: string;
+            source: components["schemas"]["RecordSource"];
             /** Greenhouse Id */
             greenhouse_id: string;
             /** Simulated Day */
@@ -702,6 +705,20 @@ export interface components {
          * @enum {string}
          */
         RecommendationStatus: "PENDING" | "DISMISSED" | "EXECUTED" | "REJECTED_BY_VALIDATOR";
+        /**
+         * RecordSource
+         * @description Where a piece of domain data came from - the system/run that
+         *     produced it (SIMULATION, REAL_SENSORS, ...) plus, where meaningful, the
+         *     id of that specific run/sensor/import (source_id) so the record stays
+         *     traceable without requiring the record itself to carry a simulation-
+         *     specific identity (docs/design/domain_model_eval_refactor_plan.md,
+         *     PR 1).
+         */
+        RecordSource: {
+            type: components["schemas"]["SourceType"];
+            /** Source Id */
+            source_id?: string | null;
+        };
         /** ScheduleInspectionAction */
         ScheduleInspectionAction: {
             /**

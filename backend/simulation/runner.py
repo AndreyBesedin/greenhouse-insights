@@ -127,7 +127,9 @@ class SimulationRunner:
             world = initialize_world(config, plant_ids, greenhouse_id=greenhouse.greenhouse_id)
         world = advance_world(world, config, day)
 
-        generation = generate_observations(world, config, day=day, timestamp=timestamp)
+        generation = generate_observations(
+            world, config, day=day, timestamp=timestamp, simulation_id=simulation_id
+        )
 
         observable_plant_states = [
             reconstruct_plant_state(

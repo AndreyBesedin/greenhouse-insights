@@ -2,7 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from domain.enums import ObservationType, SourceType
+from domain.enums import ObservationType
+from domain.provenance import RecordSource
 
 
 class Observation(BaseModel):
@@ -15,4 +16,4 @@ class Observation(BaseModel):
     timestamp: datetime
     observation_type: ObservationType
     value: float
-    source_type: SourceType
+    source: RecordSource

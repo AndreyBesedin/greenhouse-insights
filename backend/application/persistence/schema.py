@@ -44,6 +44,7 @@ observations = Table(
     Column("observation_type", String, nullable=False),
     Column("value", Float, nullable=False),
     Column("source_type", String, nullable=False),
+    Column("source_id", String, nullable=True),
 )
 
 events = Table(
@@ -96,11 +97,12 @@ recommendations = Table(
     "recommendations",
     metadata,
     Column("recommendation_id", String, primary_key=True),
-    Column("simulation_id", String, nullable=False, index=True),
     Column("greenhouse_id", String, nullable=False, index=True),
     Column("simulated_day", Integer, nullable=False, index=True),
     Column("plant_id", String, nullable=False, index=True),
     Column("action_json", String, nullable=False),
+    Column("source_type", String, nullable=False),
+    Column("source_id", String, nullable=True, index=True),
     Column("source_policy", String, nullable=False),
     Column("status", String, nullable=False, index=True),
     Column("reason", String, nullable=False),

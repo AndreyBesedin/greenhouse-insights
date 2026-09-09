@@ -13,8 +13,10 @@ from domain.enums import (
     ManagementPolicyType,
     RecommendationStatus,
     SimulationStatus,
+    SourceType,
 )
 from domain.management_progress import ManagementProgress
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from management.validation.actions import ActionResult, RequestedAction
 from simulation.definitions import SimulationDefinition
@@ -74,6 +76,20 @@ class SimulationService:
             lock = asyncio.Lock()
             self._locks[simulation_id] = lock
         return lock
+
+    def _simulation_id_for(self, recommendation: Recommendation) -> str:
+        """Every recommendation today is simulation-produced (the only
+        ActionExecutorType is SIMULATED_OPERATOR), so its source.source_id
+        is the execution scope to lock/act against. Recommendation itself
+        no longer requires a simulation_id (PR 1) - this is where that
+        assumption now lives, in one place instead of on the domain
+        object."""
+        simulation_id = recommendation.source.source_id
+        if simulation_id is None:
+            raise LookupError(
+                f"recommendation {recommendation.recommendation_id!r} has no source_id"
+            )
+        return simulation_id
 
     async def start_simulation(self, simulation_id: str) -> SimulationDefinition | None:
         definition = self._simulations.get(simulation_id)
@@ -192,7 +208,10 @@ class SimulationService:
         Raises ManualActionNotAllowed if the simulation has not started yet
         (current_step == 0, so no world snapshot exists to act against).
         """
-        simulation_id = f"sim_{greenhouse_id}"
+        definition = self._simulations.get_by_greenhouse(greenhouse_id)
+        if definition is None:
+            raise LookupError(f"no simulation found for greenhouse {greenhouse_id!r}")
+        simulation_id = definition.simulation_id
         async with self._lock_for(simulation_id):
             definition = self._simulations.get(simulation_id)
             if definition is None:
@@ -207,7 +226,7 @@ class SimulationService:
             now = datetime.now(UTC)
             recommendation = Recommendation(
                 recommendation_id=f"rec_{uuid4().hex[:10]}",
-                simulation_id=simulation_id,
+                source=RecordSource(type=SourceType.SIMULATION, source_id=simulation_id),
                 greenhouse_id=greenhouse_id,
                 simulated_day=day,
                 plant_id=action.plant_id,
@@ -236,7 +255,7 @@ class SimulationService:
         if recommendation is None:
             return None
 
-        async with self._lock_for(recommendation.simulation_id):
+        async with self._lock_for(self._simulation_id_for(recommendation)):
             # Re-fetch inside the lock: another operation (e.g. an
             # approve-all that was already in flight) may have reviewed
             # this recommendation while we were waiting for the lock.
@@ -246,15 +265,14 @@ class SimulationService:
             if recommendation.status != RecommendationStatus.PENDING:
                 raise RecommendationAlreadyReviewed(recommendation_id, recommendation.status)
 
-            definition = self._simulations.get(recommendation.simulation_id)
+            simulation_id = self._simulation_id_for(recommendation)
+            definition = self._simulations.get(simulation_id)
             if definition is None:
-                raise LookupError(
-                    f"no simulation definition found for {recommendation.simulation_id!r}"
-                )
+                raise LookupError(f"no simulation definition found for {simulation_id!r}")
 
             results = await asyncio.to_thread(
                 self._runner.execute_recommendation_actions,
-                recommendation.simulation_id,
+                simulation_id,
                 recommendation.simulated_day,
                 [recommendation.action],
             )
@@ -262,7 +280,7 @@ class SimulationService:
             self._recommendations.save(updated)
             await asyncio.to_thread(
                 self._runner.refresh_day_state,
-                recommendation.simulation_id,
+                simulation_id,
                 recommendation.simulated_day,
             )
             return updated
@@ -278,7 +296,10 @@ class SimulationService:
         of once per recommendation - approving many actions on a large
         greenhouse was previously O(pending count) world round-trips.
         """
-        simulation_id = f"sim_{greenhouse_id}"
+        definition = self._simulations.get_by_greenhouse(greenhouse_id)
+        if definition is None:
+            raise LookupError(f"no simulation definition found for greenhouse {greenhouse_id!r}")
+        simulation_id = definition.simulation_id
         async with self._lock_for(simulation_id):
             pending = self._recommendations.list_pending_for_day(greenhouse_id, day)
             if not pending:
@@ -334,7 +355,7 @@ class SimulationService:
         if recommendation is None:
             return None
 
-        async with self._lock_for(recommendation.simulation_id):
+        async with self._lock_for(self._simulation_id_for(recommendation)):
             recommendation = self._recommendations.get(recommendation_id)
             if recommendation is None:
                 return None

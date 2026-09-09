@@ -8,6 +8,7 @@ from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import recommendations
 from domain.enums import RecommendationStatus
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from management.validation.actions import RequestedAction
 
@@ -63,11 +64,12 @@ class RecommendationRepository:
 def _recommendation_to_row(recommendation: Recommendation) -> dict[str, object]:
     return {
         "recommendation_id": recommendation.recommendation_id,
-        "simulation_id": recommendation.simulation_id,
         "greenhouse_id": recommendation.greenhouse_id,
         "simulated_day": recommendation.simulated_day,
         "plant_id": recommendation.plant_id,
         "action_json": recommendation.action.model_dump_json(),
+        "source_type": recommendation.source.type.value,
+        "source_id": recommendation.source.source_id,
         "source_policy": recommendation.source_policy.value,
         "status": recommendation.status.value,
         "reason": recommendation.reason,
@@ -88,7 +90,7 @@ def _recommendation_to_row(recommendation: Recommendation) -> dict[str, object]:
 def _row_to_recommendation(mapping: RowMapping) -> Recommendation:
     return Recommendation(
         recommendation_id=mapping["recommendation_id"],
-        simulation_id=mapping["simulation_id"],
+        source=RecordSource(type=mapping["source_type"], source_id=mapping["source_id"]),
         greenhouse_id=mapping["greenhouse_id"],
         simulated_day=mapping["simulated_day"],
         plant_id=mapping["plant_id"],

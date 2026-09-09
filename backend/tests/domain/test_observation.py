@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from domain.enums import ObservationType, SourceType
 from domain.observation import Observation
+from domain.provenance import RecordSource
 
 
 def _make_observation(**overrides: object) -> Observation:
@@ -16,7 +17,7 @@ def _make_observation(**overrides: object) -> Observation:
         timestamp=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
         observation_type=ObservationType.SOIL_MOISTURE_PCT,
         value=38.0,
-        source_type=SourceType.SIMULATION,
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_001"),
     )
     defaults.update(overrides)
     return Observation(**defaults)

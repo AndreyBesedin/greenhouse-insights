@@ -5,6 +5,7 @@ import numpy as np
 
 from domain.enums import FruitStatus, ObservationType, SourceType
 from domain.observation import Observation
+from domain.provenance import RecordSource
 from domain.world import GreenhouseWorld, PlantWorld
 from simulation.rng import seeded_rng
 from simulation.scenarios.config import ScenarioConfig
@@ -16,16 +17,22 @@ class ObservationGeneration:
 
 
 def generate_observations(
-    world: GreenhouseWorld, config: ScenarioConfig, *, day: int, timestamp: datetime
+    world: GreenhouseWorld,
+    config: ScenarioConfig,
+    *,
+    day: int,
+    timestamp: datetime,
+    simulation_id: str,
 ) -> ObservationGeneration:
     """Derives noisy observations from the (already-advanced) hidden world."""
     rng = seeded_rng(config.random_seed, day, "observations")
+    source = RecordSource(type=SourceType.SIMULATION, source_id=simulation_id)
 
     observations: list[Observation] = [
-        _air_temperature_observation(world, config, day, timestamp, rng)
+        _air_temperature_observation(world, config, day, timestamp, rng, source)
     ]
     for plant in world.plants:
-        observations.extend(_plant_observations(world, plant, config, day, timestamp, rng))
+        observations.extend(_plant_observations(world, plant, config, day, timestamp, rng, source))
 
     return ObservationGeneration(observations=observations)
 
@@ -36,6 +43,7 @@ def _air_temperature_observation(
     day: int,
     timestamp: datetime,
     rng: np.random.Generator,
+    source: RecordSource,
 ) -> Observation:
     noisy = world.environment.air_temperature_c + rng.normal(0.0, config.air_temperature_noise_c)
     return Observation(
@@ -46,7 +54,7 @@ def _air_temperature_observation(
         timestamp=timestamp,
         observation_type=ObservationType.AIR_TEMPERATURE_C,
         value=round(float(noisy), 1),
-        source_type=SourceType.SIMULATION,
+        source=source,
     )
 
 
@@ -57,6 +65,7 @@ def _plant_observations(
     day: int,
     timestamp: datetime,
     rng: np.random.Generator,
+    source: RecordSource,
 ) -> list[Observation]:
     def observation(observation_type: ObservationType, value: float) -> Observation:
         return Observation(
@@ -67,7 +76,7 @@ def _plant_observations(
             timestamp=timestamp,
             observation_type=observation_type,
             value=value,
-            source_type=SourceType.SIMULATION,
+            source=source,
         )
 
     soil_moisture_pct = 100.0 * plant.water_reservoir_ml / config.water_capacity_ml

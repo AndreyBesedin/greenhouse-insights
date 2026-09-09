@@ -25,6 +25,7 @@ from domain.enums import (
     SourceType,
 )
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from management.validation.actions import HarvestPlantAction, WaterPlantAction
 from simulation.definitions import SimulationDefinition
@@ -88,7 +89,7 @@ def _pending_recommendation(
 ) -> Recommendation:
     return Recommendation(
         recommendation_id=recommendation_id,
-        simulation_id="sim_test",
+        source=RecordSource(type=SourceType.SIMULATION, source_id="sim_test"),
         greenhouse_id="gh_test",
         simulated_day=1,
         plant_id=PLANT_ID,
@@ -354,7 +355,7 @@ def _manual_pending_recommendation(
 ) -> Recommendation:
     return Recommendation(
         recommendation_id=recommendation_id,
-        simulation_id=_MANUAL_SIM_ID,
+        source=RecordSource(type=SourceType.SIMULATION, source_id=_MANUAL_SIM_ID),
         greenhouse_id=_MANUAL_GH_ID,
         simulated_day=1,
         plant_id=_MANUAL_PLANT_ID,

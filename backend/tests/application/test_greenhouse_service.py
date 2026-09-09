@@ -26,6 +26,7 @@ from domain.enums import (
 from domain.event import Event
 from domain.management_trace import ManagementTrace
 from domain.observation import Observation
+from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
 from domain.state import GreenhouseState, PlantState
 from management.validation.actions import WaterPlantAction
@@ -372,7 +373,7 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
                 timestamp=timestamp,
                 observation_type=ObservationType.SOIL_MOISTURE_PCT,
                 value=40.0,
-                source_type=SourceType.SIMULATION,
+                source=RecordSource(type=SourceType.SIMULATION, source_id=simulation_id),
             )
         ]
     )
@@ -422,7 +423,7 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
     RecommendationRepository(engine).save(
         Recommendation(
             recommendation_id="rec_1",
-            simulation_id=simulation_id,
+            source=RecordSource(type=SourceType.SIMULATION, source_id=simulation_id),
             greenhouse_id=greenhouse_id,
             simulated_day=1,
             plant_id="gh_001_plant_001",
