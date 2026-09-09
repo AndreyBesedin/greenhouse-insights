@@ -2,7 +2,7 @@ from domain.enums import ManagementPolicyType
 from simulation.scenarios import SCENARIO_REGISTRY
 
 
-def test_registry_contains_exactly_the_three_poc_greenhouses() -> None:
+def test_registry_contains_exactly_the_three_configured_greenhouses() -> None:
     assert set(SCENARIO_REGISTRY) == {"gh_001", "gh_002", "gh_demo"}
 
 
