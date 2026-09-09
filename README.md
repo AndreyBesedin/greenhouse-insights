@@ -24,7 +24,11 @@ The current implementation is one stage of that ongoing development path, not th
 
 ## Why a greenhouse?
 
-A greenhouse is a useful experimental environment because the sensing layer can initially be controlled: sensors can be selected deliberately, observations can be normalized, and the physical environment can eventually be instrumented directly.
+Greenhouses are a strong starting point because their core production asset — the plant — is still largely **unobservable over time**. Operators can measure aggregate outputs such as total harvest, climate conditions, irrigation or labour, but they typically do not have a reliable longitudinal record of each plant: how it has developed, what it has produced, whether it is degrading, what interventions it received, or what it is likely to produce next.
+
+That creates a structural gap between **what is happening physically and what the operator can actually see and plan around**. Production is therefore managed with limited plant-level transparency, weak forecasting, and little ability to attribute outcomes to individual plants or interventions. Greenhouse Insights starts there: by turning plants from opaque physical assets into observable, longitudinal entities that can support better diagnosis, prediction, planning and eventually automation.
+
+A greenhouse is also a useful experimental environment because the sensing layer can initially be controlled: sensors can be selected deliberately, observations can be normalized, and the physical environment can eventually be instrumented directly.
 
 That makes it possible to focus first on the reusable questions:
 
