@@ -132,14 +132,11 @@ describe('PlantDetailPanel', () => {
     expect(screen.queryByText(/AI recommendation/)).not.toBeInTheDocument()
   })
 
-  it('explains an action-required plant and flags the missing recommendation', () => {
+  it('flags the missing recommendation for a non-healthy plant', () => {
     render(
       <PlantDetailPanel detail={ACTION_REQUIRED_DETAIL} {...baseProps()} recommendations={[]} />,
     )
 
-    expect(
-      screen.getByText('Soil moisture 18.5% is below the 20% action-required threshold.'),
-    ).toBeInTheDocument()
     expect(screen.getByText(/No AI recommendation for this plant today/)).toBeInTheDocument()
   })
 

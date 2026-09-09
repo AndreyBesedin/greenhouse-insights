@@ -51,13 +51,15 @@ def _plant(plant_id: str = "eval_plant", **overrides: object) -> PlantState:
 
 CASES: list[EvalCase] = [
     EvalCase(
-        case_id="healthy_low_moisture_waters",
-        description="A healthy plant with low soil moisture should be watered without "
-        "needing to investigate first.",
+        case_id="sustained_low_moisture_waters",
+        description="Low soil moisture confirmed by sustained history should be watered - "
+        "a single low reading is ambiguous and must be investigated first regardless of "
+        "the plant's own condition, but a sustained one is not.",
         plant_state=_plant(latest_soil_moisture_pct=10.0),
+        history=[_plant(latest_soil_moisture_pct=9.0)],
         expected_action_types=frozenset({"WATER_PLANT"}),
         param_ranges={"WATER_PLANT": ("amount_ml", 400.0, 900.0)},
-        requires_investigation=False,
+        requires_investigation=True,
     ),
     EvalCase(
         case_id="healthy_well_watered_does_nothing",
@@ -88,20 +90,22 @@ CASES: list[EvalCase] = [
         requires_investigation=False,
     ),
     EvalCase(
-        case_id="healthy_multiple_triggers_all_act",
-        description="A healthy plant tripping all three mechanical thresholds at once "
-        "should get all three actions - none should be missed.",
+        case_id="multiple_triggers_all_act",
+        description="A plant tripping all three mechanical thresholds at once should get "
+        "all three actions - none should be missed. Harvest/lower are unambiguous and need "
+        "no investigation; sustained low moisture does require it, same as watering alone.",
         plant_state=_plant(
             latest_soil_moisture_pct=5.0,
             latest_ripe_fruit_count=CONFIG.harvest_ripe_fruit_count_threshold,
             latest_visible_height_cm=CONFIG.lower_plant_height_threshold_cm + 20,
         ),
+        history=[_plant(latest_soil_moisture_pct=4.0)],
         expected_action_types=frozenset({"WATER_PLANT", "HARVEST_PLANT", "LOWER_PLANT"}),
         param_ranges={
             "WATER_PLANT": ("amount_ml", 400.0, 900.0),
             "LOWER_PLANT": ("amount_cm", 20.0, 60.0),
         },
-        requires_investigation=False,
+        requires_investigation=True,
     ),
     EvalCase(
         case_id="monitor_single_low_reading_inspects_not_waters",
@@ -124,14 +128,15 @@ CASES: list[EvalCase] = [
         requires_investigation=True,
     ),
     EvalCase(
-        case_id="action_required_clean_readings_investigates_then_does_nothing",
-        description="A non-healthy plant with otherwise clean readings must still be "
-        "investigated (health alone is reason to look), but the correct outcome is no "
-        "action once the readings check out.",
+        case_id="non_healthy_condition_with_clean_readings_needs_no_action",
+        description="A plant flagged non-healthy but with clean environmental readings "
+        "needs no action and no investigation - condition and environment are different "
+        "questions (docs/design/domain_model_eval_refactor_plan.md PR 2), and it is the "
+        "evidence, not the health label, that decides whether a closer look is warranted.",
         plant_state=_plant(health=PlantHealth.ACTION_REQUIRED, latest_soil_moisture_pct=85.0),
         history=[_plant(latest_soil_moisture_pct=88.0)],
         expected_action_types=frozenset(),
-        requires_investigation=True,
+        requires_investigation=False,
     ),
     EvalCase(
         case_id="monitor_sustained_low_moisture_and_ripe_fruit_both_act",

@@ -3,7 +3,6 @@ import { useState } from 'react'
 import type { components } from '../../generated/schema'
 import { cropIconVariant } from '../lib/crop'
 import { formatMass } from '../lib/format'
-import { explainHealth } from '../lib/health'
 import { healthToStatus } from '../lib/status'
 import { CropIcon } from './CropIcon'
 import { StatusBadge } from './StatusBadge'
@@ -65,9 +64,6 @@ export function PlantDetailPanel({
   }
 
   const { plant, state } = detail
-  const healthExplanation = state
-    ? explainHealth(state.health, state.latest_soil_moisture_pct)
-    : null
   const hasRecommendationToday = (recommendations ?? []).some((r) => r.plant_id === plant.plant_id)
   const needsAttention = state != null && state.health !== 'HEALTHY'
 
@@ -87,8 +83,7 @@ export function PlantDetailPanel({
         <>
           {needsAttention && (
             <div className="mt-3 rounded-md bg-amber/[0.08] px-3 py-2 text-[11px] text-paper outline-1 -outline-offset-1 outline-amber/30">
-              {healthExplanation && <p>{healthExplanation}</p>}
-              <p className={healthExplanation ? 'mt-1 text-mist' : 'text-mist'}>
+              <p className="text-mist">
                 {hasRecommendationToday
                   ? 'The AI assistant has a recommendation for this plant today - see below.'
                   : 'No AI recommendation for this plant today - use quick actions to act directly.'}

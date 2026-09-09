@@ -66,6 +66,15 @@ class Provenance(StrEnum):
 
 
 class PlantHealth(StrEnum):
+    """The plant's own condition, assessed independently of environmental
+    readings such as soil moisture (docs/design/domain_model_eval_refactor_plan.md
+    PR 2) - a plant needing water is not automatically unhealthy. For this
+    POC there is no symptom/disease/anomaly signal implemented, so in
+    practice this is HEALTHY once any observation exists for the plant and
+    UNKNOWN before that; MONITOR/ACTION_REQUIRED stay available for future
+    condition-specific evidence (visual symptoms, sustained deterioration,
+    anomalies across observations, ...)."""
+
     HEALTHY = "HEALTHY"
     MONITOR = "MONITOR"
     ACTION_REQUIRED = "ACTION_REQUIRED"
