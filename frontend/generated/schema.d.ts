@@ -47,7 +47,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get State */
+        /**
+         * Get State
+         * @description The greenhouse as of `at` (ISO-8601, timezone-aware): the latest
+         *     snapshot taken at or before it. Omit `at` for the latest snapshot.
+         */
         get: operations["get_state_greenhouses__greenhouse_id__state_get"];
         put?: never;
         post?: never;
@@ -132,7 +136,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Recommendations */
+        /**
+         * Get Recommendations
+         * @description Recommendations made against the state snapshot taken at `at`.
+         */
         get: operations["get_recommendations_greenhouses__greenhouse_id__recommendations_get"];
         put?: never;
         post?: never;
@@ -375,6 +382,8 @@ export interface components {
             /** Description */
             description: string;
             source_type: components["schemas"]["SourceType"];
+            /** Crop */
+            crop?: string | null;
             layout: components["schemas"]["GreenhouseLayout"];
             /** Plants */
             plants: components["schemas"]["Plant"][];
@@ -393,14 +402,81 @@ export interface components {
             greenhouse: components["schemas"]["Greenhouse"];
             simulation: components["schemas"]["SimulationSummary"] | null;
         };
-        /** GreenhouseLayout */
+        /**
+         * GreenhouseEnvironmentState
+         * @description The latest known greenhouse-level readings: climate, actuator
+         *     state, recorded control setpoints and irrigation. Field names are
+         *     ObservationType values, so reconstruction is a lookup, not a mapping.
+         *     Every field is optional - a source only fills what it actually
+         *     measures (the simulator: air temperature; WUR: most of them).
+         */
+        GreenhouseEnvironmentState: {
+            /** Air Temperature C */
+            air_temperature_c?: number | null;
+            /** Relative Humidity Pct */
+            relative_humidity_pct?: number | null;
+            /** Humidity Deficit G M3 */
+            humidity_deficit_g_m3?: number | null;
+            /** Co2 Ppm */
+            co2_ppm?: number | null;
+            /** Par Umol M2 S */
+            par_umol_m2_s?: number | null;
+            /** Heating Pipe Temperature C */
+            heating_pipe_temperature_c?: number | null;
+            /** Energy Screen Position Pct */
+            energy_screen_position_pct?: number | null;
+            /** Blackout Screen Position Pct */
+            blackout_screen_position_pct?: number | null;
+            /** Window Position Lee Pct */
+            window_position_lee_pct?: number | null;
+            /** Window Position Wind Pct */
+            window_position_wind_pct?: number | null;
+            /** Lamps Activation Pct */
+            lamps_activation_pct?: number | null;
+            /** Heating Temperature Setpoint C */
+            heating_temperature_setpoint_c?: number | null;
+            /** Ventilation Temperature Setpoint C */
+            ventilation_temperature_setpoint_c?: number | null;
+            /** Co2 Setpoint Ppm */
+            co2_setpoint_ppm?: number | null;
+            /** Humidity Deficit Setpoint G M3 */
+            humidity_deficit_setpoint_g_m3?: number | null;
+            /** Lamps Activation Setpoint Pct */
+            lamps_activation_setpoint_pct?: number | null;
+            /** Energy Screen Setpoint Pct */
+            energy_screen_setpoint_pct?: number | null;
+            /** Blackout Screen Setpoint Pct */
+            blackout_screen_setpoint_pct?: number | null;
+            /** Irrigation Interval Setpoint Min */
+            irrigation_interval_setpoint_min?: number | null;
+            /** Irrigation Flow Duration Min */
+            irrigation_flow_duration_min?: number | null;
+            /** Drain Water Volume L M2 */
+            drain_water_volume_l_m2?: number | null;
+            /** Drain Ec Ds M */
+            drain_ec_ds_m?: number | null;
+            /** Drain Ph */
+            drain_ph?: number | null;
+            /** Sampled Fruit Count Per Plant */
+            sampled_fruit_count_per_plant?: number | null;
+            /** Sampled Fruit Fresh Weight G Per Plant */
+            sampled_fruit_fresh_weight_g_per_plant?: number | null;
+        };
+        /**
+         * GreenhouseLayout
+         * @description "grid": plants laid out in rows x columns (the simulator). "compartment":
+         *     a physical compartment observed as a whole, with no individually
+         *     identified plants (a recorded dataset's climate compartment) - rows and
+         *     columns are then 0. Positions inside a compartment are a later spatial
+         *     model (docs/design/wur_real_data_ingestion_replay_plan.md section 7).
+         */
         GreenhouseLayout: {
             /**
              * Kind
              * @default grid
-             * @constant
+             * @enum {string}
              */
-            kind: "grid";
+            kind: "grid" | "compartment";
             /** Rows */
             rows: number;
             /** Columns */
@@ -426,17 +502,26 @@ export interface components {
             total_steps: number | null;
             management_policy: components["schemas"]["ManagementPolicyType"] | null;
         };
-        /** GreenhouseState */
+        /**
+         * GreenhouseState
+         * @description A reconstructed snapshot of the whole greenhouse at one instant.
+         *
+         *     Chronology is the timestamp alone: a simulation-run's day counter is a
+         *     simulation mechanic (simulation/, GreenhouseWorld) and never leaks into
+         *     generic domain records, so the same snapshot shape serves simulated,
+         *     recorded and live greenhouses
+         *     (docs/design/wur_real_data_ingestion_replay_plan.md section 9).
+         */
         GreenhouseState: {
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
             /**
              * Timestamp
              * Format: date-time
              */
             timestamp: string;
+            /** @default {} */
+            environment: components["schemas"]["GreenhouseEnvironmentState"];
             /** Plant States */
             plant_states: components["schemas"]["PlantState"][];
             /** Plants Healthy */
@@ -616,8 +701,6 @@ export interface components {
             plant_id: string;
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
             /**
              * Timestamp
              * Format: date-time
@@ -673,8 +756,11 @@ export interface components {
             source: components["schemas"]["RecordSource"];
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
+            /**
+             * Context Timestamp
+             * Format: date-time
+             */
+            context_timestamp: string;
             /** Plant Id */
             plant_id: string;
             /** Action */
@@ -707,8 +793,9 @@ export interface components {
         };
         /**
          * RecommendationStatus
-         * @description Avoid adding statuses with no immediate use (docs/archive/design-history/demo_readiness_plan.md
-         *     section 10): approval and execution are synchronous in this pass, so
+         * @description Avoid adding statuses with no immediate use
+         *     (docs/archive/design-history/demo_readiness_plan.md section 10):
+         *     approval and execution are synchronous in this pass, so
          *     there is no persisted APPROVED-but-not-yet-executed state, and nothing
          *     in the executor can currently fail once validation has passed, so
          *     there is no FAILED state either.
@@ -764,12 +851,18 @@ export interface components {
          * @enum {string}
          */
         SourceType: "SIMULATION" | "REAL_SENSORS" | "EXTERNAL_API" | "IMPORTED_DATA";
-        /** TimelineSummary */
+        /**
+         * TimelineSummary
+         * @description The instants a greenhouse can be viewed at: one per persisted state
+         *     snapshot, ascending, plus which of them is "now". Source-agnostic - a
+         *     simulation produces one checkpoint per simulated day, a recorded
+         *     dataset one per replay checkpoint.
+         */
         TimelineSummary: {
-            /** Total Days */
-            total_days: number;
-            /** Current Day */
-            current_day: number;
+            /** Checkpoints */
+            checkpoints: string[];
+            /** Current Timestamp */
+            current_timestamp: string | null;
         };
         /** ToolCallTrace */
         ToolCallTrace: {
@@ -933,7 +1026,7 @@ export interface operations {
     get_state_greenhouses__greenhouse_id__state_get: {
         parameters: {
             query?: {
-                day?: number | null;
+                at?: string | null;
             };
             header?: never;
             path: {
@@ -966,7 +1059,7 @@ export interface operations {
     get_plant_greenhouses__greenhouse_id__plants__plant_id__get: {
         parameters: {
             query?: {
-                day?: number | null;
+                at?: string | null;
             };
             header?: never;
             path: {
@@ -1000,7 +1093,7 @@ export interface operations {
     get_plant_history_greenhouses__greenhouse_id__plants__plant_id__history_get: {
         parameters: {
             query: {
-                up_to_day: number;
+                up_to: string;
             };
             header?: never;
             path: {
@@ -1096,7 +1189,7 @@ export interface operations {
     get_recommendations_greenhouses__greenhouse_id__recommendations_get: {
         parameters: {
             query: {
-                day: number;
+                at: string;
             };
             header?: never;
             path: {
@@ -1129,7 +1222,7 @@ export interface operations {
     approve_all_recommendations_greenhouses__greenhouse_id__recommendations_approve_all_post: {
         parameters: {
             query: {
-                day: number;
+                at: string;
             };
             header?: never;
             path: {

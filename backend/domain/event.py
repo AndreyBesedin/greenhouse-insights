@@ -12,7 +12,6 @@ class Event(BaseModel):
     event_id: str
     greenhouse_id: str
     plant_id: str | None
-    simulated_day: int
     timestamp: datetime
     event_type: EventType
     source: EventSource

@@ -79,6 +79,9 @@ Today the project includes:
 - manual operator actions through the same validation/execution boundary;
 - historical navigation and recommendation provenance;
 - deterministic evaluation against simulator ground truth;
+- ingestion of recorded real greenhouse data (the WUR Autonomous Greenhouse
+  Challenge 2024 compartments) into the same observation / state / timeline
+  model, browsable day by day in the UI;
 - a React + TypeScript frontend and Python + FastAPI backend.
 
 ## What is intentionally simplified
@@ -119,7 +122,14 @@ Generate reviewable recommendations from observable state, keep reasoning and pr
 
 Feed real environmental sensors and plant observations into the same observable-state interface while preserving uncertainty and provenance.
 
-**Status:** not implemented.
+**Status:** started with recorded data. The WUR Autonomous Greenhouse Challenge
+2024 time series (six dwarf-tomato compartments, 5-minute climate, control and
+irrigation channels, manual harvest samples) import through
+`backend/ingestion/` into the same observations, events and reconstructed
+state the simulator produces, with checksummed provenance back to the 4TU
+source files. Imagery, perception, replay-time recommendations and temporal
+backtesting are the next steps
+([plan](docs/design/wur_real_data_ingestion_replay_plan.md)).
 
 ### 5. Learn from real operations
 
@@ -184,6 +194,27 @@ npm run dev
 ```
 
 Frontend: `http://localhost:5173`
+
+### Recorded data (WUR)
+
+Real recorded greenhouse history can be imported alongside the simulated
+greenhouses. Raw and derived data live outside the repository under
+`GREENHOUSE_DATA_DIR` (default `~/.greenhouse-insights/data`); only dataset
+manifests are committed.
+
+```bash
+cd backend
+# metadata only: verify the committed manifest against 4TU
+poetry run greenhouse-data inventory wur agc4-2024
+# fetch the ~6 MB time-series archive and build canonical records for one compartment
+poetry run greenhouse-data prepare wur agc4-2024 --profile tiny
+# load two weeks of it into the app database with one state snapshot per day
+poetry run greenhouse-data load wur agc4-2024 --compartment 3.06 --from 2024-09-03 --to 2024-09-16
+```
+
+`tiny` and `dev` profiles never download the image archives (about 30 GB);
+`--profile full` does. The imported compartment then appears in the
+greenhouse list as recorded history.
 
 ### Agent provider
 

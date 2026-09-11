@@ -13,6 +13,7 @@ def _make_greenhouse(greenhouse_id: str = "gh_001") -> Greenhouse:
         name="Simulation Greenhouse 001",
         description="Primary demo greenhouse",
         source_type=SourceType.SIMULATION,
+        crop="cherry_tomato",
         layout=GreenhouseLayout(rows=4, columns=10),
         plants=[
             Plant(plant_id="plant_001", variety="cherry_tomato", row=1, position_in_row=1),
@@ -74,3 +75,21 @@ def test_delete_is_a_noop_for_an_unknown_greenhouse(engine: Engine) -> None:
     repo = GreenhouseRepository(engine)
 
     repo.delete("does_not_exist")  # should not raise
+
+
+def test_a_compartment_greenhouse_without_plants_round_trips(engine: Engine) -> None:
+    repo = GreenhouseRepository(engine)
+    compartment = Greenhouse(
+        greenhouse_id="wur_c306",
+        name="Compartment 3.06",
+        description="Recorded WUR compartment",
+        source_type=SourceType.IMPORTED_DATA,
+        crop="dwarf_tomato",
+        layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
+        plants=[],
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    repo.save(compartment)
+
+    assert repo.get("wur_c306") == compartment

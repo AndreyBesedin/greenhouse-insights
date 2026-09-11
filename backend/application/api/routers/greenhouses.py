@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Engine
 
@@ -64,10 +66,12 @@ def delete_greenhouse(
 @router.get("/{greenhouse_id}/state")
 def get_state(
     greenhouse_id: str,
-    day: int | None = None,
+    at: datetime | None = None,
     service: GreenhouseService = Depends(_get_service),
 ) -> GreenhouseState:
-    state = service.get_state(greenhouse_id, day=day)
+    """The greenhouse as of `at` (ISO-8601, timezone-aware): the latest
+    snapshot taken at or before it. Omit `at` for the latest snapshot."""
+    state = service.get_state(greenhouse_id, at=at)
     if state is None:
         raise HTTPException(status_code=404, detail="no state snapshot found")
     return state
@@ -77,10 +81,10 @@ def get_state(
 def get_plant(
     greenhouse_id: str,
     plant_id: str,
-    day: int | None = None,
+    at: datetime | None = None,
     service: GreenhouseService = Depends(_get_service),
 ) -> PlantDetail:
-    detail = service.get_plant_detail(greenhouse_id, plant_id, day=day)
+    detail = service.get_plant_detail(greenhouse_id, plant_id, at=at)
     if detail is None:
         raise HTTPException(status_code=404, detail="plant not found")
     return detail
@@ -90,10 +94,10 @@ def get_plant(
 def get_plant_history(
     greenhouse_id: str,
     plant_id: str,
-    up_to_day: int,
+    up_to: datetime,
     service: GreenhouseService = Depends(_get_service),
 ) -> list[PlantState]:
-    history = service.get_plant_history(greenhouse_id, plant_id, up_to_day=up_to_day)
+    history = service.get_plant_history(greenhouse_id, plant_id, up_to=up_to)
     if history is None:
         raise HTTPException(status_code=404, detail="plant not found")
     return history
@@ -122,19 +126,20 @@ def get_management_history(
 @router.get("/{greenhouse_id}/recommendations")
 def get_recommendations(
     greenhouse_id: str,
-    day: int,
+    at: datetime,
     simulation_service: SimulationService = Depends(get_simulation_service),
 ) -> list[Recommendation]:
-    return simulation_service.list_recommendations(greenhouse_id, day)
+    """Recommendations made against the state snapshot taken at `at`."""
+    return simulation_service.list_recommendations(greenhouse_id, at)
 
 
 @router.post("/{greenhouse_id}/recommendations/approve-all")
 async def approve_all_recommendations(
     greenhouse_id: str,
-    day: int,
+    at: datetime,
     simulation_service: SimulationService = Depends(get_simulation_service),
 ) -> list[Recommendation]:
-    return await simulation_service.approve_all_pending(greenhouse_id, day)
+    return await simulation_service.approve_all_pending(greenhouse_id, at)
 
 
 @router.post("/{greenhouse_id}/plants/{plant_id}/actions", status_code=201)

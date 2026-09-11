@@ -4,6 +4,7 @@ from sqlalchemy import Engine
 
 from application.bootstrap import bootstrap_greenhouses
 from application.persistence.event_repository import EventRepository
+from application.persistence.simulation_repository import SimulationRepository
 from domain.enums import EventType
 from simulation.runner import SimulationRunner
 from simulation.scenarios import SCENARIO_REGISTRY
@@ -29,10 +30,14 @@ def test_gh_demo_reaches_every_action_type_within_the_scenario(engine: Engine) -
 
     asyncio.run(runner.run_to_completion(f"sim_{CONFIG.greenhouse_id}"))
 
+    definition = SimulationRepository(engine).get(f"sim_{CONFIG.greenhouse_id}")
+    assert definition is not None
     events = EventRepository(engine).list_for_greenhouse(CONFIG.greenhouse_id)
     first_day_by_type: dict[EventType, int] = {}
     for event in events:
-        first_day_by_type.setdefault(event.event_type, event.simulated_day)
+        first_day_by_type.setdefault(
+            event.event_type, definition.step_for_timestamp(event.timestamp)
+        )
 
     missing = set(_LATEST_ACCEPTABLE_DAY) - set(first_day_by_type)
     assert not missing, f"expected every action type at least once, missing: {missing}"

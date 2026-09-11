@@ -12,7 +12,6 @@ class Observation(BaseModel):
     observation_id: str
     greenhouse_id: str
     plant_id: str | None
-    simulated_day: int
     timestamp: datetime
     observation_type: ObservationType
     value: float

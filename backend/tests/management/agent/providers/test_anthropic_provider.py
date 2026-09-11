@@ -62,7 +62,6 @@ def _plant_state(**overrides: object) -> PlantState:
     defaults: dict[str, object] = dict(
         plant_id=PLANT_ID,
         greenhouse_id="gh_001",
-        simulated_day=8,
         timestamp=TIMESTAMP,
         health=PlantHealth.HEALTHY,
     )
@@ -71,7 +70,9 @@ def _plant_state(**overrides: object) -> PlantState:
 
 
 def _context() -> GreenhouseManagementContext:
-    return GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[_plant_state()])
+    return GreenhouseManagementContext(
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=[_plant_state()]
+    )
 
 
 def _toolkit(history: list[PlantState] | None = None, budget: int = 8) -> AgentToolkit:

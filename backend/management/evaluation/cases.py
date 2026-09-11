@@ -95,7 +95,6 @@ def _observations(
             observation_id=f"obs_{plant_id}_d{day}_{observation_type.value}",
             greenhouse_id="gh_eval",
             plant_id=plant_id,
-            simulated_day=day,
             timestamp=timestamp,
             observation_type=observation_type,
             value=value,
@@ -110,7 +109,6 @@ def build_plant_state(case: EvalCase) -> PlantState:
     return reconstruct_plant_state(
         plant_id=case.plant_id,
         greenhouse_id=case.greenhouse_id,
-        day=case.day,
         timestamp=_timestamp_for(case.day),
         observations=case.observations,
         events=case.events,
@@ -123,7 +121,6 @@ def build_history(case: EvalCase) -> list[PlantState]:
         reconstruct_plant_state(
             plant_id=case.plant_id,
             greenhouse_id=case.greenhouse_id,
-            day=start_day + offset,
             timestamp=_timestamp_for(start_day + offset),
             observations=day_observations,
             events=[],

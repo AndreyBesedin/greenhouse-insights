@@ -50,6 +50,18 @@ const GREENHOUSES = [
     total_steps: 15,
     management_policy: 'AGENTIC',
   },
+  {
+    greenhouse_id: 'wur_agc4_2024_c306',
+    name: 'WUR AGC4 2024 · compartment 3.06 (Reference)',
+    description: 'Recorded history of compartment 3.06.',
+    source_type: 'IMPORTED_DATA',
+    crop: 'dwarf_tomato',
+    plant_count: 0,
+    status: null,
+    current_step: null,
+    total_steps: null,
+    management_policy: null,
+  },
 ]
 
 beforeEach(() => {
@@ -74,6 +86,15 @@ describe('GreenhouseListPage', () => {
     expect(screen.getByText('Longitudinal Plant Demo')).toBeInTheDocument()
     expect(screen.getByText(/40 plants/)).toBeInTheDocument()
     expect(screen.getByText(/28 simulated days/)).toBeInTheDocument()
+  })
+
+  it('badges an imported greenhouse as recorded history', async () => {
+    renderList()
+
+    expect(await screen.findByText(/compartment 3\.06/)).toBeInTheDocument()
+    expect(screen.getByText('Recorded history')).toBeInTheDocument()
+    // exact match: no plant count is appended for a compartment without plants
+    expect(screen.getByText('Dwarf Tomato')).toBeInTheDocument()
   })
 
   it('badges the agentic greenhouse as the recommended demo', async () => {

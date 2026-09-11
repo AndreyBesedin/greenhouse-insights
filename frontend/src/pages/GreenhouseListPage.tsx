@@ -21,6 +21,7 @@ const STATUS_BADGE: Record<SimulationStatus, { label: string; cls: string }> = {
 }
 
 const NO_SOURCE_BADGE = { label: 'No data source', cls: 'bg-ink-800 text-mist outline-white/15' }
+const RECORDED_BADGE = { label: 'Recorded history', cls: 'bg-brand/10 text-brand outline-brand/30' }
 
 function GreenhouseCard({
   greenhouse,
@@ -38,7 +39,13 @@ function GreenhouseCard({
   onConfirmDelete: () => void
 }) {
   const hasSimulation = greenhouse.status !== null
-  const badge = greenhouse.status !== null ? STATUS_BADGE[greenhouse.status] : NO_SOURCE_BADGE
+  const isRecorded = greenhouse.source_type === 'IMPORTED_DATA'
+  const badge =
+    greenhouse.status !== null
+      ? STATUS_BADGE[greenhouse.status]
+      : isRecorded
+        ? RECORDED_BADGE
+        : NO_SOURCE_BADGE
   const totalSteps = greenhouse.total_steps ?? 0
   const currentStep = greenhouse.current_step ?? 0
   const pct = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0
@@ -63,7 +70,8 @@ function GreenhouseCard({
               )}
             </div>
             <div className="text-xs text-mist">
-              {formatCropLabel(greenhouse.crop)} · {greenhouse.plant_count.toLocaleString()} plants
+              {formatCropLabel(greenhouse.crop)}
+              {isRecorded ? '' : ` · ${greenhouse.plant_count.toLocaleString()} plants`}
               {hasSimulation ? ` · ${totalSteps} simulated days` : ''}
               {greenhouse.management_policy
                 ? ` · ${MANAGEMENT_POLICY_LABEL[greenhouse.management_policy]}`
@@ -100,6 +108,10 @@ function GreenhouseCard({
             />
           </div>
         </div>
+      ) : isRecorded ? (
+        <p className="mt-4 text-[11px] text-mist">
+          Imported recorded history · browse it day by day.
+        </p>
       ) : (
         <p className="mt-4 text-[11px] text-mist">Not yet connected to a live data source.</p>
       )}

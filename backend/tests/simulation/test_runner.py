@@ -65,12 +65,14 @@ def test_run_to_completion_persists_every_day_and_marks_completed(engine: Engine
     assert definition.status == SimulationStatus.COMPLETED
     assert definition.current_step == 3
 
+    # One state snapshot and one batch of observations per simulated day,
+    # stamped with the simulation clock's timestamp for that day.
     state_repo = StateRepository(engine)
-    for day in (1, 2, 3):
-        assert state_repo.get("gh_test", day=day) is not None
+    expected_instants = [definition.timestamp_for_step(day) for day in (1, 2, 3)]
+    assert state_repo.list_timestamps("gh_test") == expected_instants
 
     observations = ObservationRepository(engine).list_for_greenhouse("gh_test")
-    assert {obs.simulated_day for obs in observations} == {1, 2, 3}
+    assert {obs.timestamp for obs in observations} == set(expected_instants)
 
 
 def test_run_to_completion_resumes_from_the_persisted_current_step(engine: Engine) -> None:
@@ -85,7 +87,7 @@ def test_run_to_completion_resumes_from_the_persisted_current_step(engine: Engin
     assert definition.status == SimulationStatus.COMPLETED
 
     observations = ObservationRepository(engine).list_for_greenhouse("gh_test")
-    assert {obs.simulated_day for obs in observations} == {3}
+    assert {obs.timestamp for obs in observations} == {definition.timestamp_for_step(3)}
 
 
 def test_run_to_completion_is_a_noop_when_already_completed(engine: Engine) -> None:
