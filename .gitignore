@@ -19,6 +19,9 @@ frontend/build/
 # without running the backend first.
 frontend/openapi.json
 
+# Local application database (and its backups); tests use temp files.
+backend/data/
+
 # Env
 .env
 .env.*
