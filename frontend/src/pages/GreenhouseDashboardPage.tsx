@@ -12,6 +12,7 @@ import { usePlantDetail } from '../hooks/usePlantDetail'
 import { usePlantHistory } from '../hooks/usePlantHistory'
 import { useRecommendations } from '../hooks/useRecommendations'
 import { useSimulationStatus } from '../hooks/useSimulationStatus'
+import { useTimeline } from '../hooks/useTimeline'
 import { formatCropLabel, formatMass } from '../lib/format'
 import { MANAGEMENT_POLICY_LABEL } from '../lib/managementPolicy'
 import { cn } from '../lib/utils'
@@ -158,6 +159,13 @@ function DashboardContent({
   const viewingDay = manualViewingDay ?? status.current_step
   const isViewingCurrentDay = viewingDay === status.current_step
 
+  // The backend navigates by instant, not day number: simulated day N is the
+  // N-th persisted checkpoint. Right after advancing, the new day's checkpoint
+  // may not be listed yet - null then asks for the latest snapshot, which is
+  // exactly that day.
+  const { checkpoints } = useTimeline(greenhouse.greenhouse_id, status.current_step)
+  const viewingAt = checkpoints[viewingDay - 1] ?? null
+
   const [confirmDismissPending, setConfirmDismissPending] = useState(false)
   const [stateRefreshToken, setStateRefreshToken] = useState(0)
   const [busyRecommendationId, setBusyRecommendationId] = useState<string | null>(null)
@@ -170,9 +178,7 @@ function DashboardContent({
       return
     }
     setConfirmDismissPending(false)
-    // Advancing is an action on "today" - snap the view back to the new
-    // current day even if the operator was browsing history.
-    setManualViewingDay(null)
+    onAdvanced()
   }
 
   async function handleConfirmDismissAndAdvance() {
@@ -180,26 +186,37 @@ function DashboardContent({
     const result = await nextDay(true)
     if (!result.blocked) {
       setConfirmDismissPending(false)
-      setManualViewingDay(null)
+      onAdvanced()
     }
   }
 
-  const state = useGreenhouseState(greenhouse.greenhouse_id, viewingDay, stateRefreshToken)
+  function onAdvanced() {
+    // Advancing is an action on "today" - snap the view back to the new
+    // current day even if the operator was browsing history, and refetch:
+    // the timeline may not list the new checkpoint yet, in which case the
+    // view keeps asking for "latest" and must not keep the stale answer.
+    setManualViewingDay(null)
+    setStateRefreshToken((token) => token + 1)
+  }
+
+  const state = useGreenhouseState(greenhouse.greenhouse_id, viewingAt, stateRefreshToken)
+  // Recommendations and history belong to the exact snapshot on screen.
+  const contextAt = viewingAt ?? state?.timestamp ?? null
   const plantDetail = usePlantDetail(
     greenhouse.greenhouse_id,
     selectedPlantId,
-    viewingDay,
+    viewingAt,
     stateRefreshToken,
   )
   const plantHistory = usePlantHistory(
     greenhouse.greenhouse_id,
     selectedPlantId,
-    viewingDay,
+    contextAt,
     stateRefreshToken,
   )
   const { recommendations, approve, dismiss, add, approveAll } = useRecommendations(
     greenhouse.greenhouse_id,
-    viewingDay,
+    contextAt,
   )
   const [isSubmittingAction, setIsSubmittingAction] = useState(false)
   const [isApprovingAll, setIsApprovingAll] = useState(false)

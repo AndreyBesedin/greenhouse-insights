@@ -47,7 +47,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get State */
+        /**
+         * Get State
+         * @description The greenhouse as of `at` (ISO-8601, timezone-aware): the latest
+         *     snapshot taken at or before it. Omit `at` for the latest snapshot.
+         */
         get: operations["get_state_greenhouses__greenhouse_id__state_get"];
         put?: never;
         post?: never;
@@ -132,7 +136,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Recommendations */
+        /**
+         * Get Recommendations
+         * @description Recommendations made against the state snapshot taken at `at`.
+         */
         get: operations["get_recommendations_greenhouses__greenhouse_id__recommendations_get"];
         put?: never;
         post?: never;
@@ -426,12 +433,19 @@ export interface components {
             total_steps: number | null;
             management_policy: components["schemas"]["ManagementPolicyType"] | null;
         };
-        /** GreenhouseState */
+        /**
+         * GreenhouseState
+         * @description A reconstructed snapshot of the whole greenhouse at one instant.
+         *
+         *     Chronology is the timestamp alone: a simulation-run's day counter is a
+         *     simulation mechanic (simulation/, GreenhouseWorld) and never leaks into
+         *     generic domain records, so the same snapshot shape serves simulated,
+         *     recorded and live greenhouses
+         *     (docs/design/wur_real_data_ingestion_replay_plan.md section 9).
+         */
         GreenhouseState: {
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
             /**
              * Timestamp
              * Format: date-time
@@ -616,8 +630,6 @@ export interface components {
             plant_id: string;
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
             /**
              * Timestamp
              * Format: date-time
@@ -673,8 +685,11 @@ export interface components {
             source: components["schemas"]["RecordSource"];
             /** Greenhouse Id */
             greenhouse_id: string;
-            /** Simulated Day */
-            simulated_day: number;
+            /**
+             * Context Timestamp
+             * Format: date-time
+             */
+            context_timestamp: string;
             /** Plant Id */
             plant_id: string;
             /** Action */
@@ -707,8 +722,9 @@ export interface components {
         };
         /**
          * RecommendationStatus
-         * @description Avoid adding statuses with no immediate use (docs/archive/design-history/demo_readiness_plan.md
-         *     section 10): approval and execution are synchronous in this pass, so
+         * @description Avoid adding statuses with no immediate use
+         *     (docs/archive/design-history/demo_readiness_plan.md section 10):
+         *     approval and execution are synchronous in this pass, so
          *     there is no persisted APPROVED-but-not-yet-executed state, and nothing
          *     in the executor can currently fail once validation has passed, so
          *     there is no FAILED state either.
@@ -764,12 +780,18 @@ export interface components {
          * @enum {string}
          */
         SourceType: "SIMULATION" | "REAL_SENSORS" | "EXTERNAL_API" | "IMPORTED_DATA";
-        /** TimelineSummary */
+        /**
+         * TimelineSummary
+         * @description The instants a greenhouse can be viewed at: one per persisted state
+         *     snapshot, ascending, plus which of them is "now". Source-agnostic - a
+         *     simulation produces one checkpoint per simulated day, a recorded
+         *     dataset one per replay checkpoint.
+         */
         TimelineSummary: {
-            /** Total Days */
-            total_days: number;
-            /** Current Day */
-            current_day: number;
+            /** Checkpoints */
+            checkpoints: string[];
+            /** Current Timestamp */
+            current_timestamp: string | null;
         };
         /** ToolCallTrace */
         ToolCallTrace: {
@@ -933,7 +955,7 @@ export interface operations {
     get_state_greenhouses__greenhouse_id__state_get: {
         parameters: {
             query?: {
-                day?: number | null;
+                at?: string | null;
             };
             header?: never;
             path: {
@@ -966,7 +988,7 @@ export interface operations {
     get_plant_greenhouses__greenhouse_id__plants__plant_id__get: {
         parameters: {
             query?: {
-                day?: number | null;
+                at?: string | null;
             };
             header?: never;
             path: {
@@ -1000,7 +1022,7 @@ export interface operations {
     get_plant_history_greenhouses__greenhouse_id__plants__plant_id__history_get: {
         parameters: {
             query: {
-                up_to_day: number;
+                up_to: string;
             };
             header?: never;
             path: {
@@ -1096,7 +1118,7 @@ export interface operations {
     get_recommendations_greenhouses__greenhouse_id__recommendations_get: {
         parameters: {
             query: {
-                day: number;
+                at: string;
             };
             header?: never;
             path: {
@@ -1129,7 +1151,7 @@ export interface operations {
     approve_all_recommendations_greenhouses__greenhouse_id__recommendations_approve_all_post: {
         parameters: {
             query: {
-                day: number;
+                at: string;
             };
             header?: never;
             path: {

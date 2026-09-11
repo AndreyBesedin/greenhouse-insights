@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import type { components } from '../../generated/schema'
 import { cropIconVariant } from '../lib/crop'
-import { formatMass } from '../lib/format'
+import { formatCheckpoint, formatMass } from '../lib/format'
 import { healthToStatus } from '../lib/status'
 import { CropIcon } from './CropIcon'
 import { StatusBadge } from './StatusBadge'
@@ -234,7 +234,9 @@ export function PlantDetailPanel({
                 <div key={index} className="flex gap-3">
                   <span className="mt-1 size-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
                   <div className="text-xs">
-                    <span className="text-paper">Day {entry.simulated_day}</span>{' '}
+                    <span className="text-paper" title={entry.timestamp}>
+                      {formatCheckpoint(entry.timestamp)}
+                    </span>{' '}
                     <span className="text-mist">
                       — {entry.health}
                       {entry.last_event_type ? ` · ${entry.last_event_type}` : ''}

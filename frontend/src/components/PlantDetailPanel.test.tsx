@@ -9,7 +9,6 @@ const DETAIL = {
   state: {
     plant_id: 'plant_017',
     greenhouse_id: 'gh_001',
-    simulated_day: 8,
     timestamp: '2026-01-09T00:00:00Z',
     health: 'HEALTHY',
     latest_soil_moisture_pct: 43,
@@ -104,7 +103,6 @@ describe('PlantDetailPanel', () => {
           {
             plant_id: 'plant_017',
             greenhouse_id: 'gh_001',
-            simulated_day: 6,
             timestamp: '2026-01-07T00:00:00Z',
             health: 'MONITOR',
             latest_soil_moisture_pct: 30,
@@ -122,7 +120,7 @@ describe('PlantDetailPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'History' }))
 
-    expect(screen.getByText('Day 6')).toBeInTheDocument()
+    expect(screen.getByText('7 Jan 2026')).toBeInTheDocument()
   })
 
   it('does not show an attention banner for a healthy plant', () => {
@@ -145,7 +143,7 @@ describe('PlantDetailPanel', () => {
       recommendation_id: 'rec_1',
       source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
       greenhouse_id: 'gh_001',
-      simulated_day: 8,
+      context_timestamp: '2026-01-09T00:00:00Z',
       plant_id: 'plant_017',
       action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
       source_policy: 'DETERMINISTIC',
