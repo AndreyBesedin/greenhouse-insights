@@ -13,7 +13,6 @@ def _make_observation(**overrides: object) -> Observation:
         observation_id="obs_00001",
         greenhouse_id="gh_001",
         plant_id="plant_017",
-        simulated_day=8,
         timestamp=datetime(2026, 1, 9, 12, 0, tzinfo=UTC),
         observation_type=ObservationType.SOIL_MOISTURE_PCT,
         value=38.0,

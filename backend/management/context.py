@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 from domain.state import PlantState
@@ -13,7 +15,10 @@ class GreenhouseManagementContext(BaseModel):
     """
 
     greenhouse_id: str
-    day: int
+    # When the observable state was taken - the policy reasons "as of" this
+    # instant, whatever produced it (a simulation clock, a recorded dataset,
+    # live sensors).
+    timestamp: datetime
     plant_states: list[PlantState]
 
     def plant_state(self, plant_id: str) -> PlantState | None:

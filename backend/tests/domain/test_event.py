@@ -12,7 +12,6 @@ def _make_event(**overrides: object) -> Event:
         event_id="evt_00392",
         greenhouse_id="gh_001",
         plant_id="plant_017",
-        simulated_day=12,
         timestamp=datetime(2026, 1, 13, 10, 15, tzinfo=UTC),
         event_type=EventType.HARVEST,
         source=EventSource.HUMAN_REPORTED,

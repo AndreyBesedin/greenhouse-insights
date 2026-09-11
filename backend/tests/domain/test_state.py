@@ -10,7 +10,6 @@ def _make_plant_state(plant_id: str, health: PlantHealth) -> PlantState:
     return PlantState(
         plant_id=plant_id,
         greenhouse_id="gh_001",
-        simulated_day=12,
         timestamp=TIMESTAMP,
         health=health,
     )
@@ -34,7 +33,6 @@ def test_plant_state_accepts_latest_observation_values_and_last_event() -> None:
     state = PlantState(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        simulated_day=12,
         timestamp=TIMESTAMP,
         health=PlantHealth.MONITOR,
         latest_soil_moisture_pct=38.0,
@@ -59,7 +57,6 @@ def test_greenhouse_state_aggregate_counts_plant_health_buckets() -> None:
 
     state = GreenhouseState.aggregate(
         greenhouse_id="gh_001",
-        simulated_day=12,
         timestamp=TIMESTAMP,
         plant_states=plant_states,
     )

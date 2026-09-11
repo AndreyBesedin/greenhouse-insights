@@ -1,9 +1,11 @@
 import json
+from datetime import datetime
 
 from sqlalchemy import Engine, delete, select
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import events
+from application.persistence.timestamps import from_db_timestamp, to_db_timestamp
 from domain.event import Event
 
 
@@ -23,14 +25,14 @@ class EventRepository:
         greenhouse_id: str,
         *,
         plant_id: str | None = None,
-        max_day: int | None = None,
+        up_to: datetime | None = None,
     ) -> list[Event]:
         statement = select(events).where(events.c.greenhouse_id == greenhouse_id)
         if plant_id is not None:
             statement = statement.where(events.c.plant_id == plant_id)
-        if max_day is not None:
-            statement = statement.where(events.c.simulated_day <= max_day)
-        statement = statement.order_by(events.c.simulated_day)
+        if up_to is not None:
+            statement = statement.where(events.c.timestamp <= to_db_timestamp(up_to))
+        statement = statement.order_by(events.c.timestamp)
 
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
@@ -47,8 +49,7 @@ def _event_to_row(event: Event) -> dict[str, object]:
         "event_id": event.event_id,
         "greenhouse_id": event.greenhouse_id,
         "plant_id": event.plant_id,
-        "simulated_day": event.simulated_day,
-        "timestamp": event.timestamp.isoformat(),
+        "timestamp": to_db_timestamp(event.timestamp),
         "event_type": event.event_type.value,
         "source": event.source.value,
         "confidence": event.confidence,
@@ -61,8 +62,7 @@ def _row_to_event(mapping: RowMapping) -> Event:
         event_id=mapping["event_id"],
         greenhouse_id=mapping["greenhouse_id"],
         plant_id=mapping["plant_id"],
-        simulated_day=mapping["simulated_day"],
-        timestamp=mapping["timestamp"],
+        timestamp=from_db_timestamp(mapping["timestamp"]),
         event_type=mapping["event_type"],
         source=mapping["source"],
         confidence=mapping["confidence"],

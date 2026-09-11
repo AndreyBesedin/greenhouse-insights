@@ -17,6 +17,11 @@ from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios import SCENARIO_REGISTRY
 
+# The seeded simulation starts on 2026-01-01 with one-day steps, so its
+# clock stamps simulated day N as 2026-01-0N T00:00 UTC.
+DAY_1 = "2026-01-01T00:00:00+00:00"
+DAY_2 = "2026-01-02T00:00:00+00:00"
+
 
 def _seed(engine: Engine) -> None:
     greenhouse = Greenhouse(
@@ -65,7 +70,9 @@ def client(engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> I
 def _advance_to_a_pending_recommendation(client: TestClient) -> str:
     client.post("/simulations/sim_test/next-day")  # day 1: nothing proposed for this seed
     client.post("/simulations/sim_test/next-day")  # day 2: proposes a WATER_PLANT
-    recommendations = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    recommendations = client.get(
+        "/greenhouses/gh_test/recommendations", params={"at": DAY_2}
+    ).json()
     assert len(recommendations) >= 1
     pending = next(r for r in recommendations if r["status"] == "PENDING")
     return str(pending["recommendation_id"])
@@ -75,7 +82,7 @@ def test_get_recommendations_returns_the_proposal_from_advancing(client: TestCli
     client.post("/simulations/sim_test/next-day")
     client.post("/simulations/sim_test/next-day")
 
-    response = client.get("/greenhouses/gh_test/recommendations", params={"day": 2})
+    response = client.get("/greenhouses/gh_test/recommendations", params={"at": DAY_2})
 
     assert response.status_code == 200
     body = response.json()
@@ -86,7 +93,7 @@ def test_get_recommendations_returns_the_proposal_from_advancing(client: TestCli
 
 
 def test_get_recommendations_returns_empty_for_a_day_with_none(client: TestClient) -> None:
-    response = client.get("/greenhouses/gh_test/recommendations", params={"day": 1})
+    response = client.get("/greenhouses/gh_test/recommendations", params={"at": DAY_1})
 
     assert response.status_code == 200
     assert response.json() == []

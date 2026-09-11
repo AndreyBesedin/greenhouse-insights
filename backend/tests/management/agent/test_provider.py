@@ -22,7 +22,6 @@ def _plant_state(**overrides: object) -> PlantState:
     defaults: dict[str, object] = dict(
         plant_id=PLANT_ID,
         greenhouse_id="gh_001",
-        simulated_day=8,
         timestamp=TIMESTAMP,
         health=PlantHealth.HEALTHY,
         latest_soil_moisture_pct=80.0,
@@ -34,7 +33,9 @@ def _plant_state(**overrides: object) -> PlantState:
 def _decide(
     plant_state: PlantState, history: list[PlantState] | None = None
 ) -> tuple[AgentDecision, AgentToolkit]:
-    context = GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[plant_state])
+    context = GreenhouseManagementContext(
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=[plant_state]
+    )
     toolkit = AgentToolkit(context, history_reader=lambda plant_id, days: history or [], budget=8)
     decision = FakeAgentModelProvider().decide(context, toolkit, CONFIG)
     return decision, toolkit
@@ -105,7 +106,9 @@ def test_does_not_schedule_inspection_for_a_healthy_plant() -> None:
 
 def test_schedules_inspection_when_budget_is_exhausted_before_investigating() -> None:
     plant = _plant_state(latest_soil_moisture_pct=10.0)
-    context = GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[plant])
+    context = GreenhouseManagementContext(
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=[plant]
+    )
     toolkit = AgentToolkit(context, history_reader=lambda plant_id, days: [], budget=0)
 
     decision = FakeAgentModelProvider().decide(context, toolkit, CONFIG)

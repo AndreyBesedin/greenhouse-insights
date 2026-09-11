@@ -7,6 +7,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import recommendations
+from application.persistence.timestamps import from_db_timestamp, to_db_timestamp
 from domain.enums import RecommendationStatus
 from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
@@ -37,21 +38,27 @@ class RecommendationRepository:
             row = connection.execute(statement).mappings().one_or_none()
         return None if row is None else _row_to_recommendation(row)
 
-    def list_for_day(self, greenhouse_id: str, day: int) -> list[Recommendation]:
+    def list_for_context(
+        self, greenhouse_id: str, context_timestamp: datetime
+    ) -> list[Recommendation]:
+        """Every recommendation made against the state snapshot taken at
+        exactly `context_timestamp`."""
         statement = (
             select(recommendations)
             .where(recommendations.c.greenhouse_id == greenhouse_id)
-            .where(recommendations.c.simulated_day == day)
+            .where(recommendations.c.context_timestamp == to_db_timestamp(context_timestamp))
             .order_by(recommendations.c.requested_at)
         )
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
         return [_row_to_recommendation(row) for row in rows]
 
-    def list_pending_for_day(self, greenhouse_id: str, day: int) -> list[Recommendation]:
+    def list_pending_for_context(
+        self, greenhouse_id: str, context_timestamp: datetime
+    ) -> list[Recommendation]:
         return [
             r
-            for r in self.list_for_day(greenhouse_id, day)
+            for r in self.list_for_context(greenhouse_id, context_timestamp)
             if r.status == RecommendationStatus.PENDING
         ]
 
@@ -65,7 +72,7 @@ def _recommendation_to_row(recommendation: Recommendation) -> dict[str, object]:
     return {
         "recommendation_id": recommendation.recommendation_id,
         "greenhouse_id": recommendation.greenhouse_id,
-        "simulated_day": recommendation.simulated_day,
+        "context_timestamp": to_db_timestamp(recommendation.context_timestamp),
         "plant_id": recommendation.plant_id,
         "action_json": recommendation.action.model_dump_json(),
         "source_type": recommendation.source.type.value,
@@ -92,7 +99,7 @@ def _row_to_recommendation(mapping: RowMapping) -> Recommendation:
         recommendation_id=mapping["recommendation_id"],
         source=RecordSource(type=mapping["source_type"], source_id=mapping["source_id"]),
         greenhouse_id=mapping["greenhouse_id"],
-        simulated_day=mapping["simulated_day"],
+        context_timestamp=from_db_timestamp(mapping["context_timestamp"]),
         plant_id=mapping["plant_id"],
         action=_ACTION_ADAPTER.validate_json(mapping["action_json"]),
         source_policy=mapping["source_policy"],

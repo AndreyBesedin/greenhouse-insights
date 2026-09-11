@@ -51,7 +51,6 @@ def reconstruct_plant_state(
     *,
     plant_id: str,
     greenhouse_id: str,
-    day: int,
     timestamp: datetime,
     observations: list[Observation],
     events: list[Event],
@@ -70,7 +69,6 @@ def reconstruct_plant_state(
     return PlantState(
         plant_id=plant_id,
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
         timestamp=timestamp,
         health=condition,
         latest_soil_moisture_pct=environment.soil_moisture_pct,
@@ -88,13 +86,11 @@ def reconstruct_plant_state(
 def reconstruct_greenhouse_state(
     *,
     greenhouse_id: str,
-    day: int,
     timestamp: datetime,
     plant_states: list[PlantState],
 ) -> GreenhouseState:
     return GreenhouseState.aggregate(
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
         timestamp=timestamp,
         plant_states=plant_states,
     )

@@ -16,7 +16,6 @@ class EnvironmentState(BaseModel):
 class PlantState(BaseModel):
     plant_id: str
     greenhouse_id: str
-    simulated_day: int
     timestamp: datetime
     health: PlantHealth
     latest_soil_moisture_pct: float | None = None
@@ -31,8 +30,15 @@ class PlantState(BaseModel):
 
 
 class GreenhouseState(BaseModel):
+    """A reconstructed snapshot of the whole greenhouse at one instant.
+
+    Chronology is the timestamp alone: a simulation-run's day counter is a
+    simulation mechanic (simulation/, GreenhouseWorld) and never leaks into
+    generic domain records, so the same snapshot shape serves simulated,
+    recorded and live greenhouses
+    (docs/design/wur_real_data_ingestion_replay_plan.md section 9)."""
+
     greenhouse_id: str
-    simulated_day: int
     timestamp: datetime
     plant_states: list[PlantState]
     plants_healthy: int
@@ -46,13 +52,11 @@ class GreenhouseState(BaseModel):
         cls,
         *,
         greenhouse_id: str,
-        simulated_day: int,
         timestamp: datetime,
         plant_states: list[PlantState],
     ) -> "GreenhouseState":
         return cls(
             greenhouse_id=greenhouse_id,
-            simulated_day=simulated_day,
             timestamp=timestamp,
             plant_states=plant_states,
             plants_healthy=sum(1 for s in plant_states if s.health == PlantHealth.HEALTHY),

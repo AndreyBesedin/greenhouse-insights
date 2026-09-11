@@ -141,8 +141,9 @@ class SimulationService:
                 return definition
 
             if definition.current_step > 0:
-                pending = self._recommendations.list_pending_for_day(
-                    definition.greenhouse_id, definition.current_step
+                pending = self._recommendations.list_pending_for_context(
+                    definition.greenhouse_id,
+                    definition.timestamp_for_step(definition.current_step),
                 )
                 if pending:
                     if not confirm_dismiss_remaining:
@@ -191,8 +192,9 @@ class SimulationService:
         outstanding (section 14)."""
         return self._progress.get(simulation_id)
 
-    def list_recommendations(self, greenhouse_id: str, day: int) -> list[Recommendation]:
-        return self._recommendations.list_for_day(greenhouse_id, day)
+    def list_recommendations(self, greenhouse_id: str, at: datetime) -> list[Recommendation]:
+        """Recommendations made against the state snapshot taken at `at`."""
+        return self._recommendations.list_for_context(greenhouse_id, at)
 
     async def submit_manual_action(
         self, greenhouse_id: str, action: RequestedAction
@@ -228,7 +230,7 @@ class SimulationService:
                 recommendation_id=f"rec_{uuid4().hex[:10]}",
                 source=RecordSource(type=SourceType.SIMULATION, source_id=simulation_id),
                 greenhouse_id=greenhouse_id,
-                simulated_day=day,
+                context_timestamp=definition.timestamp_for_step(day),
                 plant_id=action.plant_id,
                 action=action,
                 source_policy=ManagementPolicyType.NONE,
@@ -270,23 +272,21 @@ class SimulationService:
             if definition is None:
                 raise LookupError(f"no simulation definition found for {simulation_id!r}")
 
+            day = definition.step_for_timestamp(recommendation.context_timestamp)
             results = await asyncio.to_thread(
                 self._runner.execute_recommendation_actions,
                 simulation_id,
-                recommendation.simulated_day,
+                day,
                 [recommendation.action],
             )
             updated = self._review(recommendation, results[0], definition)
             self._recommendations.save(updated)
-            await asyncio.to_thread(
-                self._runner.refresh_day_state,
-                simulation_id,
-                recommendation.simulated_day,
-            )
+            await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
             return updated
 
-    async def approve_all_pending(self, greenhouse_id: str, day: int) -> list[Recommendation]:
-        """Approves and executes every PENDING recommendation for a day in
+    async def approve_all_pending(self, greenhouse_id: str, at: datetime) -> list[Recommendation]:
+        """Approves and executes every PENDING recommendation made against
+        the state snapshot at `at` in
         one go (docs/archive/design-history/demo_readiness_plan.md section 6: a
         presentation-layer convenience, not a new simulator primitive -
         each action is still validated and persisted individually,
@@ -301,13 +301,14 @@ class SimulationService:
             raise LookupError(f"no simulation definition found for greenhouse {greenhouse_id!r}")
         simulation_id = definition.simulation_id
         async with self._lock_for(simulation_id):
-            pending = self._recommendations.list_pending_for_day(greenhouse_id, day)
+            pending = self._recommendations.list_pending_for_context(greenhouse_id, at)
             if not pending:
                 return []
 
             definition = self._simulations.get(simulation_id)
             if definition is None:
                 raise LookupError(f"no simulation definition found for {simulation_id!r}")
+            day = definition.step_for_timestamp(at)
 
             results = await asyncio.to_thread(
                 self._runner.execute_recommendation_actions,

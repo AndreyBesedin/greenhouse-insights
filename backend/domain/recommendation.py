@@ -32,7 +32,12 @@ class Recommendation(BaseModel):
     recommendation_id: str
     source: RecordSource
     greenhouse_id: str
-    simulated_day: int
+    # The timestamp of the observable state this proposal was made against
+    # - the GreenhouseState snapshot the policy saw. Ties a recommendation
+    # to a point in the greenhouse's own chronology rather than to a
+    # simulation day counter (docs/design/wur_real_data_ingestion_replay_plan.md
+    # section 9).
+    context_timestamp: datetime
     plant_id: str
 
     action: RequestedAction

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -81,66 +81,72 @@ def test_get_greenhouse_detail_embeds_full_greenhouse_and_simulation_summary(
     assert detail.simulation.total_steps == 28
 
 
+DAY_ONE = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _at(day: int) -> datetime:
+    return DAY_ONE + timedelta(days=day - 1)
+
+
 def _save_state(engine: Engine, greenhouse_id: str, day: int) -> None:
     plant_state = PlantState(
         plant_id=f"{greenhouse_id}_plant_001",
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
-        timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+        timestamp=_at(day),
         health=PlantHealth.HEALTHY,
     )
     StateRepository(engine).save(
         GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
-            simulated_day=day,
-            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            timestamp=_at(day),
             plant_states=[plant_state],
         )
     )
 
 
-def test_get_state_returns_the_latest_snapshot_when_no_day_given(engine: Engine) -> None:
+def test_get_state_returns_the_latest_snapshot_when_no_instant_given(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     _save_state(engine, "gh_001", day=5)
     _save_state(engine, "gh_001", day=8)
     service = GreenhouseService(engine)
 
-    state = service.get_state("gh_001", day=None)
+    state = service.get_state("gh_001", at=None)
 
     assert state is not None
-    assert state.simulated_day == 8
+    assert state.timestamp == _at(8)
 
 
-def test_get_state_returns_a_specific_day_when_given(engine: Engine) -> None:
+def test_get_state_returns_the_snapshot_as_of_the_given_instant(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     _save_state(engine, "gh_001", day=5)
     _save_state(engine, "gh_001", day=8)
     service = GreenhouseService(engine)
 
-    state = service.get_state("gh_001", day=5)
+    assert (state := service.get_state("gh_001", at=_at(5))) is not None
+    assert state.timestamp == _at(5)
+    # Between two snapshots, the earlier one is what was known at that time.
+    assert (state := service.get_state("gh_001", at=_at(6))) is not None
+    assert state.timestamp == _at(5)
 
-    assert state is not None
-    assert state.simulated_day == 5
 
-
-def test_get_state_returns_none_when_no_snapshot_exists_for_that_day(engine: Engine) -> None:
+def test_get_state_returns_none_when_no_snapshot_exists_yet(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
-    assert service.get_state("gh_001", day=3) is None
+    assert service.get_state("gh_001", at=_at(3)) is None
 
 
 def test_get_plant_detail_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
     service = GreenhouseService(engine)
 
-    assert service.get_plant_detail("does_not_exist", "plant_001", day=None) is None
+    assert service.get_plant_detail("does_not_exist", "plant_001", at=None) is None
 
 
 def test_get_plant_detail_returns_none_for_unknown_plant(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
-    assert service.get_plant_detail("gh_001", "does_not_exist", day=None) is None
+    assert service.get_plant_detail("gh_001", "does_not_exist", at=None) is None
 
 
 def test_get_plant_detail_returns_plant_config_with_no_state_before_simulation_starts(
@@ -149,7 +155,7 @@ def test_get_plant_detail_returns_plant_config_with_no_state_before_simulation_s
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
-    detail = service.get_plant_detail("gh_001", "gh_001_plant_001", day=None)
+    detail = service.get_plant_detail("gh_001", "gh_001_plant_001", at=None)
 
     assert detail is not None
     assert detail.plant.plant_id == "gh_001_plant_001"
@@ -161,44 +167,44 @@ def test_get_plant_detail_includes_that_plants_state_once_it_exists(engine: Engi
     _save_state(engine, "gh_001", day=5)
     service = GreenhouseService(engine)
 
-    detail = service.get_plant_detail("gh_001", "gh_001_plant_001", day=5)
+    detail = service.get_plant_detail("gh_001", "gh_001_plant_001", at=_at(5))
 
     assert detail is not None
     assert detail.state is not None
-    assert detail.state.simulated_day == 5
+    assert detail.state.timestamp == _at(5)
     assert detail.state.health == PlantHealth.HEALTHY
 
 
 def test_get_plant_history_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
     service = GreenhouseService(engine)
 
-    assert service.get_plant_history("does_not_exist", "plant_001", up_to_day=10) is None
+    assert service.get_plant_history("does_not_exist", "plant_001", up_to=_at(10)) is None
 
 
 def test_get_plant_history_returns_none_for_unknown_plant(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
-    assert service.get_plant_history("gh_001", "does_not_exist", up_to_day=10) is None
+    assert service.get_plant_history("gh_001", "does_not_exist", up_to=_at(10)) is None
 
 
-def test_get_plant_history_never_returns_days_beyond_up_to_day(engine: Engine) -> None:
+def test_get_plant_history_never_returns_states_after_up_to(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     for day in range(1, 6):
         _save_state(engine, "gh_001", day)
     service = GreenhouseService(engine)
 
-    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to_day=3)
+    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to=_at(3))
 
     assert history is not None
-    assert [s.simulated_day for s in history] == [1, 2, 3]
+    assert [s.timestamp for s in history] == [_at(1), _at(2), _at(3)]
 
 
 def test_get_plant_history_is_empty_before_any_state_exists(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
-    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to_day=10)
+    history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to=_at(10))
 
     assert history == []
 
@@ -209,15 +215,27 @@ def test_get_timeline_returns_none_for_unknown_greenhouse(engine: Engine) -> Non
     assert service.get_timeline("does_not_exist") is None
 
 
-def test_get_timeline_reports_total_and_current_day(engine: Engine) -> None:
+def test_get_timeline_is_empty_before_any_snapshot_exists(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     service = GreenhouseService(engine)
 
     timeline = service.get_timeline("gh_001")
 
     assert timeline is not None
-    assert timeline.total_days == 28
-    assert timeline.current_day == 0
+    assert timeline.checkpoints == []
+    assert timeline.current_timestamp is None
+
+
+def test_get_timeline_lists_every_snapshot_instant_in_order(engine: Engine) -> None:
+    bootstrap_greenhouses(engine)
+    for day in (2, 1, 3):
+        _save_state(engine, "gh_001", day)
+    service = GreenhouseService(engine)
+
+    timeline = service.get_timeline("gh_001")
+
+    assert timeline is not None
+    assert timeline.checkpoints == [_at(1), _at(2), _at(3)]
 
 
 def test_create_greenhouse_with_simulation_source_creates_a_runnable_simulation(
@@ -328,7 +346,9 @@ def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: En
     assert item.status is None
     assert item.current_step is None
     assert item.total_steps is None
-    assert service.get_timeline(detail.greenhouse.greenhouse_id) is None
+    timeline = service.get_timeline(detail.greenhouse.greenhouse_id)
+    assert timeline is not None
+    assert timeline.checkpoints == []
 
 
 def test_delete_greenhouse_returns_false_for_an_unknown_greenhouse(engine: Engine) -> None:
@@ -369,7 +389,6 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
                 observation_id="obs_1",
                 greenhouse_id=greenhouse_id,
                 plant_id="gh_001_plant_001",
-                simulated_day=1,
                 timestamp=timestamp,
                 observation_type=ObservationType.SOIL_MOISTURE_PCT,
                 value=40.0,
@@ -383,7 +402,6 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
                 event_id="evt_1",
                 greenhouse_id=greenhouse_id,
                 plant_id="gh_001_plant_001",
-                simulated_day=1,
                 timestamp=timestamp,
                 event_type=EventType.WATERING,
                 source=EventSource.RULE_BASED_POLICY,
@@ -393,13 +411,11 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
     StateRepository(engine).save(
         GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
-            simulated_day=1,
             timestamp=timestamp,
             plant_states=[
                 PlantState(
                     plant_id="gh_001_plant_001",
                     greenhouse_id=greenhouse_id,
-                    simulated_day=1,
                     timestamp=timestamp,
                     health=PlantHealth.HEALTHY,
                 )
@@ -425,7 +441,7 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
             recommendation_id="rec_1",
             source=RecordSource(type=SourceType.SIMULATION, source_id=simulation_id),
             greenhouse_id=greenhouse_id,
-            simulated_day=1,
+            context_timestamp=timestamp,
             plant_id="gh_001_plant_001",
             action=WaterPlantAction(plant_id="gh_001_plant_001", amount_ml=700),
             source_policy=ManagementPolicyType.DETERMINISTIC,
@@ -445,7 +461,7 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
     assert EventRepository(engine).list_for_greenhouse(greenhouse_id) == []
     assert ObservationRepository(engine).list_for_greenhouse(greenhouse_id) == []
     assert ManagementTraceRepository(engine).list_for_simulation(simulation_id) == []
-    assert RecommendationRepository(engine).list_for_day(greenhouse_id, 1) == []
+    assert RecommendationRepository(engine).list_for_context(greenhouse_id, timestamp) == []
 
     # The other bootstrapped greenhouse is untouched.
     assert service.get_greenhouse_detail("gh_002") is not None

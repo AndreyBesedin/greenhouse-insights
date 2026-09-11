@@ -15,7 +15,6 @@ def _plant_state(plant_id: str) -> PlantState:
     return PlantState(
         plant_id=plant_id,
         greenhouse_id="gh_001",
-        simulated_day=8,
         timestamp=TIMESTAMP,
         health=PlantHealth.HEALTHY,
     )
@@ -23,7 +22,7 @@ def _plant_state(plant_id: str) -> PlantState:
 
 def _context() -> GreenhouseManagementContext:
     return GreenhouseManagementContext(
-        greenhouse_id="gh_001", day=8, plant_states=[_plant_state("plant_001")]
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=[_plant_state("plant_001")]
     )
 
 

@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -52,25 +52,34 @@ def test_get_greenhouse_detail_returns_404_for_unknown_greenhouse(client: TestCl
     assert response.status_code == 404
 
 
+DAY_ONE = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _at(day: int) -> datetime:
+    return DAY_ONE + timedelta(days=day - 1)
+
+
+def _iso(day: int) -> str:
+    return _at(day).isoformat()
+
+
 def _save_state(engine: Engine, greenhouse_id: str, day: int) -> None:
     plant_state = PlantState(
         plant_id="gh_001_plant_001",
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
-        timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+        timestamp=_at(day),
         health=PlantHealth.HEALTHY,
     )
     StateRepository(engine).save(
         GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
-            simulated_day=day,
-            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            timestamp=_at(day),
             plant_states=[plant_state],
         )
     )
 
 
-def test_get_state_without_day_returns_the_latest_snapshot(
+def test_get_state_without_at_returns_the_latest_snapshot(
     client: TestClient, engine: Engine
 ) -> None:
     _save_state(engine, "gh_001", day=5)
@@ -79,25 +88,40 @@ def test_get_state_without_day_returns_the_latest_snapshot(
     response = client.get("/greenhouses/gh_001/state")
 
     assert response.status_code == 200
-    assert response.json()["simulated_day"] == 8
+    assert datetime.fromisoformat(response.json()["timestamp"]) == _at(8)
 
 
-def test_get_state_with_day_returns_that_specific_snapshot(
+def test_get_state_with_at_returns_the_snapshot_as_of_that_instant(
     client: TestClient, engine: Engine
 ) -> None:
     _save_state(engine, "gh_001", day=5)
     _save_state(engine, "gh_001", day=8)
 
-    response = client.get("/greenhouses/gh_001/state?day=5")
+    response = client.get("/greenhouses/gh_001/state", params={"at": _iso(6)})
 
     assert response.status_code == 200
-    assert response.json()["simulated_day"] == 5
+    assert datetime.fromisoformat(response.json()["timestamp"]) == _at(5)
 
 
-def test_get_state_returns_404_when_day_has_no_snapshot(client: TestClient) -> None:
-    response = client.get("/greenhouses/gh_001/state?day=3")
+def test_get_state_returns_404_when_nothing_was_known_at_that_instant(
+    client: TestClient, engine: Engine
+) -> None:
+    _save_state(engine, "gh_001", day=5)
+
+    response = client.get("/greenhouses/gh_001/state", params={"at": _iso(3)})
 
     assert response.status_code == 404
+
+
+def test_get_timeline_lists_snapshot_instants(client: TestClient, engine: Engine) -> None:
+    _save_state(engine, "gh_001", day=2)
+    _save_state(engine, "gh_001", day=1)
+
+    response = client.get("/greenhouses/gh_001/timeline")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [datetime.fromisoformat(c) for c in body["checkpoints"]] == [_at(1), _at(2)]
 
 
 def test_get_plant_detail_returns_plant_config_with_null_state_before_simulation_starts(
@@ -111,15 +135,15 @@ def test_get_plant_detail_returns_plant_config_with_null_state_before_simulation
     assert body["state"] is None
 
 
-def test_get_plant_detail_includes_state_for_a_given_day(
+def test_get_plant_detail_includes_state_as_of_a_given_instant(
     client: TestClient, engine: Engine
 ) -> None:
     _save_state(engine, "gh_001", day=5)
 
-    response = client.get("/greenhouses/gh_001/plants/gh_001_plant_001?day=5")
+    response = client.get("/greenhouses/gh_001/plants/gh_001_plant_001", params={"at": _iso(5)})
 
     assert response.status_code == 200
-    assert response.json()["state"]["simulated_day"] == 5
+    assert datetime.fromisoformat(response.json()["state"]["timestamp"]) == _at(5)
 
 
 def test_get_plant_detail_returns_404_for_unknown_plant(client: TestClient) -> None:
@@ -134,32 +158,34 @@ def test_get_plant_detail_returns_404_for_unknown_greenhouse(client: TestClient)
     assert response.status_code == 404
 
 
-def test_get_plant_history_never_returns_days_beyond_up_to_day(
+def test_get_plant_history_never_returns_states_after_up_to(
     client: TestClient, engine: Engine
 ) -> None:
     for day in range(1, 6):
         _save_state(engine, "gh_001", day)
 
-    response = client.get("/greenhouses/gh_001/plants/gh_001_plant_001/history?up_to_day=3")
+    response = client.get(
+        "/greenhouses/gh_001/plants/gh_001_plant_001/history", params={"up_to": _iso(3)}
+    )
 
     assert response.status_code == 200
-    days = [s["simulated_day"] for s in response.json()]
-    assert days == [1, 2, 3]
+    timestamps = [datetime.fromisoformat(s["timestamp"]) for s in response.json()]
+    assert timestamps == [_at(1), _at(2), _at(3)]
 
 
 def test_get_plant_history_returns_404_for_unknown_plant(client: TestClient) -> None:
-    response = client.get("/greenhouses/gh_001/plants/does_not_exist/history?up_to_day=5")
+    response = client.get(
+        "/greenhouses/gh_001/plants/does_not_exist/history", params={"up_to": _iso(5)}
+    )
 
     assert response.status_code == 404
 
 
-def test_get_timeline_reports_total_and_current_day(client: TestClient) -> None:
+def test_get_timeline_is_empty_before_the_first_snapshot(client: TestClient) -> None:
     response = client.get("/greenhouses/gh_001/timeline")
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["total_days"] == 28
-    assert body["current_day"] == 0
+    assert response.json() == {"checkpoints": [], "current_timestamp": None}
 
 
 def test_get_timeline_returns_404_for_unknown_greenhouse(client: TestClient) -> None:
@@ -356,7 +382,10 @@ def test_approve_all_recommendations_executes_every_pending_one(client: TestClie
     client.post("/simulations/sim_gh_002/next-day")  # day 1: no recommendations for this seed
     client.post("/simulations/sim_gh_002/next-day")  # day 2: proposes a WATER_PLANT
 
-    response = client.post("/greenhouses/gh_002/recommendations/approve-all", params={"day": 2})
+    day_two = client.get("/greenhouses/gh_002/state").json()["timestamp"]
+    response = client.post(
+        "/greenhouses/gh_002/recommendations/approve-all", params={"at": day_two}
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -364,14 +393,16 @@ def test_approve_all_recommendations_executes_every_pending_one(client: TestClie
     assert body[0]["status"] == "EXECUTED"
     assert body[0]["approved_by"] == "HUMAN"
 
-    remaining = client.get("/greenhouses/gh_002/recommendations", params={"day": 2}).json()
+    remaining = client.get("/greenhouses/gh_002/recommendations", params={"at": day_two}).json()
     assert all(r["status"] != "PENDING" for r in remaining)
 
 
 def test_approve_all_recommendations_returns_empty_list_when_nothing_pending(
     client: TestClient,
 ) -> None:
-    response = client.post("/greenhouses/gh_002/recommendations/approve-all", params={"day": 1})
+    response = client.post(
+        "/greenhouses/gh_002/recommendations/approve-all", params={"at": _iso(1)}
+    )
 
     assert response.status_code == 200
     assert response.json() == []

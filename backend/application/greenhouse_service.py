@@ -55,8 +55,13 @@ class PlantDetail(BaseModel):
 
 
 class TimelineSummary(BaseModel):
-    total_days: int
-    current_day: int
+    """The instants a greenhouse can be viewed at: one per persisted state
+    snapshot, ascending, plus which of them is "now". Source-agnostic - a
+    simulation produces one checkpoint per simulated day, a recorded
+    dataset one per replay checkpoint."""
+
+    checkpoints: list[datetime]
+    current_timestamp: datetime | None
 
 
 # AGENTIC greenhouses make a real, billed LLM call per simulated day (each
@@ -182,13 +187,15 @@ class GreenhouseService:
             simulation=_to_summary(simulation) if simulation is not None else None,
         )
 
-    def get_state(self, greenhouse_id: str, *, day: int | None) -> GreenhouseState | None:
-        if day is not None:
-            return self._states.get(greenhouse_id, day=day)
+    def get_state(self, greenhouse_id: str, *, at: datetime | None) -> GreenhouseState | None:
+        """The greenhouse as of `at`: the latest snapshot taken at or
+        before it (the latest of all when `at` is None)."""
+        if at is not None:
+            return self._states.get_at(greenhouse_id, at=at)
         return self._states.get_latest(greenhouse_id)
 
     def get_plant_detail(
-        self, greenhouse_id: str, plant_id: str, *, day: int | None
+        self, greenhouse_id: str, plant_id: str, *, at: datetime | None
     ) -> PlantDetail | None:
         greenhouse = self._greenhouses.get(greenhouse_id)
         if greenhouse is None:
@@ -197,7 +204,7 @@ class GreenhouseService:
         if plant is None:
             return None
 
-        greenhouse_state = self.get_state(greenhouse_id, day=day)
+        greenhouse_state = self.get_state(greenhouse_id, at=at)
         plant_state = None
         if greenhouse_state is not None:
             plant_state = next(
@@ -206,7 +213,7 @@ class GreenhouseService:
         return PlantDetail(plant=plant, state=plant_state)
 
     def get_plant_history(
-        self, greenhouse_id: str, plant_id: str, *, up_to_day: int
+        self, greenhouse_id: str, plant_id: str, *, up_to: datetime
     ) -> list[PlantState] | None:
         greenhouse = self._greenhouses.get(greenhouse_id)
         if greenhouse is None:
@@ -214,7 +221,7 @@ class GreenhouseService:
         if not any(p.plant_id == plant_id for p in greenhouse.plants):
             return None
 
-        states = self._states.list_up_to_day(greenhouse_id, max_day=up_to_day)
+        states = self._states.list_up_to(greenhouse_id, up_to=up_to)
         return [
             plant_state
             for greenhouse_state in states
@@ -223,13 +230,12 @@ class GreenhouseService:
         ]
 
     def get_timeline(self, greenhouse_id: str) -> TimelineSummary | None:
-        if self._greenhouses.get(greenhouse_id) is None:
-            return None
-        simulation = self._simulation_for(greenhouse_id)
-        if simulation is None:
+        greenhouse = self._greenhouses.get(greenhouse_id)
+        if greenhouse is None:
             return None
         return TimelineSummary(
-            total_days=simulation.total_steps, current_day=simulation.current_step
+            checkpoints=self._states.list_timestamps(greenhouse_id),
+            current_timestamp=greenhouse.current_state_timestamp,
         )
 
     def get_management_history(self, greenhouse_id: str) -> list[ManagementTrace] | None:

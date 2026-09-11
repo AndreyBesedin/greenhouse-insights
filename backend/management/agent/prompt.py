@@ -57,7 +57,7 @@ def render_context(context: GreenhouseManagementContext, config: ScenarioConfig)
     text itself, which stays fixed across greenhouses and configs."""
     lines = [
         f"Greenhouse: {context.greenhouse_id}",
-        f"Simulated day: {context.day}",
+        f"Observed at: {context.timestamp.isoformat()}",
         "",
         "Operating preferences for this greenhouse:",
         f"- Water a plant when soil moisture is below "

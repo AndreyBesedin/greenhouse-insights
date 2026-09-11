@@ -17,7 +17,6 @@ def _obs(plant_id: str, observation_type: ObservationType, value: float) -> Obse
         observation_id=f"obs_{plant_id}_{observation_type.value}",
         greenhouse_id="gh_001",
         plant_id=plant_id,
-        simulated_day=8,
         timestamp=TIMESTAMP,
         observation_type=observation_type,
         value=value,
@@ -30,7 +29,6 @@ def _watering_event(plant_id: str) -> Event:
         event_id=f"evt_{plant_id}_watering",
         greenhouse_id="gh_001",
         plant_id=plant_id,
-        simulated_day=8,
         timestamp=TIMESTAMP,
         event_type=EventType.WATERING,
         source=EventSource.SIMULATION,
@@ -47,7 +45,6 @@ def test_reconstruct_plant_state_restates_latest_observation_values() -> None:
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=observations,
         events=[],
@@ -65,7 +62,6 @@ def test_reconstruct_plant_state_restates_latest_visible_height() -> None:
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=observations,
         events=[],
@@ -87,7 +83,6 @@ def test_reconstruct_plant_state_stays_healthy_despite_critically_low_soil_moist
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=observations,
         events=[],
@@ -107,7 +102,6 @@ def test_reconstruct_plant_state_stays_healthy_across_the_full_moisture_range() 
         state = reconstruct_plant_state(
             plant_id="plant_017",
             greenhouse_id="gh_001",
-            day=8,
             timestamp=TIMESTAMP,
             observations=observations,
             events=[],
@@ -125,7 +119,6 @@ def test_reconstruct_plant_state_flags_monitor_when_only_environment_data_arrive
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=observations,
         events=[],
@@ -141,7 +134,6 @@ def test_reconstruct_plant_state_ignores_other_plants_observations() -> None:
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=observations,
         events=[],
@@ -155,7 +147,6 @@ def test_reconstruct_plant_state_records_the_most_recent_event() -> None:
     state = reconstruct_plant_state(
         plant_id="plant_017",
         greenhouse_id="gh_001",
-        day=8,
         timestamp=TIMESTAMP,
         observations=[],
         events=[_watering_event("plant_017")],
@@ -170,7 +161,6 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
         reconstruct_plant_state(
             plant_id="plant_001",
             greenhouse_id="gh_001",
-            day=8,
             timestamp=TIMESTAMP,
             observations=[
                 _obs("plant_001", ObservationType.SOIL_MOISTURE_PCT, 55.0),
@@ -181,7 +171,6 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
         reconstruct_plant_state(
             plant_id="plant_002",
             greenhouse_id="gh_001",
-            day=8,
             timestamp=TIMESTAMP,
             observations=[_obs("plant_002", ObservationType.SOIL_MOISTURE_PCT, 15.0)],
             events=[],
@@ -189,7 +178,6 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
         reconstruct_plant_state(
             plant_id="plant_003",
             greenhouse_id="gh_001",
-            day=8,
             timestamp=TIMESTAMP,
             observations=[],
             events=[],
@@ -197,7 +185,7 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
     ]
 
     state = reconstruct_greenhouse_state(
-        greenhouse_id="gh_001", day=8, timestamp=TIMESTAMP, plant_states=plant_states
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=plant_states
     )
 
     # plant_001 has its full daily reading set (HEALTHY), plant_002 only a
