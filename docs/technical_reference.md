@@ -37,7 +37,10 @@ The major backend boundaries are:
 - `intelligence/` — state reconstruction and interpretation of observations/events.
 - `application/` — orchestration, persistence, API services, recommendation review workflow.
 - `evaluation/` and `management/evaluation/` — deterministic checks against simulator ground truth.
+- `ingestion/` — turning recorded external datasets into the same canonical observations, events and greenhouses (see below). Dataset-specific parsing stays inside `ingestion/wur/...` adapters.
 - `domain/` — shared domain models and enums.
+
+Chronology in generic domain records (observations, events, state snapshots, recommendations) is the timestamp alone. The simulation's day counter is a simulation mechanic: `SimulationDefinition.timestamp_for_step` is the one place it becomes an instant, and only simulation-owned objects (`GreenhouseWorld`, management traces/progress) still carry it. This is what lets simulated, recorded and (later) live greenhouses share one state model and one timeline API.
 
 The frontend is React + TypeScript and consumes a generated client from FastAPI's OpenAPI schema.
 
@@ -142,6 +145,18 @@ poetry run python -m management.evaluation
 
 The fake provider is deterministic and serves as a stable reference. A real provider is deliberately not tuned to force a perfect score: the evaluation harness is intended to reveal reasoning gaps rather than hide them.
 
+## Recorded data ingestion
+
+`backend/ingestion/` implements the first phases of `docs/design/wur_real_data_ingestion_replay_plan.md`:
+
+- **Manifests** (`ingestion/manifests/*.json`) describe each source dataset - artifact names, sizes, MD5s, download URLs, licence - and are generated from the 4TU metadata API by `greenhouse-data inventory`, never hand-copied. No raw data is committed.
+- **Storage** (`ingestion/storage/`) resolves an artifact as local copy → configured mirrors → upstream download, verifying checksums, resuming downloads, and refusing anything above the calling profile's size cap. Data lives under `GREENHOUSE_DATA_DIR` (default `~/.greenhouse-insights/data`) in `raw/`, `canonical/` and `features/` tiers.
+- **Adapters** (`ingestion/wur/agc4_challenge_2024/`) parse the 2024 challenge's 5-minute compartment CSVs into greenhouse-level `Observation`s (23 climate, actuator, setpoint and irrigation channels, local CET/CEST normalised to UTC) and `Harvest.xlsx` into sampled-crop observations plus one compartment-level `HARVEST` event. Recorded setpoints are observations of control state, not events.
+- **Canonical tier** (`ingestion/canonical.py`): per-greenhouse JSONL of the domain models plus `provenance.json` with source members, checksums and output content hashes; deterministic across rebuilds.
+- **Loader** (`ingestion/loader.py`) replaces a greenhouse's records in the application database and reconstructs one `GreenhouseState` per local day - the last reading at or before each boundary, values carried forward - so the existing `/timeline` and `/state?at=` endpoints navigate recorded history unchanged. `GreenhouseState.environment` holds the greenhouse-level readings.
+
+Profiles: `tiny` (one compartment, tabular only), `dev` (all compartments, tabular only), `full` (also the ~30 GB image archives). Only the 2024 dataset has an adapter so far; the 2023 pre-trial manifest is committed for the next step. Perception, replay-time recommendations and backtesting are later phases of the plan.
+
 ## Persistence and migrations
 
 Persistence uses SQLite + SQLAlchemy Core. Schema migrations use Alembic.
@@ -161,6 +176,8 @@ A standalone `alembic` CLI invocation does not automatically load `backend/.env`
 ## API and generated frontend client
 
 FastAPI's OpenAPI document is the frontend/backend contract.
+
+Historical navigation is by instant: `GET /greenhouses/{id}/timeline` lists the persisted state checkpoints, and `GET /greenhouses/{id}/state?at=<ISO-8601>` (likewise plant detail, history via `up_to`, and recommendations) returns the state as known at or before that instant. The frontend maps the N-th checkpoint to "Day N" for simulations and to the checkpoint date for recorded data.
 
 After backend API/schema changes:
 
