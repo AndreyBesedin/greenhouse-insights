@@ -7,6 +7,7 @@ from sqlalchemy import Engine
 from application.bootstrap import bootstrap_greenhouses
 from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseService
 from application.persistence.event_repository import EventRepository
+from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
 from application.persistence.recommendation_repository import RecommendationRepository
@@ -24,6 +25,7 @@ from domain.enums import (
     SourceType,
 )
 from domain.event import Event
+from domain.greenhouse import Greenhouse, GreenhouseLayout
 from domain.management_trace import ManagementTrace
 from domain.observation import Observation
 from domain.provenance import RecordSource
@@ -465,3 +467,26 @@ def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None
 
     # The other bootstrapped greenhouse is untouched.
     assert service.get_greenhouse_detail("gh_002") is not None
+
+
+def test_list_greenhouses_reports_the_crop_of_a_compartment_without_plants(
+    engine: Engine,
+) -> None:
+    GreenhouseRepository(engine).save(
+        Greenhouse(
+            greenhouse_id="wur_c306",
+            name="Compartment 3.06",
+            description="Recorded WUR compartment",
+            source_type=SourceType.IMPORTED_DATA,
+            crop="dwarf_tomato",
+            layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
+            plants=[],
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+
+    [item] = GreenhouseService(engine).list_greenhouses()
+
+    assert item.crop == "dwarf_tomato"
+    assert item.plant_count == 0
+    assert item.status is None

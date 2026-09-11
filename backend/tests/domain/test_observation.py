@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from domain.enums import ObservationType, SourceType
 from domain.observation import Observation
 from domain.provenance import RecordSource
+from domain.state import GreenhouseEnvironmentState
 
 
 def _make_observation(**overrides: object) -> Observation:
@@ -45,8 +46,8 @@ def test_observation_is_immutable() -> None:
         observation.value = 50.0  # type: ignore[misc]
 
 
-def test_observation_type_has_expected_members() -> None:
-    assert {member.value for member in ObservationType} == {
+def test_observation_type_keeps_the_plant_level_members() -> None:
+    assert {member.value for member in ObservationType} >= {
         "soil_moisture_pct",
         "air_temperature_c",
         "visible_fruit_count",
@@ -54,3 +55,21 @@ def test_observation_type_has_expected_members() -> None:
         "estimated_ripe_mass_g",
         "visible_height_cm",
     }
+
+
+def test_every_greenhouse_level_observation_type_has_a_state_field() -> None:
+    """The enum value is the field name on GreenhouseEnvironmentState, so a
+    reading of any greenhouse-level type lands in the reconstructed state
+    without a mapping table."""
+    plant_level = {
+        ObservationType.SOIL_MOISTURE_PCT,
+        ObservationType.VISIBLE_FRUIT_COUNT,
+        ObservationType.RIPE_FRUIT_COUNT,
+        ObservationType.ESTIMATED_RIPE_MASS_G,
+        ObservationType.VISIBLE_HEIGHT_CM,
+    }
+    fields = GreenhouseEnvironmentState.model_fields
+    for member in ObservationType:
+        if member in plant_level:
+            continue
+        assert member.value in fields, member

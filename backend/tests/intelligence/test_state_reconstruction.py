@@ -1,10 +1,11 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from domain.enums import EventSource, EventType, ObservationType, PlantHealth, SourceType
 from domain.event import Event
 from domain.observation import Observation
 from domain.provenance import RecordSource
 from intelligence.state_reconstruction import (
+    reconstruct_greenhouse_environment,
     reconstruct_greenhouse_state,
     reconstruct_plant_state,
 )
@@ -195,3 +196,58 @@ def test_reconstruct_greenhouse_state_aggregates_plant_states() -> None:
     assert state.plants_healthy == 1
     assert state.plants_monitor == 1
     assert state.plants_action_required == 0
+
+
+def _greenhouse_obs(
+    observation_type: ObservationType, value: float, *, at: datetime = TIMESTAMP
+) -> Observation:
+    return Observation(
+        observation_id=f"obs_gh_{observation_type.value}_{at.isoformat()}",
+        greenhouse_id="gh_001",
+        plant_id=None,
+        timestamp=at,
+        observation_type=observation_type,
+        value=value,
+        source=RecordSource(type=SourceType.IMPORTED_DATA, source_id="wur"),
+    )
+
+
+def test_greenhouse_environment_takes_the_latest_greenhouse_level_reading_per_type() -> None:
+    earlier = TIMESTAMP - timedelta(hours=1)
+    observations = [
+        _greenhouse_obs(ObservationType.AIR_TEMPERATURE_C, 21.0, at=TIMESTAMP),
+        _greenhouse_obs(ObservationType.AIR_TEMPERATURE_C, 19.0, at=earlier),
+        _greenhouse_obs(ObservationType.CO2_PPM, 812.0),
+        # plant-level readings never describe the greenhouse environment
+        _obs("plant_017", ObservationType.SOIL_MOISTURE_PCT, 40.0),
+    ]
+
+    environment = reconstruct_greenhouse_environment(observations)
+
+    assert environment.air_temperature_c == 21.0
+    assert environment.co2_ppm == 812.0
+    assert environment.relative_humidity_pct is None
+
+
+def test_greenhouse_state_carries_environment_and_compartment_level_harvest() -> None:
+    harvest = Event(
+        event_id="evt_harvest",
+        greenhouse_id="gh_001",
+        plant_id=None,
+        timestamp=TIMESTAMP,
+        event_type=EventType.HARVEST,
+        source=EventSource.HUMAN_REPORTED,
+        parameters={"harvested_mass_g": 1250.0},
+    )
+
+    state = reconstruct_greenhouse_state(
+        greenhouse_id="gh_001",
+        timestamp=TIMESTAMP,
+        plant_states=[],
+        observations=[_greenhouse_obs(ObservationType.RELATIVE_HUMIDITY_PCT, 78.5)],
+        events=[harvest],
+    )
+
+    assert state.environment.relative_humidity_pct == 78.5
+    assert state.total_harvested_g == 1250.0
+    assert state.plant_states == []

@@ -214,6 +214,7 @@ class SimulationRunner:
                 )
                 for ps in observable_plant_states
             ],
+            observations=generation.observations,
         )
         self._states.save(greenhouse_state)
 
@@ -343,6 +344,8 @@ class SimulationRunner:
             greenhouse_id=greenhouse.greenhouse_id,
             timestamp=timestamp,
             plant_states=plant_states,
+            observations=day_observations,
+            events=day_events,
         )
         self._states.save(greenhouse_state)
 

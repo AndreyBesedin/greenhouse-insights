@@ -9,6 +9,7 @@ greenhouses = Table(
     Column("name", String, nullable=False),
     Column("description", String, nullable=False),
     Column("source_type", String, nullable=False),
+    Column("crop", String, nullable=True),
     Column("layout_json", String, nullable=False),
     Column("plants_json", String, nullable=False),
     Column("created_at", String, nullable=False),
