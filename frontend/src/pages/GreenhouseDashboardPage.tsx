@@ -13,6 +13,7 @@ import { usePlantHistory } from '../hooks/usePlantHistory'
 import { useRecommendations } from '../hooks/useRecommendations'
 import { useSimulationStatus } from '../hooks/useSimulationStatus'
 import { useTimeline } from '../hooks/useTimeline'
+import { RecordedGreenhouseDashboard } from './RecordedGreenhouseDashboard'
 import { formatCropLabel, formatMass } from '../lib/format'
 import { MANAGEMENT_POLICY_LABEL } from '../lib/managementPolicy'
 import { cn } from '../lib/utils'
@@ -68,6 +69,9 @@ export function GreenhouseDashboardPage() {
   }
 
   if (detail.simulation === null) {
+    if (detail.greenhouse.source_type === 'IMPORTED_DATA') {
+      return <RecordedGreenhouseDashboard detail={detail} />
+    }
     return <NoDataSourceDashboard detail={detail} />
   }
 

@@ -597,3 +597,94 @@ describe('GreenhouseDashboardPage', () => {
     ).not.toBeInTheDocument()
   })
 })
+
+describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
+  const RECORDED_DETAIL = {
+    greenhouse: {
+      greenhouse_id: 'wur_agc4_2024_c306',
+      name: 'WUR AGC4 2024 · compartment 3.06 (Reference)',
+      description: 'Recorded history of compartment 3.06.',
+      source_type: 'IMPORTED_DATA',
+      crop: 'dwarf_tomato',
+      layout: { kind: 'compartment', rows: 0, columns: 0 },
+      plants: [],
+      created_at: '2024-09-02T22:05:00+00:00',
+      current_state_timestamp: '2024-09-05T21:55:00+00:00',
+      latest_available_timestamp: '2024-09-05T21:55:00+00:00',
+    },
+    simulation: null,
+  } as const
+  const CHECKPOINTS = [
+    '2024-09-03T21:55:00+00:00',
+    '2024-09-04T21:55:00+00:00',
+    '2024-09-05T21:55:00+00:00',
+  ]
+  function recordedState(timestamp: string, airTemperatureC: number) {
+    return {
+      greenhouse_id: 'wur_agc4_2024_c306',
+      timestamp,
+      environment: {
+        air_temperature_c: airTemperatureC,
+        co2_ppm: 436,
+        relative_humidity_pct: 80.5,
+      },
+      plant_states: [],
+      plants_healthy: 0,
+      plants_monitor: 0,
+      plants_action_required: 0,
+      total_ripe_mass_g: 0,
+      total_harvested_g: 7119.65,
+    }
+  }
+
+  function renderRecorded() {
+    return render(
+      <MemoryRouter initialEntries={['/greenhouses/wur_agc4_2024_c306']}>
+        <Routes>
+          <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('shows the latest recorded environment and lets the operator browse back in time', async () => {
+    mockedGet.mockImplementation(
+      (path: string, options?: { params?: { query?: { at?: string } } }) => {
+        if (path === '/greenhouses/{greenhouse_id}') return Promise.resolve(ok(RECORDED_DETAIL))
+        if (path === '/greenhouses/{greenhouse_id}/timeline')
+          return Promise.resolve(
+            ok({ checkpoints: CHECKPOINTS, current_timestamp: CHECKPOINTS[2] }),
+          )
+        if (path === '/greenhouses/{greenhouse_id}/state') {
+          const at = options?.params?.query?.at
+          return Promise.resolve(
+            ok(
+              at === CHECKPOINTS[0]
+                ? recordedState(CHECKPOINTS[0], 19.2)
+                : recordedState(CHECKPOINTS[2], 23.7),
+            ),
+          )
+        }
+        throw new Error(`unexpected GET ${path}`)
+      },
+    )
+
+    renderRecorded()
+
+    expect(await screen.findByText('Recorded history')).toBeInTheDocument()
+    expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
+    expect(screen.getByText('436 ppm')).toBeInTheDocument()
+    expect(screen.getByText('7.1 kg')).toBeInTheDocument()
+    expect(screen.getByText('5 Sept 2024 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled()
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Day'), { target: { value: '1' } })
+    })
+
+    expect(await screen.findByText('19.2 °C')).toBeInTheDocument()
+    expect(
+      screen.getByText('Viewing 3 Sept 2024 — latest recorded state is 5 Sept 2024'),
+    ).toBeInTheDocument()
+  })
+})

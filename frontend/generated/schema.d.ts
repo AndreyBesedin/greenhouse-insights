@@ -382,6 +382,8 @@ export interface components {
             /** Description */
             description: string;
             source_type: components["schemas"]["SourceType"];
+            /** Crop */
+            crop?: string | null;
             layout: components["schemas"]["GreenhouseLayout"];
             /** Plants */
             plants: components["schemas"]["Plant"][];
@@ -400,14 +402,81 @@ export interface components {
             greenhouse: components["schemas"]["Greenhouse"];
             simulation: components["schemas"]["SimulationSummary"] | null;
         };
-        /** GreenhouseLayout */
+        /**
+         * GreenhouseEnvironmentState
+         * @description The latest known greenhouse-level readings: climate, actuator
+         *     state, recorded control setpoints and irrigation. Field names are
+         *     ObservationType values, so reconstruction is a lookup, not a mapping.
+         *     Every field is optional - a source only fills what it actually
+         *     measures (the simulator: air temperature; WUR: most of them).
+         */
+        GreenhouseEnvironmentState: {
+            /** Air Temperature C */
+            air_temperature_c?: number | null;
+            /** Relative Humidity Pct */
+            relative_humidity_pct?: number | null;
+            /** Humidity Deficit G M3 */
+            humidity_deficit_g_m3?: number | null;
+            /** Co2 Ppm */
+            co2_ppm?: number | null;
+            /** Par Umol M2 S */
+            par_umol_m2_s?: number | null;
+            /** Heating Pipe Temperature C */
+            heating_pipe_temperature_c?: number | null;
+            /** Energy Screen Position Pct */
+            energy_screen_position_pct?: number | null;
+            /** Blackout Screen Position Pct */
+            blackout_screen_position_pct?: number | null;
+            /** Window Position Lee Pct */
+            window_position_lee_pct?: number | null;
+            /** Window Position Wind Pct */
+            window_position_wind_pct?: number | null;
+            /** Lamps Activation Pct */
+            lamps_activation_pct?: number | null;
+            /** Heating Temperature Setpoint C */
+            heating_temperature_setpoint_c?: number | null;
+            /** Ventilation Temperature Setpoint C */
+            ventilation_temperature_setpoint_c?: number | null;
+            /** Co2 Setpoint Ppm */
+            co2_setpoint_ppm?: number | null;
+            /** Humidity Deficit Setpoint G M3 */
+            humidity_deficit_setpoint_g_m3?: number | null;
+            /** Lamps Activation Setpoint Pct */
+            lamps_activation_setpoint_pct?: number | null;
+            /** Energy Screen Setpoint Pct */
+            energy_screen_setpoint_pct?: number | null;
+            /** Blackout Screen Setpoint Pct */
+            blackout_screen_setpoint_pct?: number | null;
+            /** Irrigation Interval Setpoint Min */
+            irrigation_interval_setpoint_min?: number | null;
+            /** Irrigation Flow Duration Min */
+            irrigation_flow_duration_min?: number | null;
+            /** Drain Water Volume L M2 */
+            drain_water_volume_l_m2?: number | null;
+            /** Drain Ec Ds M */
+            drain_ec_ds_m?: number | null;
+            /** Drain Ph */
+            drain_ph?: number | null;
+            /** Sampled Fruit Count Per Plant */
+            sampled_fruit_count_per_plant?: number | null;
+            /** Sampled Fruit Fresh Weight G Per Plant */
+            sampled_fruit_fresh_weight_g_per_plant?: number | null;
+        };
+        /**
+         * GreenhouseLayout
+         * @description "grid": plants laid out in rows x columns (the simulator). "compartment":
+         *     a physical compartment observed as a whole, with no individually
+         *     identified plants (a recorded dataset's climate compartment) - rows and
+         *     columns are then 0. Positions inside a compartment are a later spatial
+         *     model (docs/design/wur_real_data_ingestion_replay_plan.md section 7).
+         */
         GreenhouseLayout: {
             /**
              * Kind
              * @default grid
-             * @constant
+             * @enum {string}
              */
-            kind: "grid";
+            kind: "grid" | "compartment";
             /** Rows */
             rows: number;
             /** Columns */
@@ -451,6 +520,8 @@ export interface components {
              * Format: date-time
              */
             timestamp: string;
+            /** @default {} */
+            environment: components["schemas"]["GreenhouseEnvironmentState"];
             /** Plant States */
             plant_states: components["schemas"]["PlantState"][];
             /** Plants Healthy */

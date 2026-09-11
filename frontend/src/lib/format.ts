@@ -18,3 +18,10 @@ export function formatCheckpoint(iso: string) {
     timeZone: 'UTC',
   })
 }
+
+// A sensor reading with its unit, or an em dash when the source has none.
+export function formatReading(value: number | null | undefined, unit: string, fractionDigits = 1) {
+  if (value === null || value === undefined) return '—'
+  const number = value.toFixed(fractionDigits)
+  return unit ? `${number} ${unit}` : number
+}
