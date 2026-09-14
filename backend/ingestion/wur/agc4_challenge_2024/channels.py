@@ -6,12 +6,17 @@ g/m3, minute, L/m2, dS/m, W/m2, J/cm2, m/s) - so no conversion is needed,
 only selection.
 
 Not ingested yet from the compartment files (docs/design/wur_execution_plan.md
-steps E2c-E2e): the `*_vip` effective setpoints (which differ from their
-setpoints far more than the name suggests), CO2 dosing state and counters,
-minimum pipe / window setpoints, energy and cost increments, and per-sensor
-extras. `dwarf_tomato/harvest_date` is read separately, as the final-harvest
-instant (timeseries.final_harvest_timestamp); `dwarf_tomato/pot_area` is
-skipped as the exact reciprocal of plant density.
+steps E2d-E2e): energy and cost increments, and per-sensor extras.
+
+The `*_vip` channels are ingested as effective control values, separate from
+their setpoints: they differ far more than "value in process" suggests (CO2
+matches its setpoint only 62% of the time, up to 1114 ppm apart; irrigation
+interval 67%). CO2 dosing minutes reset daily around 07:40 local, not at
+midnight, so the value is minutes since the controller's reset.
+
+`dwarf_tomato/harvest_date` is read separately, as the final-harvest instant
+(timeseries.final_harvest_timestamp); `dwarf_tomato/pot_area` is skipped as
+the exact reciprocal of plant density.
 
 Deliberately not ingested from the site files, both for temporal honesty
 (docs/design/wur_real_data_ingestion_replay_plan.md sections 10-11), as
@@ -73,6 +78,38 @@ CHANNELS: dict[str, ObservationType] = {
     "compartment/water_supply/water_supply_interval_setpoint": (
         ObservationType.IRRIGATION_INTERVAL_SETPOINT_MIN
     ),
+    "compartment/minimum_pipe_temperature_setpoint": (
+        ObservationType.MINIMUM_PIPE_TEMPERATURE_SETPOINT_C
+    ),
+    "compartment/minimum_window_position_lee_side_setpoint": (
+        ObservationType.MINIMUM_WINDOW_POSITION_LEE_SETPOINT_PCT
+    ),
+    # effective control values ("VIP": setpoint plus the controller's influences)
+    "compartment/heating_temperature_vip": ObservationType.HEATING_TEMPERATURE_EFFECTIVE_C,
+    "compartment/ventilation_temperature_lee_side_vip": (
+        ObservationType.VENTILATION_TEMPERATURE_LEE_EFFECTIVE_C
+    ),
+    "compartment/ventilation_temperature_wind_side_vip": (
+        ObservationType.VENTILATION_TEMPERATURE_WIND_EFFECTIVE_C
+    ),
+    "compartment/co2_concentration_vip": ObservationType.CO2_EFFECTIVE_PPM,
+    "compartment/humidity_deficit_vip": ObservationType.HUMIDITY_DEFICIT_EFFECTIVE_G_M3,
+    "compartment/screen_energy/screen_position_vip": ObservationType.ENERGY_SCREEN_EFFECTIVE_PCT,
+    "compartment/screen_blackout/screen_position_vip": (
+        ObservationType.BLACKOUT_SCREEN_EFFECTIVE_PCT
+    ),
+    "compartment/water_supply/water_supply_interval_vip": (
+        ObservationType.IRRIGATION_INTERVAL_EFFECTIVE_MIN
+    ),
+    "compartment/minimum_pipe_temperature_vip": (
+        ObservationType.MINIMUM_PIPE_TEMPERATURE_EFFECTIVE_C
+    ),
+    "compartment/minimum_window_position_lee_side_vip": (
+        ObservationType.MINIMUM_WINDOW_POSITION_LEE_EFFECTIVE_PCT
+    ),
+    # CO2 dosing
+    "compartment/co2_actuation_state": ObservationType.CO2_DOSING_ON,
+    "compartment/co2_dosage_minutes_cumulative": ObservationType.CO2_DOSING_MINUTES_SINCE_RESET,
     # irrigation
     "compartment/water_supply/water_flow_duration": ObservationType.IRRIGATION_FLOW_DURATION_MIN,
     "compartment/water_drain/water_volume": ObservationType.DRAIN_WATER_VOLUME_L_M2,
@@ -80,6 +117,13 @@ CHANNELS: dict[str, ObservationType] = {
     "compartment/water_drain/ph": ObservationType.DRAIN_PH,
     # crop layout: recorded only on the day a density takes effect
     "dwarf_tomato/plant_density": ObservationType.PLANT_DENSITY_PER_M2,
+}
+
+# Channels whose source codes are recoded to domain values. A code that is
+# not listed is refused rather than guessed.
+RECODED: dict[str, dict[float, float]] = {
+    # channel_info: "1 = on, 2 = out"
+    "compartment/co2_actuation_state": {1.0: 1.0, 2.0: 0.0},
 }
 
 WEATHER_CHANNELS: dict[str, ObservationType] = {

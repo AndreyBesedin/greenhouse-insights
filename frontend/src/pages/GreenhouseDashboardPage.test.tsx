@@ -651,6 +651,10 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
             co2_ppm: 436,
             relative_humidity_pct: 80.5,
             plant_density_per_m2: 20,
+            co2_setpoint_ppm: 800,
+            co2_effective_ppm: 650,
+            co2_dosing_on: 1,
+            co2_dosing_minutes_since_reset: 355,
           },
           harvested_total_g: 7119.65,
         },
@@ -707,6 +711,8 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
     expect(screen.getByText('436 ppm')).toBeInTheDocument()
     expect(screen.getByText('20 plants/m²')).toBeInTheDocument()
+    expect(screen.getByText('800 ppm → 650 ppm')).toBeInTheDocument()
+    expect(screen.getByText('On · 355 min since reset')).toBeInTheDocument()
     expect(screen.getByText('7.1 kg')).toBeInTheDocument()
     // site weather is the greenhouse's, whichever compartment is shown
     expect(screen.getByText('11.4 °C')).toBeInTheDocument()

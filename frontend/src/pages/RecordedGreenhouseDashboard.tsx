@@ -253,6 +253,41 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
 
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <ControlPanel
+                title="Control: setpoint → effective (VIP)"
+                rows={[
+                  [
+                    'Heating temperature',
+                    `${formatReading(environment.heating_temperature_setpoint_c, '°C')} → ${formatReading(environment.heating_temperature_effective_c, '°C')}`,
+                  ],
+                  [
+                    'Ventilation, lee side',
+                    `${formatReading(environment.ventilation_temperature_setpoint_c, '°C')} → ${formatReading(environment.ventilation_temperature_lee_effective_c, '°C')}`,
+                  ],
+                  [
+                    'CO₂',
+                    `${formatReading(environment.co2_setpoint_ppm, 'ppm', 0)} → ${formatReading(environment.co2_effective_ppm, 'ppm', 0)}`,
+                  ],
+                  [
+                    'Humidity deficit',
+                    `${formatReading(environment.humidity_deficit_setpoint_g_m3, 'g/m³')} → ${formatReading(environment.humidity_deficit_effective_g_m3, 'g/m³')}`,
+                  ],
+                  [
+                    'Irrigation interval',
+                    `${formatReading(environment.irrigation_interval_setpoint_min, 'min', 0)} → ${formatReading(environment.irrigation_interval_effective_min, 'min', 0)}`,
+                  ],
+                  [
+                    'Minimum pipe temperature',
+                    `${formatReading(environment.minimum_pipe_temperature_setpoint_c, '°C')} → ${formatReading(environment.minimum_pipe_temperature_effective_c, '°C')}`,
+                  ],
+                  [
+                    'CO₂ dosing',
+                    environment.co2_dosing_on === null || environment.co2_dosing_on === undefined
+                      ? '—'
+                      : `${environment.co2_dosing_on >= 0.5 ? 'On' : 'Off'} · ${formatReading(environment.co2_dosing_minutes_since_reset, 'min', 0)} since reset`,
+                  ],
+                ]}
+              />
+              <ControlPanel
                 title="Outside weather (site)"
                 rows={[
                   [

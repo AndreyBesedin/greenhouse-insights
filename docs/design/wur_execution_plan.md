@@ -40,7 +40,11 @@ archive it to `docs/archive/design-history/`.
    compartments become I/O-bound.
 3. **Canonical artifacts stay files** (local + S3), the DB holds what is loaded
    for replay. This is the separation PR #7 established and it survives the
-   Postgres move unchanged.
+   Postgres move unchanged. Measured 2026-09-14 after E2c: the full 2024
+   greenhouse (4.63M observations) loads into PostgreSQL in 74 s with 115 MB
+   of loader memory and takes 1.7 GB on disk, so one host holds it
+   comfortably. Revisit when all recorded sources together approach the
+   host's volume size.
 4. **S3 and a cloud deployment are in scope now**, because the app will be
    public on a domain soon. The first cloud shape is one host running the
    existing docker-compose stack (backend, frontend, Postgres with a volume,
@@ -160,7 +164,7 @@ day as their neighbours.
     20 plants/m2 at local midnight on team-specific dates (`pot_area` is its
     reciprocal and is skipped). A density observation per row plus a SPACING
     event per change.
-  - [ ] **E2c. Effective control values.** The ten `*_vip` channels are not
+  - [x] **E2c. Effective control values.** The ten `*_vip` channels are not
     near-copies: CO2 VIP equals its setpoint only 62% of the time (up to
     1114 ppm apart), irrigation interval 67%. Ingest as effective-setpoint
     types, plus minimum pipe temperature / minimum lee window setpoints, CO2

@@ -52,6 +52,27 @@ class ObservationType(StrEnum):
     ENERGY_SCREEN_SETPOINT_PCT = "energy_screen_setpoint_pct"
     BLACKOUT_SCREEN_SETPOINT_PCT = "blackout_screen_setpoint_pct"
     IRRIGATION_INTERVAL_SETPOINT_MIN = "irrigation_interval_setpoint_min"
+    MINIMUM_PIPE_TEMPERATURE_SETPOINT_C = "minimum_pipe_temperature_setpoint_c"
+    MINIMUM_WINDOW_POSITION_LEE_SETPOINT_PCT = "minimum_window_position_lee_setpoint_pct"
+
+    # greenhouse-level effective control values: a setpoint after the
+    # controller's own influences ("VIP", value in process) - what it
+    # actually tracked, which can differ materially from the setpoint
+    HEATING_TEMPERATURE_EFFECTIVE_C = "heating_temperature_effective_c"
+    VENTILATION_TEMPERATURE_LEE_EFFECTIVE_C = "ventilation_temperature_lee_effective_c"
+    VENTILATION_TEMPERATURE_WIND_EFFECTIVE_C = "ventilation_temperature_wind_effective_c"
+    CO2_EFFECTIVE_PPM = "co2_effective_ppm"
+    HUMIDITY_DEFICIT_EFFECTIVE_G_M3 = "humidity_deficit_effective_g_m3"
+    ENERGY_SCREEN_EFFECTIVE_PCT = "energy_screen_effective_pct"
+    BLACKOUT_SCREEN_EFFECTIVE_PCT = "blackout_screen_effective_pct"
+    IRRIGATION_INTERVAL_EFFECTIVE_MIN = "irrigation_interval_effective_min"
+    MINIMUM_PIPE_TEMPERATURE_EFFECTIVE_C = "minimum_pipe_temperature_effective_c"
+    MINIMUM_WINDOW_POSITION_LEE_EFFECTIVE_PCT = "minimum_window_position_lee_effective_pct"
+
+    # greenhouse-level CO2 dosing
+    CO2_DOSING_ON = "co2_dosing_on"  # 1 dosing, 0 not
+    # minutes dosed since the controller's daily reset (not local midnight)
+    CO2_DOSING_MINUTES_SINCE_RESET = "co2_dosing_minutes_since_reset"
 
     # greenhouse-level irrigation
     IRRIGATION_FLOW_DURATION_MIN = "irrigation_flow_duration_min"

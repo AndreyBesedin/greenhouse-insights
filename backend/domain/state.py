@@ -41,6 +41,22 @@ class GreenhouseEnvironmentState(BaseModel):
     energy_screen_setpoint_pct: float | None = None
     blackout_screen_setpoint_pct: float | None = None
     irrigation_interval_setpoint_min: float | None = None
+    minimum_pipe_temperature_setpoint_c: float | None = None
+    minimum_window_position_lee_setpoint_pct: float | None = None
+
+    heating_temperature_effective_c: float | None = None
+    ventilation_temperature_lee_effective_c: float | None = None
+    ventilation_temperature_wind_effective_c: float | None = None
+    co2_effective_ppm: float | None = None
+    humidity_deficit_effective_g_m3: float | None = None
+    energy_screen_effective_pct: float | None = None
+    blackout_screen_effective_pct: float | None = None
+    irrigation_interval_effective_min: float | None = None
+    minimum_pipe_temperature_effective_c: float | None = None
+    minimum_window_position_lee_effective_pct: float | None = None
+
+    co2_dosing_on: float | None = None
+    co2_dosing_minutes_since_reset: float | None = None
 
     irrigation_flow_duration_min: float | None = None
     drain_water_volume_l_m2: float | None = None

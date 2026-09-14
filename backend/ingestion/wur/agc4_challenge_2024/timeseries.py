@@ -18,6 +18,7 @@ from ingestion.wur.agc4_challenge_2024.channels import (
     FORECAST_CHANNELS,
     FORECAST_MEMBER,
     HARVEST_DAY_COLUMN,
+    RECODED,
     TIME_COLUMN,
     WEATHER_CHANNELS,
     WEATHER_MEMBER,
@@ -113,6 +114,14 @@ def _parse(
             raw = row.get(column, "")
             if raw is None or raw.strip() == "":
                 continue
+            value = float(raw)
+            codes = RECODED.get(column)
+            if codes is not None:
+                if value not in codes:
+                    raise ValueError(
+                        f"{member}: {column} has unexpected code {raw!r} at {row[TIME_COLUMN]}"
+                    )
+                value = codes[value]
             yield Observation(
                 observation_id=_observation_id(scope, timestamp, observation_type.value),
                 greenhouse_id=GREENHOUSE_ID,
@@ -120,7 +129,7 @@ def _parse(
                 plant_id=None,
                 timestamp=timestamp,
                 observation_type=observation_type,
-                value=float(raw),
+                value=value,
                 source=SOURCE,
             )
 

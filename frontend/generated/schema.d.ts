@@ -493,6 +493,34 @@ export interface components {
             blackout_screen_setpoint_pct?: number | null;
             /** Irrigation Interval Setpoint Min */
             irrigation_interval_setpoint_min?: number | null;
+            /** Minimum Pipe Temperature Setpoint C */
+            minimum_pipe_temperature_setpoint_c?: number | null;
+            /** Minimum Window Position Lee Setpoint Pct */
+            minimum_window_position_lee_setpoint_pct?: number | null;
+            /** Heating Temperature Effective C */
+            heating_temperature_effective_c?: number | null;
+            /** Ventilation Temperature Lee Effective C */
+            ventilation_temperature_lee_effective_c?: number | null;
+            /** Ventilation Temperature Wind Effective C */
+            ventilation_temperature_wind_effective_c?: number | null;
+            /** Co2 Effective Ppm */
+            co2_effective_ppm?: number | null;
+            /** Humidity Deficit Effective G M3 */
+            humidity_deficit_effective_g_m3?: number | null;
+            /** Energy Screen Effective Pct */
+            energy_screen_effective_pct?: number | null;
+            /** Blackout Screen Effective Pct */
+            blackout_screen_effective_pct?: number | null;
+            /** Irrigation Interval Effective Min */
+            irrigation_interval_effective_min?: number | null;
+            /** Minimum Pipe Temperature Effective C */
+            minimum_pipe_temperature_effective_c?: number | null;
+            /** Minimum Window Position Lee Effective Pct */
+            minimum_window_position_lee_effective_pct?: number | null;
+            /** Co2 Dosing On */
+            co2_dosing_on?: number | null;
+            /** Co2 Dosing Minutes Since Reset */
+            co2_dosing_minutes_since_reset?: number | null;
             /** Irrigation Flow Duration Min */
             irrigation_flow_duration_min?: number | null;
             /** Drain Water Volume L M2 */
