@@ -255,10 +255,19 @@ day as their neighbours.
   `<dataset id>/<artifact name>!<member path>`, resolved only by the storage
   layer. Listing is chronological with the same inclusive `up_to` boundary as
   observations.
-- [ ] **F2. Sensor + intrinsics.** `Sensor(sensor_id, compartment_id,
-  modality, intrinsics_ref)` from the `configs/<cam>.json` files; nominal pose
-  "1.5 m above crop, nadir" recorded as a stated assumption, not a measured
-  pose.
+- **F2. Sensor + intrinsics.** Camera configs profiled on 2026-09-14: every
+  WUR camera is an Oak-D S2 POE with calibrated intrinsics for its 4K colour
+  stream and two 720p mono streams, plus stereo extrinsics between those
+  streams; no file states where a camera hangs. The 2023 canopy camera's
+  intrinsics equal 2024 `cam_19`'s exactly, and the 2023 single-plant
+  camera's equal 2024 `camir_27`'s, so they are the same physical cameras
+  (the 2023 files leave DeviceID blank).
+  - [x] **F2a. Sensor model and table.** Hardware model, device id, per-stream
+    intrinsics, and the source's verbal mounting description kept as text; no
+    numeric pose.
+  - [ ] **F2b. WUR camera configs to intrinsics.** Depth takes the colour
+    intrinsics, because the README says depth is aligned to colour.
+    Stream-to-stream extrinsics are not a pose and are not kept.
 - [ ] **F3. Register 2024 captures from the zip listing.** Parse filenames
   (`<cam>_YYYY_MM_DD_hh_mm_ss_<modality>.png`, local time) into captures
   without extracting images. Done when 7404 captures exist for six sensors.

@@ -130,3 +130,17 @@ media_captures = Table(
     Column("source_type", String, nullable=False),
     Column("source_id", String, nullable=True),
 )
+
+sensors = Table(
+    "sensors",
+    metadata,
+    Column("sensor_id", String, primary_key=True),
+    Column("greenhouse_id", String, nullable=False, index=True),
+    Column("compartment_id", String, nullable=True, index=True),
+    Column("hardware_model", String, nullable=False),
+    Column("device_id", String, nullable=True),
+    Column("intrinsics_json", String, nullable=False),
+    Column("nominal_mounting", String, nullable=True),
+    Column("source_type", String, nullable=False),
+    Column("source_id", String, nullable=True),
+)
