@@ -39,6 +39,12 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.isort]
+# backend/alembic/ (our migration environment) shares its name with the
+# installed alembic package, and ruff versions differ on whether that makes
+# `alembic` first-party. Pin it so import order is the same everywhere.
+known-third-party = ["alembic"]
+
 [tool.ruff.lint.per-file-ignores]
 # FastAPI's Depends(...) default-argument pattern is idiomatic, not a real
 # mutable-default hazard.

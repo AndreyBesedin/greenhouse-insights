@@ -1,9 +1,8 @@
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine
-
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import Engine, create_engine
 
 _SQLITE_FILE_PREFIX = "sqlite:///"
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
