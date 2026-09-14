@@ -114,8 +114,12 @@ greenhouse-insights/
 - **Progressive simulation updates:** start with polling against
   `GET /simulations/{id}/status`; move to SSE only if polling proves visually insufficient.
   Per the brief, the transport is an implementation detail — don't over-invest here early.
-- **Database:** SQLite via SQLAlchemy Core, one `MetaData` object
-  (`backend/application/persistence/schema.py`). Schema changes are managed with Alembic, not
+- **Database:** SQLAlchemy Core, one `MetaData` object
+  (`backend/application/persistence/schema.py`). SQLite for native development and the
+  default test run; PostgreSQL in docker compose, in deployment, and in CI's second test
+  job (`GREENHOUSE_TEST_DATABASE_URL`). Repositories go through
+  `application/persistence/upsert.py` rather than a dialect's `insert`, so both stay
+  supported. Schema changes are managed with Alembic, not
   `create_all` — `create_engine_and_tables` (`backend/application/db.py`) runs `alembic
   upgrade head` on every startup, including in tests. Any change to `schema.py` needs a
   matching migration generated from `backend/` with:

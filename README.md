@@ -182,7 +182,10 @@ poetry run uvicorn application.api.main:app --reload
 
 API: `http://localhost:8000`
 
-The default SQLite database is created automatically at `backend/data/greenhouse.db`.
+Native development defaults to a SQLite database created automatically at
+`backend/data/greenhouse.db`. Docker compose and the deployment run PostgreSQL;
+set `GREENHOUSE_DATABASE_URL` to a `postgresql+psycopg://` URL to use one
+natively (see `backend/.env.example`).
 
 ### Frontend
 
@@ -274,6 +277,9 @@ cp backend/.env.example backend/.env
 docker compose up -d --build
 ```
 
-This serves the frontend at `http://localhost:8080` and the API at `http://localhost:8000`.
+This serves the frontend at `http://localhost:8080` and the API at
+`http://localhost:8000`, with a PostgreSQL 16 container as the application
+database (data in the `greenhouse_postgres` volume; `POSTGRES_PASSWORD` in the
+environment overrides the throwaway default).
 
 See [`docs/technical_reference.md`](docs/technical_reference.md) for persistence, deployment, provider, concurrency and architecture details.

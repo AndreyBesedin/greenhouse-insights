@@ -1,4 +1,20 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: greenhouse
+      POSTGRES_DB: greenhouse
+      # Set POSTGRES_PASSWORD in the shell or a top-level .env next to this
+      # file for anything but a throwaway local run.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-greenhouse}
+    volumes:
+      - greenhouse_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greenhouse -d greenhouse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -14,11 +30,17 @@ services:
       # reachable from the browser at localhost:8080 (the host port mapping
       # on the frontend service), not at a docker-network hostname.
       GREENHOUSE_ALLOWED_ORIGINS: http://localhost:8080
+      # The application database is the postgres service above; the app
+      # applies migrations on startup. This overrides any SQLite URL in .env.
+      GREENHOUSE_DATABASE_URL: postgresql+psycopg://greenhouse:${POSTGRES_PASSWORD:-greenhouse}@postgres:5432/greenhouse
+      # Dataset tiers (raw / canonical / features) live on the volume below
+      # rather than in the image's home directory.
+      GREENHOUSE_DATA_DIR: /app/data
     volumes:
-      # The app's default GREENHOUSE_DATABASE_URL (sqlite:///./data/greenhouse.db)
-      # resolves to /app/data/greenhouse.db given the image's WORKDIR - this
-      # volume is what makes that survive a container restart.
       - greenhouse_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -35,4 +57,5 @@ services:
       - backend
 
 volumes:
+  greenhouse_postgres:
   greenhouse_data:

@@ -159,15 +159,13 @@ Profiles: `tiny` (one compartment, tabular only), `dev` (all compartments, tabul
 
 ## Persistence and migrations
 
-Persistence uses SQLite + SQLAlchemy Core. Schema migrations use Alembic.
+Persistence uses SQLAlchemy Core against either SQLite or PostgreSQL; schema migrations use Alembic.
 
-The default database path is:
+- Native development defaults to SQLite at `backend/data/greenhouse.db`.
+- `docker compose` and the deployment run PostgreSQL 16 (`docker-compose.yml` sets the URL).
+- Tests run on SQLite by default; setting `GREENHOUSE_TEST_DATABASE_URL` to a PostgreSQL server URL gives every test its own freshly created database there, which is what CI's `backend-postgres` job does.
 
-```text
-backend/data/greenhouse.db
-```
-
-Override it with `GREENHOUSE_DATABASE_URL`.
+Override the application database with `GREENHOUSE_DATABASE_URL` (`sqlite:///...` or `postgresql+psycopg://...`). Repositories build insert-or-update statements through `application/persistence/upsert.py`, the one place that knows about dialects; timestamps are stored as UTC ISO-8601 strings, which compare correctly on both.
 
 The application applies migrations on startup. When changing `application/persistence/schema.py`, create the matching Alembic migration. Migration drift is covered by tests.
 
@@ -202,7 +200,7 @@ docker compose up -d --build
 
 The frontend is served on `http://localhost:8080` and the API on `http://localhost:8000` by default.
 
-The SQLite database lives in a named Docker volume so it survives container restarts. `docker compose down -v` removes the volume and therefore wipes the persisted database.
+The stack is three services: `postgres` (PostgreSQL 16, data in the `greenhouse_postgres` volume), `backend` (waits for the database's health check, applies migrations on startup, keeps dataset tiers in the `greenhouse_data` volume via `GREENHOUSE_DATA_DIR=/app/data`) and `frontend`. `POSTGRES_PASSWORD` in the environment (or a top-level `.env`) overrides the throwaway default password. `docker compose down -v` removes both volumes and therefore wipes the database and any imported datasets.
 
 `VITE_API_BASE_URL` is a Vite build-time value. If frontend and backend are deployed to separate origins, rebuild the frontend with the correct API base URL and configure `GREENHOUSE_ALLOWED_ORIGINS` on the backend accordingly.
 
