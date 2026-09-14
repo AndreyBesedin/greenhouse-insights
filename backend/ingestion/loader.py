@@ -11,7 +11,7 @@ was last known, not a rounded boundary.
 """
 
 from collections import defaultdict
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, tzinfo
 from itertools import islice
@@ -23,13 +23,31 @@ from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.observation_repository import ObservationRepository
 from application.persistence.state_repository import StateRepository
 from domain.accumulation import DAILY_TOTAL_FIELD, accounting_day
-from domain.enums import EventType, ObservationType
+from domain.enums import EventType, ObservationType, PlantHealth
 from domain.event import Event
 from domain.observation import Observation
-from domain.state import CompartmentState, GreenhouseEnvironmentState, GreenhouseState
+from domain.state import (
+    CompartmentState,
+    GreenhouseEnvironmentState,
+    GreenhouseState,
+    PlantState,
+)
 from ingestion.canonical import CanonicalGreenhouse
 
 _BATCH = 5_000
+
+# Plant-level manual measurement types -> the PlantState field holding the
+# latest reading. Red fruit (RIPE_FRUIT_COUNT) goes to the integer count field.
+_PLANT_FIELD: dict[ObservationType, str] = {
+    ObservationType.PLANT_HEIGHT_CM: "latest_plant_height_cm",
+    ObservationType.LEAF_COUNT: "latest_leaf_count",
+    ObservationType.LEAF_LENGTH_CM: "latest_leaf_length_cm",
+    ObservationType.LEAF_WIDTH_CM: "latest_leaf_width_cm",
+    ObservationType.TRUSS_COUNT: "latest_truss_count",
+    ObservationType.OPEN_FLOWER_COUNT: "latest_open_flower_count",
+    ObservationType.GREEN_FRUIT_COUNT: "latest_green_fruit_count",
+    ObservationType.COLOURED_FRUIT_COUNT: "latest_coloured_fruit_count",
+}
 
 
 @dataclass(frozen=True)
@@ -108,12 +126,22 @@ def load_canonical_greenhouse(
         for o in canonical.observations()
         if window.contains(o.timestamp) and selected(o.compartment_id)
     )
+    plant_compartments: dict[str, str | None] = {
+        plant.plant_id: None for plant in greenhouse.plants
+    }
+    for compartment in greenhouse.compartments:
+        if selected(compartment.compartment_id):
+            plant_compartments.update(
+                {plant.plant_id: compartment.compartment_id for plant in compartment.plants}
+            )
+
     for state in reconstruct_checkpoints(
         greenhouse_id,
         persisted(in_window),
         events,
         every=checkpoint_every,
         timezone=checkpoint_timezone,
+        plant_compartments=plant_compartments,
     ):
         states_repo.save(state)
         snapshots += 1
@@ -133,12 +161,18 @@ def reconstruct_checkpoints(
     *,
     every: timedelta,
     timezone: tzinfo,
+    plant_compartments: Mapping[str, str | None] | None = None,
 ) -> Iterator[GreenhouseState]:
     """Walks chronologically ordered observations once, emitting a state at
     the last observation before each checkpoint boundary and at the end.
     Boundaries are aligned to local midnight in `timezone` for daily
     cadences (so a checkpoint is "end of that day" where the greenhouse
-    stands), and to `every` multiples within the day otherwise."""
+    stands), and to `every` multiples within the day otherwise.
+
+    With `plant_compartments` (plant id -> its compartment), every snapshot
+    carries a PlantState per plant, in plant-id order, holding its latest
+    readings so far; a plant not yet measured has none. Health stays UNKNOWN:
+    weekly manual measurements carry no evidence of the plant's condition."""
     # Latest value of each type, per scope: None is the greenhouse as a
     # whole, any other key a compartment id.
     latest: dict[str | None, dict[ObservationType, float]] = defaultdict(dict)
@@ -146,6 +180,8 @@ def reconstruct_checkpoints(
     # totals_day; restarted when an increment from a later day arrives.
     totals: dict[str | None, dict[str, float]] = defaultdict(dict)
     totals_day: dict[str | None, date] = {}
+    plant_latest: dict[str, dict[ObservationType, float]] = defaultdict(dict)
+    plant_measured_at: dict[str, datetime] = {}
     harvested_g: dict[str | None, float] = defaultdict(float)
     harvests = sorted(
         (e for e in events if e.event_type == EventType.HARVEST and e.plant_id is None),
@@ -177,7 +213,17 @@ def reconstruct_checkpoints(
         return GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
             timestamp=at,
-            plant_states=[],
+            plant_states=[
+                _plant_state(
+                    greenhouse_id,
+                    plant_id,
+                    compartment_id,
+                    at,
+                    plant_latest[plant_id],
+                    plant_measured_at.get(plant_id),
+                )
+                for plant_id, compartment_id in sorted((plant_compartments or {}).items())
+            ],
             environment=GreenhouseEnvironmentState.from_latest_values(latest[None], daily(None)),
             compartments=[
                 CompartmentState(
@@ -210,10 +256,39 @@ def reconstruct_checkpoints(
                     totals[scope] = {}
                     totals_day[scope] = day
                 totals[scope][field] = totals[scope].get(field, 0.0) + observation.value
+        else:
+            plant_latest[observation.plant_id][observation.observation_type] = observation.value
+            plant_measured_at[observation.plant_id] = at
         previous = at
 
     if previous is not None:
         yield snapshot(previous)
+
+
+def _plant_state(
+    greenhouse_id: str,
+    plant_id: str,
+    compartment_id: str | None,
+    at: datetime,
+    latest: dict[ObservationType, float],
+    measured_at: datetime | None,
+) -> PlantState:
+    ripe = latest.get(ObservationType.RIPE_FRUIT_COUNT)
+    state = PlantState(
+        plant_id=plant_id,
+        greenhouse_id=greenhouse_id,
+        compartment_id=compartment_id,
+        timestamp=at,
+        health=PlantHealth.UNKNOWN,
+        latest_ripe_fruit_count=int(ripe) if ripe is not None else None,
+        last_measured_at=measured_at,
+    )
+    readings = {
+        field: latest[observation_type]
+        for observation_type, field in _PLANT_FIELD.items()
+        if observation_type in latest
+    }
+    return state.model_copy(update=readings)
 
 
 def _next_boundary(at: datetime, every: timedelta, timezone: tzinfo) -> datetime:

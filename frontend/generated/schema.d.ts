@@ -838,6 +838,24 @@ export interface components {
             latest_estimated_ripe_mass_g?: number | null;
             /** Latest Visible Height Cm */
             latest_visible_height_cm?: number | null;
+            /** Latest Plant Height Cm */
+            latest_plant_height_cm?: number | null;
+            /** Latest Leaf Count */
+            latest_leaf_count?: number | null;
+            /** Latest Leaf Length Cm */
+            latest_leaf_length_cm?: number | null;
+            /** Latest Leaf Width Cm */
+            latest_leaf_width_cm?: number | null;
+            /** Latest Truss Count */
+            latest_truss_count?: number | null;
+            /** Latest Open Flower Count */
+            latest_open_flower_count?: number | null;
+            /** Latest Green Fruit Count */
+            latest_green_fruit_count?: number | null;
+            /** Latest Coloured Fruit Count */
+            latest_coloured_fruit_count?: number | null;
+            /** Last Measured At */
+            last_measured_at?: string | null;
             /**
              * Harvested Total G
              * @default 0

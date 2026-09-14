@@ -203,7 +203,7 @@ class GreenhouseService:
         greenhouse = self._greenhouses.get(greenhouse_id)
         if greenhouse is None:
             return None
-        plant = next((p for p in greenhouse.plants if p.plant_id == plant_id), None)
+        plant = next((p for p in greenhouse.all_plants if p.plant_id == plant_id), None)
         if plant is None:
             return None
 
@@ -221,7 +221,7 @@ class GreenhouseService:
         greenhouse = self._greenhouses.get(greenhouse_id)
         if greenhouse is None:
             return None
-        if not any(p.plant_id == plant_id for p in greenhouse.plants):
+        if not any(p.plant_id == plant_id for p in greenhouse.all_plants):
             return None
 
         states = self._states.list_up_to(greenhouse_id, up_to=up_to)

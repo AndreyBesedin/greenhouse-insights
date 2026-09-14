@@ -116,6 +116,17 @@ class PlantState(BaseModel):
     latest_ripe_fruit_count: int | None = None
     latest_estimated_ripe_mass_g: float | None = None
     latest_visible_height_cm: float | None = None
+    # manual measurements from recorded datasets (ruler and visual counts)
+    latest_plant_height_cm: float | None = None
+    latest_leaf_count: float | None = None
+    latest_leaf_length_cm: float | None = None
+    latest_leaf_width_cm: float | None = None
+    latest_truss_count: float | None = None
+    latest_open_flower_count: float | None = None
+    latest_green_fruit_count: float | None = None
+    latest_coloured_fruit_count: float | None = None
+    # when any reading of this plant was last taken; None before the first
+    last_measured_at: datetime | None = None
     harvested_total_g: float = 0.0
     last_event_type: EventType | None = None
     last_event_timestamp: datetime | None = None

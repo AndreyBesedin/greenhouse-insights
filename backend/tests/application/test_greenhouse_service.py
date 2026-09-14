@@ -524,3 +524,45 @@ def test_list_greenhouses_counts_compartments_and_the_plants_inside_them(
     assert item.plant_count == 1
     # no explicit crop: falls back to the variety of the first plant found
     assert item.crop == "dwarf_tomato"
+
+
+def test_plant_detail_and_history_find_plants_inside_compartments(engine: Engine) -> None:
+    plant = Plant(
+        plant_id="wur23_p41", variety="cherry", row=9, position_in_row=1, zone="high light / EC6"
+    )
+    GreenhouseRepository(engine).save(
+        Greenhouse(
+            greenhouse_id="wur_agc4_2023",
+            name="WUR AGC4 2023 pre-trial",
+            description="Recorded pre-trial",
+            source_type=SourceType.IMPORTED_DATA,
+            layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
+            plants=[],
+            compartments=[
+                Compartment(compartment_id="pretrial", name="Pre-trial compartment", plants=[plant])
+            ],
+            created_at=datetime(2023, 9, 5, tzinfo=UTC),
+        )
+    )
+    at = datetime(2023, 10, 18, 22, tzinfo=UTC)
+    state = PlantState(
+        plant_id="wur23_p41",
+        greenhouse_id="wur_agc4_2023",
+        compartment_id="pretrial",
+        timestamp=at,
+        health=PlantHealth.UNKNOWN,
+        latest_plant_height_cm=30.0,
+        last_measured_at=datetime(2023, 10, 18, 10, tzinfo=UTC),
+    )
+    StateRepository(engine).save(
+        GreenhouseState.aggregate(greenhouse_id="wur_agc4_2023", timestamp=at, plant_states=[state])
+    )
+    service = GreenhouseService(engine)
+
+    detail = service.get_plant_detail("wur_agc4_2023", "wur23_p41", at=None)
+
+    assert detail is not None
+    assert detail.plant == plant
+    assert detail.state == state
+    assert service.get_plant_history("wur_agc4_2023", "wur23_p41", up_to=at) == [state]
+    assert service.get_plant_detail("wur_agc4_2023", "wur23_p99", at=None) is None

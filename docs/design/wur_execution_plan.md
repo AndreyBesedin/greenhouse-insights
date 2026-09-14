@@ -212,9 +212,16 @@ day as their neighbours.
     1,954 plant observations, and every computed count equals the sheet's own
     sum wherever cells were measured; where none was, the sheet shows 0 and
     nothing is emitted.
-  - [ ] **E4b. Plant state in recorded replay.** The loader reconstructs a
+  - [x] **E4b. Plant state in recorded replay.** The loader reconstructs a
     PlantState per plant per checkpoint from its latest manual readings, with
     a health rule that fits weekly manual data rather than the simulator's.
+    Health stays UNKNOWN: weekly manual data carries no condition evidence.
+    Plant detail and history now also find plants inside compartments. On the
+    real archive: 41 plant states in each of 65 snapshots; the original
+    label-47 plant stops changing after 27 September and its replacement
+    starts on 4 October. Source values are kept as recorded, including plant
+    41's height dropping from 32 to 19.5 cm on 18 October and reading 31.5 cm
+    a week later.
   - [ ] **E4c. Plant table on the recorded dashboard.** Per compartment,
     plants with treatment and latest measurements, and a plant's history.
 - [ ] **E5. 2023 destructive harvests** as HARVEST events with per-sample
