@@ -265,9 +265,10 @@ day as their neighbours.
   - [x] **F2a. Sensor model and table.** Hardware model, device id, per-stream
     intrinsics, and the source's verbal mounting description kept as text; no
     numeric pose.
-  - [ ] **F2b. WUR camera configs to intrinsics.** Depth takes the colour
+  - [x] **F2b. WUR camera configs to intrinsics.** Depth takes the colour
     intrinsics, because the README says depth is aligned to colour.
-    Stream-to-stream extrinsics are not a pose and are not kept.
+    Stream-to-stream extrinsics are not a pose and are not kept. All eight
+    real configs parse, and the two cross-year camera matches hold on them.
 - [ ] **F3. Register 2024 captures from the zip listing.** Parse filenames
   (`<cam>_YYYY_MM_DD_hh_mm_ss_<modality>.png`, local time) into captures
   without extracting images. Done when 7404 captures exist for six sensors.
