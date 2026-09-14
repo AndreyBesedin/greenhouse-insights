@@ -89,6 +89,7 @@ class GreenhouseEnvironmentState(BaseModel):
     outside_rain: float | None = None
     outside_par_umol_m2_s: float | None = None
     outside_heat_emission_w_m2: float | None = None
+    outside_co2_ppm: float | None = None
     forecast_radiation_sum_today_j_cm2: float | None = None
 
     @classmethod

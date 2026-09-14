@@ -182,9 +182,18 @@ day as their neighbours.
     biosignals, plant mass (agrifusion reads 18.9 → 3.9, trigger 2503 → 1198,
     both declared kilogram, so the unit is inconsistent). These need the
     Sensor model to keep probe identity.
-- [ ] **E3. 2023 climate adapter.** `ClimateTimeseries.xlsx` (MATLAB datenum,
+- [x] **E3. 2023 climate adapter.** `ClimateTimeseries.xlsx` (MATLAB datenum,
   NaN padding rows) to observations for a `wur_agc4_2023` greenhouse with one
-  compartment.
+  compartment. Measured: datenums are Dutch local wall-clock time with DST (the
+  daily radiation centroid moves from 13:36 to 12:11 across 29 October), and
+  the export blanks the repeated 02:00-03:00 hour, so ambiguous or nonexistent
+  local times are refused rather than guessed. The dataset never numbers the
+  compartment, so its id is `pretrial`. Eight site-weather and eight
+  compartment channels give 299,280 observations and 65 daily checkpoints.
+  Zone PAR (`par1`-`par4`, one per light treatment) waits for spatial regions;
+  `ligth_on` is undocumented and fractional, so it is skipped. The
+  destructive-harvest Info sheet lists density periods (48, 36, 25, 20
+  plants/m2, with 29 September - 9 October unstated) for E4-E5.
 - [ ] **E4. 2023 crop measurements.** Weekly per-labelled-plant readings from
   `CropMeasurements.xlsx` become plant-level observations, so the
   plant-centric state and UI get their first real data. Plants are created

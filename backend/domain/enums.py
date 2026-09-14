@@ -109,6 +109,7 @@ class ObservationType(StrEnum):
     OUTSIDE_RAIN = "outside_rain"  # 1 raining, 0 dry
     OUTSIDE_PAR_UMOL_M2_S = "outside_par_umol_m2_s"
     OUTSIDE_HEAT_EMISSION_W_M2 = "outside_heat_emission_w_m2"
+    OUTSIDE_CO2_PPM = "outside_co2_ppm"
 
     # site weather forecast, as known at the observation's timestamp: the
     # forecast total radiation for the current local day, revised during it

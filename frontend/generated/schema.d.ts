@@ -569,6 +569,8 @@ export interface components {
             outside_par_umol_m2_s?: number | null;
             /** Outside Heat Emission W M2 */
             outside_heat_emission_w_m2?: number | null;
+            /** Outside Co2 Ppm */
+            outside_co2_ppm?: number | null;
             /** Forecast Radiation Sum Today J Cm2 */
             forecast_radiation_sum_today_j_cm2?: number | null;
         };

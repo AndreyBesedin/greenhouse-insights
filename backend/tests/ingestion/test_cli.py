@@ -38,6 +38,21 @@ def test_load_without_prepared_data_explains_what_to_run(
     assert "greenhouse-data prepare wur agc4-2024 --profile tiny" in capsys.readouterr().out
 
 
-def test_only_the_2024_dataset_has_an_adapter_so_far(tmp_path: Path) -> None:
-    with pytest.raises(SystemExit, match="agc4-2023"):
-        main(["prepare", "wur", "agc4-2023", "--profile", "tiny", "--data-dir", str(tmp_path)])
+def test_compartments_can_only_be_chosen_for_the_2024_dataset(tmp_path: Path) -> None:
+    arguments = ["wur", "agc4-2023", "--compartment", "3.06", "--data-dir", str(tmp_path)]
+
+    with pytest.raises(SystemExit, match="single compartment"):
+        main(["prepare", *arguments[:2], "--profile", "tiny", *arguments[2:]])
+    with pytest.raises(SystemExit, match="single compartment"):
+        main(["load", *arguments])
+
+
+def test_load_for_2023_without_prepared_data_explains_what_to_run(
+    tmp_path: Path, database_url: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = main(
+        ["load", "wur", "agc4-2023", "--data-dir", str(tmp_path), "--database-url", database_url]
+    )
+
+    assert code == 1
+    assert "greenhouse-data prepare wur agc4-2023 --profile tiny" in capsys.readouterr().out

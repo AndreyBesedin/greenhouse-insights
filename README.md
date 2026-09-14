@@ -80,8 +80,9 @@ Today the project includes:
 - historical navigation and recommendation provenance;
 - deterministic evaluation against simulator ground truth;
 - ingestion of recorded real greenhouse data (the WUR Autonomous Greenhouse
-  Challenge 2024 compartments) into the same observation / state / timeline
-  model, browsable day by day in the UI;
+  Challenge 2023 pre-trial and 2024 challenge) into the same observation /
+  state / timeline model, browsable day by day and compartment by compartment
+  in the UI;
 - a React + TypeScript frontend and Python + FastAPI backend.
 
 ## What is intentionally simplified
@@ -123,13 +124,14 @@ Generate reviewable recommendations from observable state, keep reasoning and pr
 Feed real environmental sensors and plant observations into the same observable-state interface while preserving uncertainty and provenance.
 
 **Status:** started with recorded data. The WUR Autonomous Greenhouse Challenge
-2024 time series (six dwarf-tomato compartments, 5-minute climate, control and
-irrigation channels, manual harvest samples) import through
-`backend/ingestion/` into the same observations, events and reconstructed
-state the simulator produces, with checksummed provenance back to the 4TU
-source files. Imagery, perception, replay-time recommendations and temporal
-backtesting are the next steps
-([plan](docs/design/wur_real_data_ingestion_replay_plan.md)).
+datasets import through `backend/ingestion/` into the same observations, events
+and reconstructed state the simulator produces, with checksummed provenance
+back to the 4TU source files. The 2024 challenge is one greenhouse with six
+dwarf-tomato compartments: 5-minute climate, setpoints and effective control
+values, irrigation, spacing, energy and costs, site weather and harvests. The
+2023 pre-trial contributes its climate record so far. Crop measurements,
+imagery, perception, replay-time recommendations and temporal backtesting are
+the next steps ([plan](docs/design/wur_execution_plan.md)).
 
 ### 5. Learn from real operations
 
@@ -217,7 +219,10 @@ poetry run greenhouse-data load wur agc4-2024 --from 2024-09-03 --to 2024-09-16
 
 The 2024 dataset is one greenhouse (`wur_agc4_2024`) with six compartments.
 `tiny` builds compartment 3.06 only; `dev` builds all six. `load` takes
-`--compartment` (repeatable) to load a subset. `tiny` and `dev` never download
+`--compartment` (repeatable) to load a subset.
+The 2023 pre-trial (`agc4-2023`) is one greenhouse (`wur_agc4_2023`) with a
+single compartment; its climate workbook imports with the same `prepare` and
+`load` commands, without `--compartment`. `tiny` and `dev` never download
 the image archives (about 43 GB across both datasets); `--profile full` does.
 The imported greenhouse then appears in the greenhouse list as recorded history.
 

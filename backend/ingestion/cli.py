@@ -1,9 +1,12 @@
 """`greenhouse-data`: the developer entry point for dataset work
 (docs/design/wur_real_data_ingestion_replay_plan.md section 15).
 
-    greenhouse-data inventory wur agc4-2024 [--write]
-    greenhouse-data prepare   wur agc4-2024 --profile tiny|dev|full [--compartment 3.06]
-    greenhouse-data load      wur agc4-2024 [--compartment 3.06] [--from DATE] [--to DATE]
+    greenhouse-data inventory wur agc4-2023|agc4-2024 [--write]
+    greenhouse-data prepare   wur agc4-2023|agc4-2024 --profile tiny|dev|full [--compartment 3.06]
+    greenhouse-data load      wur agc4-2023|agc4-2024 [--compartment 3.06] [--from DATE] [--to DATE]
+
+`--compartment` applies to agc4-2024, whose six compartments can be chosen;
+agc4-2023 has a single compartment.
 
 Data lives under GREENHOUSE_DATA_DIR (default ~/.greenhouse-insights/data);
 `load` writes to the application database (GREENHOUSE_DATABASE_URL, same
@@ -35,6 +38,7 @@ from ingestion.storage.resolver import ArtifactResolver, ArtifactUnavailable, Up
 from ingestion.storage.upstream_4tu import build_manifest, fetch_dataset_metadata
 from ingestion.wur.agc4_challenge_2024 import build as agc4_2024
 from ingestion.wur.agc4_challenge_2024.compartments import COMPARTMENTS, compartment
+from ingestion.wur.agc4_pretrial_2023 import build as agc4_2023
 from ingestion.wur.common.time import WUR_LOCAL_TIMEZONE
 from ingestion.wur.datasets import AGC4_CHALLENGE_2024, WUR_DATASETS, WurDataset
 
@@ -169,16 +173,23 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
-def _require_2024(dataset: WurDataset) -> None:
-    if dataset is not AGC4_CHALLENGE_2024:
+def _refuse_compartments_outside_2024(dataset: WurDataset, compartments: list[str] | None) -> None:
+    if dataset is not AGC4_CHALLENGE_2024 and compartments:
         raise SystemExit(
-            f"{dataset.cli_name}: only the 2024 challenge dataset has an adapter so far"
+            f"{dataset.cli_name}: --compartment applies to agc4-2024 only; "
+            f"{dataset.cli_name} has a single compartment"
         )
+
+
+def _canonical_directory(dataset: WurDataset, data_dir: DataDirectory) -> Path:
+    if dataset is AGC4_CHALLENGE_2024:
+        return agc4_2024.canonical_directory(data_dir)
+    return agc4_2023.canonical_directory(data_dir)
 
 
 def _prepare(args: argparse.Namespace) -> int:
     dataset = _wur_dataset(args)
-    _require_2024(dataset)
+    _refuse_compartments_outside_2024(dataset, args.compartment)
     rules = PROFILES[args.profile]
     manifest = load_manifest(dataset.id)
     data_dir = DataDirectory(args.data_dir)
@@ -200,15 +211,20 @@ def _prepare(args: argparse.Namespace) -> int:
 
     if ArtifactKind.TIMESERIES not in rules.artifact_kinds:
         return 0
-    numbers = args.compartment or (
-        ["3.06"] if rules.profile == Profile.TINY else sorted(COMPARTMENTS)
-    )
-    canonical = agc4_2024.build_greenhouse(
-        data_dir, resolver, [compartment(number) for number in numbers]
-    )
+    if dataset is AGC4_CHALLENGE_2024:
+        numbers = args.compartment or (
+            ["3.06"] if rules.profile == Profile.TINY else sorted(COMPARTMENTS)
+        )
+        canonical = agc4_2024.build_greenhouse(
+            data_dir, resolver, [compartment(number) for number in numbers]
+        )
+        scope = f"compartments {', '.join(numbers)}"
+    else:
+        canonical = agc4_2023.build_greenhouse(data_dir, resolver)
+        scope = "the pre-trial compartment"
     provenance = canonical.provenance()
     print(
-        f"  built  {canonical.directory} compartments {', '.join(numbers)} "
+        f"  built  {canonical.directory} {scope} "
         f"({provenance.observation_count:,} observations, {provenance.event_count} events, "
         f"{provenance.first_timestamp} .. {provenance.last_timestamp})"
     )
@@ -217,9 +233,9 @@ def _prepare(args: argparse.Namespace) -> int:
 
 def _load(args: argparse.Namespace) -> int:
     dataset = _wur_dataset(args)
-    _require_2024(dataset)
+    _refuse_compartments_outside_2024(dataset, args.compartment)
     data_dir = DataDirectory(args.data_dir)
-    directory = agc4_2024.canonical_directory(data_dir)
+    directory = _canonical_directory(dataset, data_dir)
     if not directory.exists():
         print(
             f"no canonical data at {directory}; run "
