@@ -243,3 +243,14 @@ class ApprovalSource(StrEnum):
     refactor, same pattern as ActionExecutorType."""
 
     HUMAN = "HUMAN"
+
+
+class CaptureModality(StrEnum):
+    """What a MediaCapture recorded. The WUR canopy cameras (Oak-D S2 POE)
+    write an RGB image, a depth image aligned to it, and the left and right
+    infrared images the depth was computed from."""
+
+    RGB = "RGB"
+    DEPTH = "DEPTH"
+    INFRARED_LEFT = "INFRARED_LEFT"
+    INFRARED_RIGHT = "INFRARED_RIGHT"

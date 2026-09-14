@@ -248,9 +248,13 @@ day as their neighbours.
 
 ### Track F - perception seam (after C3 for S3 media, or local mirror)
 
-- [ ] **F1. MediaCapture model + table.** `capture_id, timestamp,
+- [x] **F1. MediaCapture model + table.** `capture_id, timestamp,
   compartment_id, sensor_id, modality, artifact_uri, provenance`. No pixels in
-  the DB.
+  the DB. Modalities are RGB, depth, and left and right infrared, which is
+  what the canopy cameras write. The artifact URI is
+  `<dataset id>/<artifact name>!<member path>`, resolved only by the storage
+  layer. Listing is chronological with the same inclusive `up_to` boundary as
+  observations.
 - [ ] **F2. Sensor + intrinsics.** `Sensor(sensor_id, compartment_id,
   modality, intrinsics_ref)` from the `configs/<cam>.json` files; nominal pose
   "1.5 m above crop, nadir" recorded as a stated assumption, not a measured

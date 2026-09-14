@@ -116,3 +116,17 @@ recommendations = Table(
     Column("reviewed_at", String, nullable=True),
     Column("executed_at", String, nullable=True),
 )
+
+media_captures = Table(
+    "media_captures",
+    metadata,
+    Column("capture_id", String, primary_key=True),
+    Column("greenhouse_id", String, nullable=False, index=True),
+    Column("compartment_id", String, nullable=True, index=True),
+    Column("sensor_id", String, nullable=False, index=True),
+    Column("timestamp", String, nullable=False, index=True),
+    Column("modality", String, nullable=False),
+    Column("artifact_uri", String, nullable=False),
+    Column("source_type", String, nullable=False),
+    Column("source_id", String, nullable=True),
+)
