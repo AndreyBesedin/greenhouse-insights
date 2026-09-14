@@ -50,6 +50,19 @@ class GreenhouseEnvironmentState(BaseModel):
     sampled_fruit_count_per_plant: float | None = None
     sampled_fruit_fresh_weight_g_per_plant: float | None = None
 
+    # site weather: only ever set on the greenhouse-level environment
+    outside_air_temperature_c: float | None = None
+    outside_relative_humidity_pct: float | None = None
+    outside_humidity_deficit_g_m3: float | None = None
+    outside_absolute_humidity_g_m3: float | None = None
+    outside_global_radiation_w_m2: float | None = None
+    outside_radiation_sum_j_cm2: float | None = None
+    outside_wind_speed_m_s: float | None = None
+    outside_rain: float | None = None
+    outside_par_umol_m2_s: float | None = None
+    outside_heat_emission_w_m2: float | None = None
+    forecast_radiation_sum_today_j_cm2: float | None = None
+
     @classmethod
     def from_latest_values(
         cls, latest: dict[ObservationType, float]

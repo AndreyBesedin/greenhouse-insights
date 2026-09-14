@@ -246,6 +246,40 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
                 ]}
               />
             </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <ControlPanel
+                title="Outside weather (site)"
+                rows={[
+                  [
+                    'Air temperature',
+                    formatReading(state.environment.outside_air_temperature_c, '°C'),
+                  ],
+                  [
+                    'Relative humidity',
+                    formatReading(state.environment.outside_relative_humidity_pct, '%', 0),
+                  ],
+                  [
+                    'Global radiation',
+                    formatReading(state.environment.outside_global_radiation_w_m2, 'W/m²', 0),
+                  ],
+                  [
+                    'Radiation today (measured / forecast)',
+                    `${formatReading(state.environment.outside_radiation_sum_j_cm2, '', 0)} / ${formatReading(state.environment.forecast_radiation_sum_today_j_cm2, '', 0)} J/cm²`,
+                  ],
+                  ['Wind speed', formatReading(state.environment.outside_wind_speed_m_s, 'm/s')],
+                  [
+                    'Rain',
+                    state.environment.outside_rain === null ||
+                    state.environment.outside_rain === undefined
+                      ? '—'
+                      : state.environment.outside_rain >= 0.5
+                        ? 'Raining'
+                        : 'Dry',
+                  ],
+                ]}
+              />
+            </div>
           </>
         )}
       </main>

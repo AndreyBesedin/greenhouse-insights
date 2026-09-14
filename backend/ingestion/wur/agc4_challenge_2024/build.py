@@ -1,7 +1,8 @@
 """Builds the canonical tier for the 2024 greenhouse from the raw
 time-series archive: resolve the artifact, read the selected compartments'
-members straight out of the zip, parse, and write one deterministic
-canonical greenhouse whose records carry their compartment id."""
+members and the site weather / forecast members straight out of the zip,
+parse, and write one deterministic canonical greenhouse whose records carry
+their compartment id (none for site weather)."""
 
 import io
 import zipfile
@@ -22,13 +23,18 @@ from ingestion.wur.agc4_challenge_2024 import (
     TIMESERIES_ARTIFACT,
     TIMESERIES_MEMBER_PREFIX,
 )
+from ingestion.wur.agc4_challenge_2024.channels import FORECAST_MEMBER, WEATHER_MEMBER
 from ingestion.wur.agc4_challenge_2024.compartments import COMPARTMENTS, GREENHOUSE_ID, Compartment
 from ingestion.wur.agc4_challenge_2024.harvest import (
     final_harvest_event,
     read_harvest_workbook,
     sampling_observations,
 )
-from ingestion.wur.agc4_challenge_2024.timeseries import parse_timeseries
+from ingestion.wur.agc4_challenge_2024.timeseries import (
+    parse_forecast,
+    parse_timeseries,
+    parse_weather,
+)
 
 ADAPTER = "ingestion.wur.agc4_challenge_2024"
 HARVEST_MEMBER = "Harvest.xlsx"
@@ -74,6 +80,14 @@ def build_greenhouse(
                 if harvest is not None:
                     events.append(harvest)
             observations.extend(compartment_observations)
+        for site_member, parse_site in (
+            (WEATHER_MEMBER, parse_weather),
+            (FORECAST_MEMBER, parse_forecast),
+        ):
+            member = TIMESERIES_MEMBER_PREFIX + site_member
+            members.append(member)
+            with archive.open(member) as raw:
+                observations.extend(parse_site(io.TextIOWrapper(raw, encoding="utf-8")))
     members.append(harvest_member)
 
     return write_canonical_greenhouse(

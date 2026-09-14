@@ -637,7 +637,12 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     return {
       greenhouse_id: 'wur_agc4_2024',
       timestamp,
-      environment: {},
+      environment: {
+        outside_air_temperature_c: 11.4,
+        outside_radiation_sum_j_cm2: 640,
+        forecast_radiation_sum_today_j_cm2: 1099,
+        outside_rain: 1,
+      },
       compartments: [
         {
           compartment_id: '3.06',
@@ -701,6 +706,10 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
     expect(screen.getByText('436 ppm')).toBeInTheDocument()
     expect(screen.getByText('7.1 kg')).toBeInTheDocument()
+    // site weather is the greenhouse's, whichever compartment is shown
+    expect(screen.getByText('11.4 °C')).toBeInTheDocument()
+    expect(screen.getByText('640 / 1099 J/cm²')).toBeInTheDocument()
+    expect(screen.getByText('Raining')).toBeInTheDocument()
     expect(screen.getByText('5 Sept 2024 of 3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled()
 

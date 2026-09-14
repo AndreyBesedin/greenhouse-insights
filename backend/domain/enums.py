@@ -63,6 +63,23 @@ class ObservationType(StrEnum):
     SAMPLED_FRUIT_COUNT_PER_PLANT = "sampled_fruit_count_per_plant"
     SAMPLED_FRUIT_FRESH_WEIGHT_G_PER_PLANT = "sampled_fruit_fresh_weight_g_per_plant"
 
+    # site weather outside the greenhouse (no compartment)
+    OUTSIDE_AIR_TEMPERATURE_C = "outside_air_temperature_c"
+    OUTSIDE_RELATIVE_HUMIDITY_PCT = "outside_relative_humidity_pct"
+    OUTSIDE_HUMIDITY_DEFICIT_G_M3 = "outside_humidity_deficit_g_m3"
+    OUTSIDE_ABSOLUTE_HUMIDITY_G_M3 = "outside_absolute_humidity_g_m3"
+    OUTSIDE_GLOBAL_RADIATION_W_M2 = "outside_global_radiation_w_m2"
+    # running sum since local midnight
+    OUTSIDE_RADIATION_SUM_J_CM2 = "outside_radiation_sum_j_cm2"
+    OUTSIDE_WIND_SPEED_M_S = "outside_wind_speed_m_s"
+    OUTSIDE_RAIN = "outside_rain"  # 1 raining, 0 dry
+    OUTSIDE_PAR_UMOL_M2_S = "outside_par_umol_m2_s"
+    OUTSIDE_HEAT_EMISSION_W_M2 = "outside_heat_emission_w_m2"
+
+    # site weather forecast, as known at the observation's timestamp: the
+    # forecast total radiation for the current local day, revised during it
+    FORECAST_RADIATION_SUM_TODAY_J_CM2 = "forecast_radiation_sum_today_j_cm2"
+
 
 class EventType(StrEnum):
     WATERING = "WATERING"

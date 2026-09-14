@@ -2,14 +2,36 @@
 
 Units are as declared in the dataset's channel_info.json, which already match
 the domain's unit conventions (degree_Celsius, percent, ppm, umol/m2/s,
-g/m3, minute, L/m2, dS/m) - so no conversion is needed, only selection.
+g/m3, minute, L/m2, dS/m, W/m2, J/cm2, m/s) - so no conversion is needed,
+only selection.
 
-Deliberately not ingested (yet): the *_vip duplicates of every setpoint (the
-"value in process" the controller actually tracked - a near-copy of the
-setpoint), CO2 actuation/dosage counters, minimum-pipe/-window setpoints,
-economics and energy accumulators, and plant density metadata."""
+Deliberately not ingested (yet) from the compartment files: the *_vip
+duplicates of every setpoint (the "value in process" the controller actually
+tracked - a near-copy of the setpoint), CO2 actuation/dosage counters,
+minimum-pipe/-window setpoints, economics and energy accumulators, and plant
+density metadata.
+
+Deliberately not ingested from the site files, both for temporal honesty
+(docs/design/wur_real_data_ingestion_replay_plan.md sections 10-11), as
+measured on 2026-09-14:
+
+- `weather/wind_direction.registration` holds eight bit-flag values (1, 2, 4
+  ... 128), not the degrees its channel_info claims, and nothing in the
+  dataset says which flag is which compass sector. Unknown stays unknown.
+- The hourly `weather_forecast/*` fields (temperature, humidity, radiation,
+  wind, cloudiness) are indexed by the time the forecast is valid for, not
+  when it was issued: forecast temperature at t tracks measured temperature
+  at t to 0.66 degC MAE, closer than at any lag. With no issue time, a replay
+  at T cannot know which of them existed at T. Only the daily radiation-sum
+  forecast is ingested: it is a running value for the current local day,
+  revised during the day and converging on that day's measured total, so the
+  row at t is read as "the forecast as known at t"."""
 
 from domain.enums import ObservationType
+
+TIME_COLUMN = "time"
+WEATHER_MEMBER = "timeseries/weather.csv"
+FORECAST_MEMBER = "timeseries/weather_forecast.csv"
 
 CHANNELS: dict[str, ObservationType] = {
     # measured climate
@@ -53,4 +75,21 @@ CHANNELS: dict[str, ObservationType] = {
     "compartment/water_drain/ph": ObservationType.DRAIN_PH,
 }
 
-TIME_COLUMN = "time"
+WEATHER_CHANNELS: dict[str, ObservationType] = {
+    "weather/air_temperature.outside": ObservationType.OUTSIDE_AIR_TEMPERATURE_C,
+    "weather/relative_humidity.outside": ObservationType.OUTSIDE_RELATIVE_HUMIDITY_PCT,
+    "weather/humidity_deficit": ObservationType.OUTSIDE_HUMIDITY_DEFICIT_G_M3,
+    "weather/air_absolute_humidity_content.outside": (
+        ObservationType.OUTSIDE_ABSOLUTE_HUMIDITY_G_M3
+    ),
+    "weather/radiation_global": ObservationType.OUTSIDE_GLOBAL_RADIATION_W_M2,
+    "weather/radiation_sum": ObservationType.OUTSIDE_RADIATION_SUM_J_CM2,
+    "weather/wind_speed": ObservationType.OUTSIDE_WIND_SPEED_M_S,
+    "weather/rain_state": ObservationType.OUTSIDE_RAIN,
+    "weather/par.outside": ObservationType.OUTSIDE_PAR_UMOL_M2_S,
+    "weather/heat_emission": ObservationType.OUTSIDE_HEAT_EMISSION_W_M2,
+}
+
+FORECAST_CHANNELS: dict[str, ObservationType] = {
+    "weather_forecast/radiation_sum": ObservationType.FORECAST_RADIATION_SUM_TODAY_J_CM2,
+}

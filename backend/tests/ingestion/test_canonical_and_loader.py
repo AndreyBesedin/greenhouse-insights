@@ -34,6 +34,24 @@ def _csv(days: int = 3) -> str:
     return "\n".join(lines) + "\n"
 
 
+# Site weather and forecast at the compartment file's noon rows: one mapped
+# channel each, plus a column of each that must be skipped.
+_WEATHER = (
+    "\n".join(
+        ["time,weather/air_temperature.outside,weather/wind_direction.registration"]
+        + [f"2024-09-{3 + day:02d} 12:00:00+02:00,{12 + day}.0,4.0" for day in range(3)]
+    )
+    + "\n"
+)
+_FORECAST = (
+    "\n".join(
+        ["time,weather_forecast/air_temperature.outside,weather_forecast/radiation_sum"]
+        + [f"2024-09-{3 + day:02d} 12:00:00+02:00,13.0,{900 + day}.0" for day in range(3)]
+    )
+    + "\n"
+)
+
+
 def _harvest_xlsx() -> bytes:
     book = openpyxl.Workbook()
     assert book.active is not None
@@ -56,6 +74,8 @@ def _fake_raw_archive(root: Path, csv: str) -> DataDirectory:
     path.parent.mkdir(parents=True)
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(TIMESERIES_MEMBER_PREFIX + C306.timeseries_member, csv)
+        archive.writestr(TIMESERIES_MEMBER_PREFIX + "timeseries/weather.csv", _WEATHER)
+        archive.writestr(TIMESERIES_MEMBER_PREFIX + "timeseries/weather_forecast.csv", _FORECAST)
         archive.writestr(TIMESERIES_MEMBER_PREFIX + "Harvest.xlsx", _harvest_xlsx())
     # the fixture is not the real artifact: pre-mark it verified
     path.with_name(path.name + ".md5-verified").write_text(artifact.md5 + "\n")
@@ -73,10 +93,13 @@ def test_build_writes_deterministic_canonical_files_with_provenance(tmp_path: Pa
     assert second.provenance().content_sha256 == first_hashes
     provenance = first.provenance()
     assert provenance.dataset_id == AGC4_CHALLENGE_2024.id
-    assert provenance.observation_count == 9  # 3 days x (2 temps + 1 co2)
+    # compartment: 3 days x (2 temps + 1 co2); site: 3 weather + 3 forecast
+    assert provenance.observation_count == 15
     assert provenance.event_count == 1
     assert [s.member for s in provenance.sources] == [
         TIMESERIES_MEMBER_PREFIX + "timeseries/reference.csv",
+        TIMESERIES_MEMBER_PREFIX + "timeseries/weather.csv",
+        TIMESERIES_MEMBER_PREFIX + "timeseries/weather_forecast.csv",
         TIMESERIES_MEMBER_PREFIX + "Harvest.xlsx",
     ]
     greenhouse = first.greenhouse()
@@ -94,7 +117,7 @@ def test_build_writes_deterministic_canonical_files_with_provenance(tmp_path: Pa
         "3.08",
     ]
     assert provenance.selection["compartments"] == ["3.06"]
-    assert all(o.compartment_id == "3.06" for o in first.observations())
+    assert {o.compartment_id for o in first.observations()} == {"3.06", None}
     assert greenhouse.created_at == datetime(2024, 9, 3, 10, tzinfo=UTC)
     timestamps = [o.timestamp for o in first.observations()]
     assert timestamps == sorted(timestamps)
@@ -137,9 +160,9 @@ def test_load_replaces_records_and_exposes_a_navigable_timeline(
     report = load_canonical_greenhouse(engine, canonical, checkpoint_timezone=WUR_LOCAL_TIMEZONE)
     again = load_canonical_greenhouse(engine, canonical, checkpoint_timezone=WUR_LOCAL_TIMEZONE)
 
-    assert (report.observations, report.events, report.snapshots) == (9, 1, 3)
+    assert (report.observations, report.events, report.snapshots) == (15, 1, 3)
     assert again == report
-    assert len(ObservationRepository(engine).list_for_greenhouse(GREENHOUSE_ID)) == 9
+    assert len(ObservationRepository(engine).list_for_greenhouse(GREENHOUSE_ID)) == 15
 
     service = GreenhouseService(engine)
     timeline = service.get_timeline(GREENHOUSE_ID)
@@ -174,9 +197,13 @@ def test_load_window_keeps_only_records_inside_it(tmp_path: Path, engine: Engine
     assert report.events == 0  # the harvest falls after the window
     observations = ObservationRepository(engine).list_for_greenhouse(GREENHOUSE_ID)
     assert max(o.timestamp for o in observations) == datetime(2024, 9, 4, 21, 55, tzinfo=UTC)
-    assert {o.observation_type for o in observations} == {
+    assert {o.observation_type for o in observations if o.compartment_id} == {
         ObservationType.AIR_TEMPERATURE_C,
         ObservationType.CO2_PPM,
+    }
+    assert {o.observation_type for o in observations if o.compartment_id is None} == {
+        ObservationType.OUTSIDE_AIR_TEMPERATURE_C,
+        ObservationType.FORECAST_RADIATION_SUM_TODAY_J_CM2,
     }
 
 
@@ -191,8 +218,9 @@ def test_load_can_be_limited_to_some_compartments(tmp_path: Path, engine: Engine
         engine, canonical, compartment_ids=["3.06"], checkpoint_timezone=WUR_LOCAL_TIMEZONE
     )
 
-    assert (nothing.observations, nothing.events, nothing.snapshots) == (0, 0, 0)
-    assert (only_306.observations, only_306.events, only_306.snapshots) == (9, 1, 3)
+    # site weather belongs to no compartment, so it loads whichever are chosen
+    assert (nothing.observations, nothing.events, nothing.snapshots) == (6, 0, 3)
+    assert (only_306.observations, only_306.events, only_306.snapshots) == (15, 1, 3)
 
 
 def test_checkpoints_keep_compartment_readings_in_their_compartment() -> None:

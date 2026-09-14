@@ -505,6 +505,28 @@ export interface components {
             sampled_fruit_count_per_plant?: number | null;
             /** Sampled Fruit Fresh Weight G Per Plant */
             sampled_fruit_fresh_weight_g_per_plant?: number | null;
+            /** Outside Air Temperature C */
+            outside_air_temperature_c?: number | null;
+            /** Outside Relative Humidity Pct */
+            outside_relative_humidity_pct?: number | null;
+            /** Outside Humidity Deficit G M3 */
+            outside_humidity_deficit_g_m3?: number | null;
+            /** Outside Absolute Humidity G M3 */
+            outside_absolute_humidity_g_m3?: number | null;
+            /** Outside Global Radiation W M2 */
+            outside_global_radiation_w_m2?: number | null;
+            /** Outside Radiation Sum J Cm2 */
+            outside_radiation_sum_j_cm2?: number | null;
+            /** Outside Wind Speed M S */
+            outside_wind_speed_m_s?: number | null;
+            /** Outside Rain */
+            outside_rain?: number | null;
+            /** Outside Par Umol M2 S */
+            outside_par_umol_m2_s?: number | null;
+            /** Outside Heat Emission W M2 */
+            outside_heat_emission_w_m2?: number | null;
+            /** Forecast Radiation Sum Today J Cm2 */
+            forecast_radiation_sum_today_j_cm2?: number | null;
         };
         /**
          * GreenhouseLayout

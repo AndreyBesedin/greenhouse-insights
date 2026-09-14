@@ -140,11 +140,15 @@ day as their neighbours.
 
 ### Track E - finish tabular coverage (after D5)
 
-- [ ] **E1. Weather and forecast.** `weather.csv` as greenhouse-level (site)
+- [x] **E1. Weather and forecast.** `weather.csv` as greenhouse-level (site)
   observations; `weather_forecast.csv` only after confirming whether rows are
-  "issued at t" or "valid at t" (temporal honesty depends on it). If the
-  latter, ingest as an observation with `valid_for` in provenance and do not
-  expose it to `<= T` readers beyond issue time.
+  "issued at t" or "valid at t" (temporal honesty depends on it). Measured:
+  the hourly forecast fields are valid-time indexed (forecast temperature at t
+  matches measured at t to 0.66 degC MAE) with no issue time, so they are not
+  ingested; the daily radiation-sum forecast is a running as-of value that
+  converges on the day's measured total, so it is. The wind-direction column
+  holds undocumented bit flags, not degrees, and is skipped. Ten weather
+  channels plus the forecast sum add 253k site observations.
 - [ ] **E2. Remaining 2024 channels.** `*_vip` values, CO2 dosage counters,
   minimum pipe/window setpoints, energy and economics accumulators, as new
   ObservationType members with units from `channel_info.json`.
