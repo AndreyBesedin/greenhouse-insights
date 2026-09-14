@@ -2,8 +2,8 @@
 time-series archive: resolve the artifact, read the climate workbook straight
 out of the zip together with the weekly crop measurements, parse, and write
 one deterministic canonical greenhouse with its single compartment and its
-labelled plants. The destructive-harvest workbook follows in a later step
-(docs/design/wur_execution_plan.md E5)."""
+labelled plants, and the destructive samples as events
+(docs/design/wur_execution_plan.md E3-E5)."""
 
 import io
 import zipfile
@@ -21,11 +21,13 @@ from ingestion.wur.agc4_pretrial_2023 import (
     CLIMATE_MEMBER,
     CROP_MEMBER,
     DATASET,
+    DESTRUCTIVE_MEMBER,
     TIMESERIES_ARTIFACT,
 )
 from ingestion.wur.agc4_pretrial_2023.climate import parse_climate
 from ingestion.wur.agc4_pretrial_2023.compartments import COMPARTMENT_ID, GREENHOUSE_ID, compartment
 from ingestion.wur.agc4_pretrial_2023.crops import read_crop_measurements
+from ingestion.wur.agc4_pretrial_2023.destructive import read_destructive_samples
 
 ADAPTER = "ingestion.wur.agc4_pretrial_2023"
 CROP = "dwarf_tomato"
@@ -46,19 +48,20 @@ def build_greenhouse(data_dir: DataDirectory, resolver: ArtifactResolver) -> Can
     with zipfile.ZipFile(archive_path) as archive:
         observations = list(parse_climate(io.BytesIO(archive.read(CLIMATE_MEMBER))))
         crops = read_crop_measurements(io.BytesIO(archive.read(CROP_MEMBER)))
+        samples = read_destructive_samples(io.BytesIO(archive.read(DESTRUCTIVE_MEMBER)))
     observations.extend(crops.observations)
 
     return write_canonical_greenhouse(
         canonical_directory(data_dir),
         greenhouse=_greenhouse(observations, crops.plants),
         observations=observations,
-        events=[],
+        events=samples,
         dataset_id=dataset.id,
         dataset_version=dataset.version,
         adapter=ADAPTER,
         sources=[
             SourceMember(artifact=artifact.name, artifact_md5=artifact.md5, member=member)
-            for member in (CLIMATE_MEMBER, CROP_MEMBER)
+            for member in (CLIMATE_MEMBER, CROP_MEMBER, DESTRUCTIVE_MEMBER)
         ],
         selection={"compartments": [COMPARTMENT_ID]},
     )
@@ -75,7 +78,8 @@ def _greenhouse(observations: list[Observation], plants: list[Plant]) -> Greenho
             "Recorded history of the 4th Autonomous Greenhouse Challenge pre-trial (2023) at "
             "the WUR Bleiswijk facility: one compartment of dwarf tomatoes under four light "
             "and two EC treatments, with 5-minute greenhouse climate, site weather and "
-            "weekly manual measurements of 40 labelled plants. "
+            "weekly manual measurements of 40 labelled plants, plus 240 destructively "
+            "sampled plants. "
             f"Source: WUR / 4TU, {DATASET.id}."
         ),
         source_type=SourceType.IMPORTED_DATA,

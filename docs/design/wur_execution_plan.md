@@ -228,8 +228,23 @@ day as their neighbours.
     request. Selecting a plant loads its history up to the viewed checkpoint,
     one row per measurement date: daily snapshots repeat each weekly reading,
     so they are collapsed by when the plant was last measured.
-- [ ] **E5. 2023 destructive harvests** as HARVEST events with per-sample
-  parameters.
+- **E5. 2023 destructive harvests.** `DestructiveHarvest.xlsx`, profiled on
+  2026-09-14.
+  - [x] **E5a. Destructive samples.** Each sample plant becomes a
+    DESTRUCTIVE_SAMPLE event, not HARVEST, because sampled biomass is not
+    yield, with its phase, days after sowing, treatment and measurements as
+    parameters. `All Data` lists the 12 untreated transplant samples of 4
+    September once per treatment: 96 rows that are eight identical copies of
+    each. They are collapsed to one event per plant, naming the rows they were
+    listed as. 18 and 29 September and 9 November add 48 treated samples
+    each, 156 events in all. The per-harvest sheets agree with `All Data`.
+    Values are kept as recorded, including one impossible dry weight:
+    Cherry_EC3_ML_3 on 18 September has 1287.85 g of dry flowers on a 19.17 g
+    plant, probably a misplaced decimal point.
+  - [ ] **E5b. 2023 plant density.** The Info sheet gives density periods (48,
+    36, 25, 20 plants/m2) with loosely stated dates and no value for 29
+    September - 9 October. Needs a way to represent an unknown interval
+    before it becomes density observations and SPACING events.
 
 ### Track F - perception seam (after C3 for S3 media, or local mirror)
 

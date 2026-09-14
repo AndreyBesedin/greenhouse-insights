@@ -414,7 +414,7 @@ export interface components {
          * EventType
          * @enum {string}
          */
-        EventType: "WATERING" | "HARVEST" | "LOWERING" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION" | "SPACING";
+        EventType: "WATERING" | "HARVEST" | "LOWERING" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION" | "SPACING" | "DESTRUCTIVE_SAMPLE";
         /** Greenhouse */
         Greenhouse: {
             /** Greenhouse Id */

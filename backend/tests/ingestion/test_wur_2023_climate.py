@@ -10,7 +10,12 @@ from domain.enums import ObservationType, SourceType
 from ingestion.manifests import load_manifest
 from ingestion.storage.layout import DataDirectory
 from ingestion.storage.resolver import ArtifactResolver
-from ingestion.wur.agc4_pretrial_2023 import CLIMATE_MEMBER, CROP_MEMBER, TIMESERIES_ARTIFACT
+from ingestion.wur.agc4_pretrial_2023 import (
+    CLIMATE_MEMBER,
+    CROP_MEMBER,
+    DESTRUCTIVE_MEMBER,
+    TIMESERIES_ARTIFACT,
+)
 from ingestion.wur.agc4_pretrial_2023.build import build_greenhouse
 from ingestion.wur.agc4_pretrial_2023.climate import parse_climate
 from ingestion.wur.agc4_pretrial_2023.compartments import COMPARTMENT_ID, GREENHOUSE_ID
@@ -125,6 +130,7 @@ def test_build_writes_one_greenhouse_with_its_single_compartment(tmp_path: Path)
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(CLIMATE_MEMBER, _workbook(*ROWS))
         archive.writestr(CROP_MEMBER, _empty_crop_workbook())
+        archive.writestr(DESTRUCTIVE_MEMBER, _empty_destructive_workbook())
     # the fixture is not the real artifact: pre-mark it verified
     path.with_name(path.name + ".md5-verified").write_text(artifact.md5 + "\n")
 
@@ -137,7 +143,12 @@ def test_build_writes_one_greenhouse_with_its_single_compartment(tmp_path: Path)
     assert [c.compartment_id for c in greenhouse.compartments] == [COMPARTMENT_ID]
     assert greenhouse.created_at == datetime(2023, 9, 5, 10, tzinfo=UTC)
     assert first.provenance().observation_count == 7
-    assert [s.member for s in first.provenance().sources] == [CLIMATE_MEMBER, CROP_MEMBER]
+    assert [s.member for s in first.provenance().sources] == [
+        CLIMATE_MEMBER,
+        CROP_MEMBER,
+        DESTRUCTIVE_MEMBER,
+    ]
+    assert first.provenance().event_count == 0
     assert greenhouse.compartments[0].plants == []
 
 
@@ -155,6 +166,22 @@ def _empty_crop_workbook() -> bytes:
         for kind in ("flowering", "set", "yellow", "orange", "red")
     ]
     sheet.append(identity + single + trusses + ["#trusses"])
+    buffer = BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+def _empty_destructive_workbook() -> bytes:
+    """A destructive-harvest workbook with the expected header and no samples."""
+    book = openpyxl.Workbook()
+    sheet = book.active
+    assert sheet is not None
+    sheet.title = "All Data"
+    sheet.append(["Sowing date", None, "2023-08-15"])
+    sheet.append(
+        ["DAS", "Date", "Phase", "Plant density (p/m2)", "Treatment", "Variety", "EC", "Light"]
+        + ["Sample name", "Sample n", "Plant height"]
+    )
     buffer = BytesIO()
     book.save(buffer)
     return buffer.getvalue()

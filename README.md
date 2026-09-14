@@ -129,8 +129,8 @@ and reconstructed state the simulator produces, with checksummed provenance
 back to the 4TU source files. The 2024 challenge is one greenhouse with six
 dwarf-tomato compartments: 5-minute climate, setpoints and effective control
 values, irrigation, spacing, energy and costs, site weather and harvests. The
-2023 pre-trial contributes its climate record and weekly measurements of 40
-labelled plants, browsable plant by plant. Imagery, perception, replay-time recommendations and temporal backtesting are
+2023 pre-trial contributes its climate record, weekly measurements of 40
+labelled plants (browsable plant by plant) and 156 destructive samples. Imagery, perception, replay-time recommendations and temporal backtesting are
 the next steps ([plan](docs/design/wur_execution_plan.md)).
 
 ### 5. Learn from real operations

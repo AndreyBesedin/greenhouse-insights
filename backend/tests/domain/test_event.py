@@ -67,6 +67,7 @@ def test_event_type_has_expected_members() -> None:
         "FERTILISATION",
         "MANUAL_INSPECTION",
         "SPACING",
+        "DESTRUCTIVE_SAMPLE",
     }
 
 

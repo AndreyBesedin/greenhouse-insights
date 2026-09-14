@@ -136,6 +136,9 @@ class EventType(StrEnum):
     MANUAL_INSPECTION = "MANUAL_INSPECTION"
     # plants re-spaced to a different density (a whole compartment at once)
     SPACING = "SPACING"
+    # a plant removed from the crop to be measured destructively (biomass for
+    # analysis, not yield: never counted as harvested mass)
+    DESTRUCTIVE_SAMPLE = "DESTRUCTIVE_SAMPLE"
 
 
 class EventSource(StrEnum):
