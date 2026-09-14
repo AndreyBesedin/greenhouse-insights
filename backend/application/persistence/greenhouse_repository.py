@@ -2,10 +2,10 @@ from typing import Any
 
 from pydantic import TypeAdapter
 from sqlalchemy import Engine, delete, select
-from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import greenhouses
+from application.persistence.upsert import upsert
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 
 _PLANTS_ADAPTER = TypeAdapter(list[Plant])
@@ -30,13 +30,8 @@ class GreenhouseRepository:
                 greenhouse.latest_available_timestamp
             ),
         }
-        statement = insert(greenhouses).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["greenhouse_id"],
-            set_={key: value for key, value in row.items() if key != "greenhouse_id"},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(connection, greenhouses, row, key=("greenhouse_id",))
 
     def get(self, greenhouse_id: str) -> Greenhouse | None:
         statement = select(greenhouses).where(greenhouses.c.greenhouse_id == greenhouse_id)

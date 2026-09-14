@@ -3,11 +3,11 @@ from datetime import datetime
 
 from pydantic import TypeAdapter
 from sqlalchemy import Engine, delete, select
-from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import recommendations
 from application.persistence.timestamps import from_db_timestamp, to_db_timestamp
+from application.persistence.upsert import upsert
 from domain.enums import RecommendationStatus
 from domain.provenance import RecordSource
 from domain.recommendation import Recommendation
@@ -22,13 +22,8 @@ class RecommendationRepository:
 
     def save(self, recommendation: Recommendation) -> None:
         row = _recommendation_to_row(recommendation)
-        statement = insert(recommendations).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["recommendation_id"],
-            set_={key: value for key, value in row.items() if key != "recommendation_id"},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(connection, recommendations, row, key=("recommendation_id",))
 
     def get(self, recommendation_id: str) -> Recommendation | None:
         statement = select(recommendations).where(

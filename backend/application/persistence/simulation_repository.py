@@ -1,10 +1,10 @@
 from datetime import timedelta
 
 from sqlalchemy import Engine, delete, select
-from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import simulation_definitions
+from application.persistence.upsert import upsert
 from simulation.definitions import SimulationDefinition
 
 
@@ -27,13 +27,8 @@ class SimulationRepository:
             "management_policy": definition.management_policy.value,
             "action_executor": definition.action_executor.value,
         }
-        statement = insert(simulation_definitions).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["simulation_id"],
-            set_={key: value for key, value in row.items() if key != "simulation_id"},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(connection, simulation_definitions, row, key=("simulation_id",))
 
     def get(self, simulation_id: str) -> SimulationDefinition | None:
         statement = select(simulation_definitions).where(

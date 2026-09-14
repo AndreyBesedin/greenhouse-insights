@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from sqlalchemy import Engine, delete, desc, select
-from sqlalchemy.dialects.sqlite import insert
 
 from application.persistence.schema import greenhouse_state_snapshots
 from application.persistence.timestamps import from_db_timestamp, to_db_timestamp
+from application.persistence.upsert import upsert
 from domain.state import GreenhouseState
 
 
@@ -22,13 +22,8 @@ class StateRepository:
             "timestamp": to_db_timestamp(state.timestamp),
             "state_json": state.model_dump_json(),
         }
-        statement = insert(greenhouse_state_snapshots).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["greenhouse_id", "timestamp"],
-            set_={"state_json": row["state_json"]},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(connection, greenhouse_state_snapshots, row, key=("greenhouse_id", "timestamp"))
 
     def get_at(self, greenhouse_id: str, *, at: datetime) -> GreenhouseState | None:
         """The most recent snapshot taken at or before `at`."""

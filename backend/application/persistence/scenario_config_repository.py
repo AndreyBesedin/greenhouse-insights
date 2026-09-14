@@ -1,7 +1,7 @@
 from sqlalchemy import Engine, delete, select
-from sqlalchemy.dialects.sqlite import insert
 
 from application.persistence.schema import scenario_configs
+from application.persistence.upsert import upsert
 from simulation.scenarios.config import ScenarioConfig
 
 
@@ -14,13 +14,8 @@ class ScenarioConfigRepository:
             "greenhouse_id": config.greenhouse_id,
             "config_json": config.model_dump_json(),
         }
-        statement = insert(scenario_configs).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["greenhouse_id"],
-            set_={"config_json": row["config_json"]},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(connection, scenario_configs, row, key=("greenhouse_id",))
 
     def get(self, greenhouse_id: str) -> ScenarioConfig | None:
         statement = select(scenario_configs.c.config_json).where(

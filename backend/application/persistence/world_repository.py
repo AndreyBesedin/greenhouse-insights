@@ -1,7 +1,7 @@
 from sqlalchemy import Engine, delete, desc, select
-from sqlalchemy.dialects.sqlite import insert
 
 from application.persistence.schema import greenhouse_world_snapshots
+from application.persistence.upsert import upsert
 from domain.world import GreenhouseWorld
 
 
@@ -15,13 +15,10 @@ class WorldRepository:
             "simulated_day": world.simulated_day,
             "world_json": world.model_dump_json(),
         }
-        statement = insert(greenhouse_world_snapshots).values(**row)
-        statement = statement.on_conflict_do_update(
-            index_elements=["greenhouse_id", "simulated_day"],
-            set_={"world_json": row["world_json"]},
-        )
         with self._engine.begin() as connection:
-            connection.execute(statement)
+            upsert(
+                connection, greenhouse_world_snapshots, row, key=("greenhouse_id", "simulated_day")
+            )
 
     def get_latest(self, greenhouse_id: str) -> GreenhouseWorld | None:
         statement = (
