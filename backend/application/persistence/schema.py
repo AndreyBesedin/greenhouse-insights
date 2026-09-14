@@ -12,6 +12,7 @@ greenhouses = Table(
     Column("crop", String, nullable=True),
     Column("layout_json", String, nullable=False),
     Column("plants_json", String, nullable=False),
+    Column("compartments_json", String, nullable=False, server_default="[]"),
     Column("created_at", String, nullable=False),
     Column("current_state_timestamp", String, nullable=True),
     Column("latest_available_timestamp", String, nullable=True),

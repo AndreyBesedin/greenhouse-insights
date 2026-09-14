@@ -6,9 +6,10 @@ from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import greenhouses
 from application.persistence.upsert import upsert
-from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
 
 _PLANTS_ADAPTER = TypeAdapter(list[Plant])
+_COMPARTMENTS_ADAPTER = TypeAdapter(list[Compartment])
 
 
 class GreenhouseRepository:
@@ -24,6 +25,7 @@ class GreenhouseRepository:
             "crop": greenhouse.crop,
             "layout_json": greenhouse.layout.model_dump_json(),
             "plants_json": _plants_to_json(greenhouse.plants),
+            "compartments_json": _COMPARTMENTS_ADAPTER.dump_json(greenhouse.compartments).decode(),
             "created_at": greenhouse.created_at.isoformat(),
             "current_state_timestamp": _optional_isoformat(greenhouse.current_state_timestamp),
             "latest_available_timestamp": _optional_isoformat(
@@ -67,6 +69,7 @@ def _row_to_greenhouse(mapping: RowMapping) -> Greenhouse:
         crop=mapping["crop"],
         layout=GreenhouseLayout.model_validate_json(mapping["layout_json"]),
         plants=_PLANTS_ADAPTER.validate_json(mapping["plants_json"]),
+        compartments=_COMPARTMENTS_ADAPTER.validate_json(mapping["compartments_json"]),
         created_at=mapping["created_at"],
         current_state_timestamp=mapping["current_state_timestamp"],
         latest_available_timestamp=mapping["latest_available_timestamp"],

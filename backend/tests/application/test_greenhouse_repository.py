@@ -4,7 +4,7 @@ from sqlalchemy import Engine
 
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from domain.enums import SourceType
-from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
 
 
 def _make_greenhouse(greenhouse_id: str = "gh_001") -> Greenhouse:
@@ -93,3 +93,33 @@ def test_a_compartment_greenhouse_without_plants_round_trips(engine: Engine) -> 
     repo.save(compartment)
 
     assert repo.get("wur_c306") == compartment
+
+
+def test_compartments_and_their_plants_round_trip(engine: Engine) -> None:
+    repo = GreenhouseRepository(engine)
+    greenhouse = Greenhouse(
+        greenhouse_id="wur_agc4_2024",
+        name="WUR AGC4 2024",
+        description="Six recorded compartments",
+        source_type=SourceType.IMPORTED_DATA,
+        crop="dwarf_tomato",
+        layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
+        plants=[],
+        compartments=[
+            Compartment(
+                compartment_id="3.06",
+                name="Reference",
+                description="team Reference, cam_1",
+                plants=[Plant(plant_id="306-1", variety="dwarf_tomato", row=1, position_in_row=1)],
+            ),
+            Compartment(compartment_id="3.08", name="Trigger"),
+        ],
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    repo.save(greenhouse)
+    fetched = repo.get("wur_agc4_2024")
+
+    assert fetched == greenhouse
+    assert fetched is not None and fetched.compartment("3.06") is not None
+    assert [p.plant_id for p in fetched.all_plants] == ["306-1"]
