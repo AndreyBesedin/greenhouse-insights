@@ -539,6 +539,8 @@ export interface components {
             crop: string;
             /** Plant Count */
             plant_count: number;
+            /** Compartment Count */
+            compartment_count: number;
             status: components["schemas"]["SimulationStatus"] | null;
             /** Current Step */
             current_step: number | null;

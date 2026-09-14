@@ -25,7 +25,7 @@ from domain.enums import (
     SourceType,
 )
 from domain.event import Event
-from domain.greenhouse import Greenhouse, GreenhouseLayout
+from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
 from domain.management_trace import ManagementTrace
 from domain.observation import Observation
 from domain.provenance import RecordSource
@@ -489,4 +489,38 @@ def test_list_greenhouses_reports_the_crop_of_a_compartment_without_plants(
 
     assert item.crop == "dwarf_tomato"
     assert item.plant_count == 0
+    assert item.compartment_count == 0
     assert item.status is None
+
+
+def test_list_greenhouses_counts_compartments_and_the_plants_inside_them(
+    engine: Engine,
+) -> None:
+    GreenhouseRepository(engine).save(
+        Greenhouse(
+            greenhouse_id="wur_agc4_2024",
+            name="WUR AGC4 2024",
+            description="Six recorded compartments",
+            source_type=SourceType.IMPORTED_DATA,
+            layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
+            plants=[],
+            compartments=[
+                Compartment(
+                    compartment_id="3.06",
+                    name="Reference",
+                    plants=[
+                        Plant(plant_id="306-1", variety="dwarf_tomato", row=1, position_in_row=1)
+                    ],
+                ),
+                Compartment(compartment_id="3.08", name="Trigger"),
+            ],
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+
+    [item] = GreenhouseService(engine).list_greenhouses()
+
+    assert item.compartment_count == 2
+    assert item.plant_count == 1
+    # no explicit crop: falls back to the variety of the first plant found
+    assert item.crop == "dwarf_tomato"

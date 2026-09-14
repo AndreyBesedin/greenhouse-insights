@@ -5,6 +5,7 @@ import { AppShell } from '../components/AppShell'
 import { DayNavigator } from '../components/DayNavigator'
 import { useGreenhouseState } from '../hooks/useGreenhouseState'
 import { useTimeline } from '../hooks/useTimeline'
+import { cn } from '../lib/utils'
 import { formatCheckpoint, formatCropLabel, formatMass, formatReading } from '../lib/format'
 import type { components } from '../../generated/schema'
 
@@ -45,17 +46,38 @@ function ControlPanel({ title, rows }: { title: string; rows: [string, string][]
 
 /** A greenhouse whose observation history was imported from a recorded
  * dataset. The timeline is real recorded time; nothing here can change it -
- * a recorded history is not a simulator. */
+ * a recorded history is not a simulator.
+ *
+ * A greenhouse with compartments (each with its own climate and control)
+ * shows one compartment at a time; one without shows its greenhouse-level
+ * readings. */
 export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDetail }) {
   const { greenhouse } = detail
   const crop = greenhouse.crop ?? 'tomato'
+  const compartments = greenhouse.compartments ?? []
   const { checkpoints } = useTimeline(greenhouse.greenhouse_id, 0)
   const latestIndex = checkpoints.length
   const [manualViewingIndex, setManualViewingIndex] = useState<number | null>(null)
+  const [selectedCompartmentId, setSelectedCompartmentId] = useState<string | null>(null)
   const viewingIndex = manualViewingIndex ?? latestIndex
   const viewingAt = checkpoints[viewingIndex - 1] ?? null
   const state = useGreenhouseState(greenhouse.greenhouse_id, viewingAt)
-  const environment: Environment = state?.environment ?? {}
+
+  const activeCompartmentId = selectedCompartmentId ?? compartments[0]?.compartment_id ?? null
+  const activeCompartment = compartments.find((c) => c.compartment_id === activeCompartmentId)
+  const compartmentState =
+    activeCompartmentId === null
+      ? null
+      : (state?.compartments?.find((c) => c.compartment_id === activeCompartmentId) ?? null)
+  const environment: Environment =
+    activeCompartmentId === null
+      ? (state?.environment ?? {})
+      : (compartmentState?.environment ?? {})
+  const harvestedG =
+    activeCompartmentId === null
+      ? (state?.total_harvested_g ?? 0)
+      : (compartmentState?.harvested_total_g ?? 0)
+
   const formatDay = (index: number) => {
     const checkpoint = checkpoints[index - 1]
     return checkpoint ? formatCheckpoint(checkpoint) : `Checkpoint ${index}`
@@ -80,7 +102,10 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
               <span className="inline-flex items-center gap-2 rounded-full bg-ink-800 px-3 py-1 text-xs outline-1 -outline-offset-1 outline-white/[0.07]">
                 <span className="size-1.5 rounded-full bg-brand" />
                 <span className="font-medium text-paper">Recorded history</span>
-                <span className="text-mist">{checkpoints.length} daily checkpoints</span>
+                <span className="text-mist">
+                  {checkpoints.length} daily checkpoints
+                  {compartments.length > 0 ? ` · ${compartments.length} compartments` : ''}
+                </span>
               </span>
             </div>
             <p className="mt-2 max-w-[80ch] text-xs text-mist">{greenhouse.description}</p>
@@ -104,6 +129,36 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
           />
         </div>
 
+        {compartments.length > 0 && (
+          <div className="mt-4">
+            <div role="tablist" aria-label="Compartment" className="flex flex-wrap gap-2">
+              {compartments.map((compartment) => {
+                const selected = compartment.compartment_id === activeCompartmentId
+                return (
+                  <button
+                    key={compartment.compartment_id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setSelectedCompartmentId(compartment.compartment_id)}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-xs outline-1 -outline-offset-1 transition-colors',
+                      selected
+                        ? 'bg-brand/10 text-brand outline-brand/30'
+                        : 'bg-ink-800 text-mist outline-white/[0.07] hover:text-paper',
+                    )}
+                  >
+                    {compartment.name}
+                  </button>
+                )
+              })}
+            </div>
+            {activeCompartment?.description && (
+              <p className="mt-2 text-[11px] text-mist">{activeCompartment.description}</p>
+            )}
+          </div>
+        )}
+
         {state === null ? (
           <p className="mt-4 text-sm text-mist">No recorded state at this checkpoint.</p>
         ) : (
@@ -112,6 +167,11 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
               State as last observed at {formatCheckpoint(state.timestamp)} (
               {new Date(state.timestamp).toISOString().replace('.000Z', 'Z')})
             </p>
+            {activeCompartmentId !== null && compartmentState === null && (
+              <p className="mt-2 text-xs text-mist">
+                Nothing recorded for this compartment yet at this checkpoint.
+              </p>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
               <Tile
                 label="Air temperature"
@@ -176,7 +236,13 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
                     'Fresh weight per sampled plant',
                     formatReading(environment.sampled_fruit_fresh_weight_g_per_plant, 'g'),
                   ],
-                  ['Harvested total', formatMass(state.total_harvested_g)],
+                  ['Harvested total', formatMass(harvestedG)],
+                  ...(compartments.length > 0
+                    ? ([['Whole greenhouse harvested', formatMass(state.total_harvested_g)]] as [
+                        string,
+                        string,
+                      ][])
+                    : []),
                 ]}
               />
             </div>

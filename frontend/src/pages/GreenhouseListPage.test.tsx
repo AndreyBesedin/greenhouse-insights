@@ -21,6 +21,7 @@ const GREENHOUSES = [
     source_type: 'SIMULATION',
     crop: 'cherry_tomato',
     plant_count: 40,
+    compartment_count: 0,
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 28,
@@ -33,6 +34,7 @@ const GREENHOUSES = [
     source_type: 'SIMULATION',
     crop: 'cherry_tomato',
     plant_count: 1,
+    compartment_count: 0,
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 40,
@@ -45,18 +47,20 @@ const GREENHOUSES = [
     source_type: 'SIMULATION',
     crop: 'cherry_tomato',
     plant_count: 6,
+    compartment_count: 0,
     status: 'NOT_STARTED',
     current_step: 0,
     total_steps: 15,
     management_policy: 'AGENTIC',
   },
   {
-    greenhouse_id: 'wur_agc4_2024_c306',
-    name: 'WUR AGC4 2024 · compartment 3.06 (Reference)',
-    description: 'Recorded history of compartment 3.06.',
+    greenhouse_id: 'wur_agc4_2024',
+    name: 'WUR AGC4 2024',
+    description: 'Recorded history of six compartments.',
     source_type: 'IMPORTED_DATA',
     crop: 'dwarf_tomato',
     plant_count: 0,
+    compartment_count: 6,
     status: null,
     current_step: null,
     total_steps: null,
@@ -91,10 +95,10 @@ describe('GreenhouseListPage', () => {
   it('badges an imported greenhouse as recorded history', async () => {
     renderList()
 
-    expect(await screen.findByText(/compartment 3\.06/)).toBeInTheDocument()
+    expect(await screen.findByText('WUR AGC4 2024')).toBeInTheDocument()
     expect(screen.getByText('Recorded history')).toBeInTheDocument()
-    // exact match: no plant count is appended for a compartment without plants
-    expect(screen.getByText('Dwarf Tomato')).toBeInTheDocument()
+    // exact match: compartments are counted instead of (absent) plants
+    expect(screen.getByText('Dwarf Tomato · 6 compartments')).toBeInTheDocument()
   })
 
   it('badges the agentic greenhouse as the recommended demo', async () => {

@@ -601,13 +601,27 @@ describe('GreenhouseDashboardPage', () => {
 describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
   const RECORDED_DETAIL = {
     greenhouse: {
-      greenhouse_id: 'wur_agc4_2024_c306',
-      name: 'WUR AGC4 2024 · compartment 3.06 (Reference)',
-      description: 'Recorded history of compartment 3.06.',
+      greenhouse_id: 'wur_agc4_2024',
+      name: 'WUR AGC4 2024',
+      description: 'Recorded history of six compartments.',
       source_type: 'IMPORTED_DATA',
       crop: 'dwarf_tomato',
       layout: { kind: 'compartment', rows: 0, columns: 0 },
       plants: [],
+      compartments: [
+        {
+          compartment_id: '3.06',
+          name: 'Compartment 3.06 (Reference)',
+          description: 'Controlled by team Reference; canopy RGB-D camera cam_1.',
+          plants: [],
+        },
+        {
+          compartment_id: '3.08',
+          name: 'Compartment 3.08 (Trigger)',
+          description: 'Controlled by team Trigger; canopy RGB-D camera cam_18.',
+          plants: [],
+        },
+      ],
       created_at: '2024-09-02T22:05:00+00:00',
       current_state_timestamp: '2024-09-05T21:55:00+00:00',
       latest_available_timestamp: '2024-09-05T21:55:00+00:00',
@@ -621,25 +635,37 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
   ]
   function recordedState(timestamp: string, airTemperatureC: number) {
     return {
-      greenhouse_id: 'wur_agc4_2024_c306',
+      greenhouse_id: 'wur_agc4_2024',
       timestamp,
-      environment: {
-        air_temperature_c: airTemperatureC,
-        co2_ppm: 436,
-        relative_humidity_pct: 80.5,
-      },
+      environment: {},
+      compartments: [
+        {
+          compartment_id: '3.06',
+          environment: {
+            air_temperature_c: airTemperatureC,
+            co2_ppm: 436,
+            relative_humidity_pct: 80.5,
+          },
+          harvested_total_g: 7119.65,
+        },
+        {
+          compartment_id: '3.08',
+          environment: { air_temperature_c: airTemperatureC + 5, co2_ppm: 510 },
+          harvested_total_g: 7915.07,
+        },
+      ],
       plant_states: [],
       plants_healthy: 0,
       plants_monitor: 0,
       plants_action_required: 0,
       total_ripe_mass_g: 0,
-      total_harvested_g: 7119.65,
+      total_harvested_g: 15034.72,
     }
   }
 
   function renderRecorded() {
     return render(
-      <MemoryRouter initialEntries={['/greenhouses/wur_agc4_2024_c306']}>
+      <MemoryRouter initialEntries={['/greenhouses/wur_agc4_2024']}>
         <Routes>
           <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
         </Routes>
@@ -686,5 +712,55 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     expect(
       screen.getByText('Viewing 3 Sept 2024 — latest recorded state is 5 Sept 2024'),
     ).toBeInTheDocument()
+  })
+
+  it('shows one compartment at a time and keeps the chosen checkpoint when switching', async () => {
+    mockedGet.mockImplementation(
+      (path: string, options?: { params?: { query?: { at?: string } } }) => {
+        if (path === '/greenhouses/{greenhouse_id}') return Promise.resolve(ok(RECORDED_DETAIL))
+        if (path === '/greenhouses/{greenhouse_id}/timeline')
+          return Promise.resolve(
+            ok({ checkpoints: CHECKPOINTS, current_timestamp: CHECKPOINTS[2] }),
+          )
+        if (path === '/greenhouses/{greenhouse_id}/state') {
+          const at = options?.params?.query?.at
+          return Promise.resolve(
+            ok(
+              at === CHECKPOINTS[0]
+                ? recordedState(CHECKPOINTS[0], 19.2)
+                : recordedState(CHECKPOINTS[2], 23.7),
+            ),
+          )
+        }
+        throw new Error(`unexpected GET ${path}`)
+      },
+    )
+
+    renderRecorded()
+
+    const reference = await screen.findByRole('tab', { name: 'Compartment 3.06 (Reference)' })
+    expect(reference).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('3 daily checkpoints · 2 compartments')).toBeInTheDocument()
+    expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
+    expect(screen.getByText('15.0 kg')).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Compartment 3.08 (Trigger)' }))
+    })
+
+    expect(screen.getByText('28.7 °C')).toBeInTheDocument()
+    expect(screen.getByText('510 ppm')).toBeInTheDocument()
+    expect(screen.getByText('7.9 kg')).toBeInTheDocument()
+    expect(screen.getByText(/camera cam_18/)).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Day'), { target: { value: '1' } })
+    })
+
+    expect(await screen.findByText('24.2 °C')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Compartment 3.08 (Trigger)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
   })
 })

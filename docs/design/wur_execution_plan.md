@@ -115,26 +115,26 @@ day as their neighbours.
 
 ### Track D - Compartment entity (independent of B and C)
 
-- [ ] **D1. Domain model.** `Compartment(compartment_id, greenhouse_id, name,
+- [x] **D1. Domain model.** `Compartment(compartment_id, greenhouse_id, name,
   layout, plants)`; `Greenhouse.compartments: list[Compartment]` (empty for the
   simulator). Pure domain + unit tests. No persistence yet.
-- [ ] **D2. Persist compartments.** `compartments_json` column and migration;
+- [x] **D2. Persist compartments.** `compartments_json` column and migration;
   repository round trip. Simulator greenhouses store `[]`.
-- [ ] **D3. `compartment_id` on records.** Nullable column on observations,
+- [x] **D3. `compartment_id` on records.** Nullable column on observations,
   events and recommendations; repositories and canonical JSONL carry it;
   migration backfills `NULL`. Simulator emits `None`.
-- [ ] **D4. Compartment state.** `CompartmentState(compartment_id,
+- [x] **D4. Compartment state.** `CompartmentState(compartment_id,
   environment, plant_states, ...)`; `GreenhouseState.compartments:
   list[CompartmentState]`, with the existing greenhouse-level environment
   kept for records with no compartment. Reconstruction groups by
   `compartment_id`. Snapshot shape changes, so the frontend client is
   regenerated.
-- [ ] **D5. 2024 adapter emits one greenhouse.** `wur_agc4_2024` with six
+- [x] **D5. 2024 adapter emits one greenhouse.** `wur_agc4_2024` with six
   compartments (3.01-3.08, team and camera in the compartment description);
   `prepare --compartment` filters, `load` loads the greenhouse. Canonical
   provenance unchanged in spirit. Done when all six compartments load and
   the byte-identical rebuild check still holds.
-- [ ] **D6. API and UI.** `GET /greenhouses/{id}/state?at=` returns
+- [x] **D6. API and UI.** `GET /greenhouses/{id}/state?at=` returns
   compartments; recorded dashboard gains a compartment selector; list page
   shows compartment count. Frontend tests updated.
 

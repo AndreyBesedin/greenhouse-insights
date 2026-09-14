@@ -71,7 +71,11 @@ function GreenhouseCard({
             </div>
             <div className="text-xs text-mist">
               {formatCropLabel(greenhouse.crop)}
-              {isRecorded ? '' : ` · ${greenhouse.plant_count.toLocaleString()} plants`}
+              {isRecorded
+                ? greenhouse.compartment_count > 0
+                  ? ` · ${greenhouse.compartment_count} compartments`
+                  : ''
+                : ` · ${greenhouse.plant_count.toLocaleString()} plants`}
               {hasSimulation ? ` · ${totalSteps} simulated days` : ''}
               {greenhouse.management_policy
                 ? ` · ${MANAGEMENT_POLICY_LABEL[greenhouse.management_policy]}`

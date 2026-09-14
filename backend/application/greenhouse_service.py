@@ -28,7 +28,9 @@ class GreenhouseListItem(BaseModel):
     description: str
     source_type: SourceType
     crop: str
+    # Individually identified plants, across every compartment.
     plant_count: int
+    compartment_count: int
     status: SimulationStatus | None
     current_step: int | None
     total_steps: int | None
@@ -289,8 +291,10 @@ def _list_item(
         name=greenhouse.name,
         description=greenhouse.description,
         source_type=greenhouse.source_type,
-        crop=greenhouse.crop or (greenhouse.plants[0].variety if greenhouse.plants else "unknown"),
-        plant_count=len(greenhouse.plants),
+        crop=greenhouse.crop
+        or (greenhouse.all_plants[0].variety if greenhouse.all_plants else "unknown"),
+        plant_count=len(greenhouse.all_plants),
+        compartment_count=len(greenhouse.compartments),
         status=simulation.status if simulation is not None else None,
         current_step=simulation.current_step if simulation is not None else None,
         total_steps=simulation.total_steps if simulation is not None else None,
