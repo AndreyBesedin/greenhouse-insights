@@ -169,10 +169,6 @@ def _human_size(size_bytes: int) -> str:
     return f"{size:.1f} GB"
 
 
-if __name__ == "__main__":
-    sys.exit(main())
-
-
 def _refuse_compartments_outside_2024(dataset: WurDataset, compartments: list[str] | None) -> None:
     if dataset is not AGC4_CHALLENGE_2024 and compartments:
         raise SystemExit(
@@ -275,3 +271,7 @@ def _local_day_start(day: date) -> datetime:
 
 def _local_day_end(day: date) -> datetime:
     return datetime.combine(day, time.max, tzinfo=WUR_LOCAL_TIMEZONE)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
