@@ -10,10 +10,10 @@ outcome ground truth, not something a controller could have seen.
   compartment (mean fruit count and mean fruit fresh weight per sampled
   plant), stamped local noon on the sheet's date;
 - the final harvest becomes one compartment-level HARVEST Event per
-  compartment. The workbook gives no date for it (the README: "on the
-  requested date of each team"), so the caller supplies one - the
-  compartment's last recorded timestamp - and the event says so in
-  `date_source`.
+  compartment. The workbook gives no date for it; the compartment's time
+  series records the harvest day, so the caller supplies that instant (or,
+  if a file lacks it, the last recorded timestamp) and the event says which
+  in `date_source`.
 """
 
 import re
@@ -118,7 +118,11 @@ def sampling_observations(
 
 
 def final_harvest_event(
-    workbook: HarvestWorkbook, compartment: Compartment, *, harvested_at: datetime
+    workbook: HarvestWorkbook,
+    compartment: Compartment,
+    *,
+    harvested_at: datetime,
+    date_source: str = "end_of_recording",
 ) -> Event | None:
     final = next(
         (f for f in workbook.final_harvests if f.compartment_code == compartment.code), None
@@ -144,7 +148,7 @@ def final_harvest_event(
             "mean_fruit_count_per_plant": mean(p.fruit_count for p in plants),
             "mean_red_fruit_count_per_plant": mean(red_counts) if red_counts else None,
             "mean_red_fresh_weight_g_per_plant": mean(red_weights) if red_weights else None,
-            "date_source": "end_of_recording",
+            "date_source": date_source,
         },
     )
 

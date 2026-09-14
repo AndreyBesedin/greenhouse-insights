@@ -8,7 +8,7 @@ from ingestion.wur.agc4_challenge_2024.compartments import (
     GREENHOUSE_ID,
     compartment,
 )
-from ingestion.wur.agc4_challenge_2024.timeseries import parse_timeseries
+from ingestion.wur.agc4_challenge_2024.timeseries import final_harvest_timestamp, parse_timeseries
 from ingestion.wur.common.time import excel_serial_to_utc, local_noon, parse_offset_timestamp
 
 # A trimmed slice of reference.csv's shape: the time column, a few mapped
@@ -85,3 +85,25 @@ def test_timestamp_helpers_normalise_dutch_local_time_to_utc() -> None:
     assert local_noon(datetime(2024, 11, 5).date()) == datetime(2024, 11, 5, 11, tzinfo=UTC)
     # Excel serial 45174.5 is 2023-09-05 12:00 local (CEST)
     assert excel_serial_to_utc(45174.5) == datetime(2023, 9, 5, 10, tzinfo=UTC)
+
+
+HARVEST_CSV = """\
+time,compartment/air_temperature,dwarf_tomato/harvest_date
+2024-11-15 11:55:00+01:00,19.0,
+2024-11-15 12:00:00+01:00,19.1,320.0
+"""
+
+
+def test_final_harvest_is_the_row_that_records_the_harvest_day() -> None:
+    # day 320 of 2024 is 15 November; 12:00 CET is 11:00Z
+    assert final_harvest_timestamp(HARVEST_CSV.splitlines(), compartment("3.06")) == datetime(
+        2024, 11, 15, 11, tzinfo=UTC
+    )
+    assert final_harvest_timestamp(CSV.splitlines(), compartment("3.06")) is None
+
+
+def test_a_harvest_day_that_disagrees_with_its_row_is_refused() -> None:
+    wrong = HARVEST_CSV.replace("320.0", "321.0")
+
+    with pytest.raises(ValueError, match="harvest day"):
+        final_harvest_timestamp(wrong.splitlines(), compartment("3.06"))

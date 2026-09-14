@@ -5,11 +5,12 @@ the domain's unit conventions (degree_Celsius, percent, ppm, umol/m2/s,
 g/m3, minute, L/m2, dS/m, W/m2, J/cm2, m/s) - so no conversion is needed,
 only selection.
 
-Deliberately not ingested (yet) from the compartment files: the *_vip
-duplicates of every setpoint (the "value in process" the controller actually
-tracked - a near-copy of the setpoint), CO2 actuation/dosage counters,
-minimum-pipe/-window setpoints, economics and energy accumulators, and plant
-density metadata.
+Not ingested yet from the compartment files (docs/design/wur_execution_plan.md
+steps E2b-E2e): plant density, the `*_vip` effective setpoints (which differ
+from their setpoints far more than the name suggests), CO2 dosing state and
+counters, minimum pipe / window setpoints, energy and cost increments, and
+per-sensor extras. `dwarf_tomato/harvest_date` is read separately, as the
+final-harvest instant (timeseries.final_harvest_timestamp).
 
 Deliberately not ingested from the site files, both for temporal honesty
 (docs/design/wur_real_data_ingestion_replay_plan.md sections 10-11), as
@@ -32,6 +33,9 @@ from domain.enums import ObservationType
 TIME_COLUMN = "time"
 WEATHER_MEMBER = "timeseries/weather.csv"
 FORECAST_MEMBER = "timeseries/weather_forecast.csv"
+# The day of year of a compartment's final harvest, written once, on the
+# harvest day's last row of that compartment's file.
+HARVEST_DAY_COLUMN = "dwarf_tomato/harvest_date"
 
 CHANNELS: dict[str, ObservationType] = {
     # measured climate

@@ -17,12 +17,13 @@ from ingestion.wur.agc4_challenge_2024.channels import (
     CHANNELS,
     FORECAST_CHANNELS,
     FORECAST_MEMBER,
+    HARVEST_DAY_COLUMN,
     TIME_COLUMN,
     WEATHER_CHANNELS,
     WEATHER_MEMBER,
 )
 from ingestion.wur.agc4_challenge_2024.compartments import GREENHOUSE_ID, Compartment
-from ingestion.wur.common.time import parse_offset_timestamp
+from ingestion.wur.common.time import WUR_LOCAL_TIMEZONE, parse_offset_timestamp
 
 SOURCE = RecordSource(type=SourceType.IMPORTED_DATA, source_id=SOURCE_ID)
 _SITE_SCOPE = "site"
@@ -61,6 +62,30 @@ def parse_forecast(lines: Iterable[str]) -> Iterator[Observation]:
         compartment_id=None,
         scope=_SITE_SCOPE,
     )
+
+
+def final_harvest_timestamp(lines: Iterable[str], compartment: Compartment) -> datetime | None:
+    """When the compartment's final harvest happened: the row carrying the
+    recorded harvest day. The dataset writes the day of year once, on the
+    harvest day's last row, so that row's timestamp is the harvest instant.
+    The day number is checked against the row's local date rather than
+    trusted blindly. None when the file records no harvest day."""
+    reader = csv.DictReader(lines)
+    if reader.fieldnames is None or HARVEST_DAY_COLUMN not in reader.fieldnames:
+        return None
+    for row in reader:
+        raw = row.get(HARVEST_DAY_COLUMN) or ""
+        if not raw.strip():
+            continue
+        timestamp = parse_offset_timestamp(row[TIME_COLUMN])
+        local_day = timestamp.astimezone(WUR_LOCAL_TIMEZONE).timetuple().tm_yday
+        if int(float(raw)) != local_day:
+            raise ValueError(
+                f"{compartment.timeseries_member}: harvest day {raw} does not match the "
+                f"row's local day of year {local_day} ({row[TIME_COLUMN]})"
+            )
+        return timestamp
+    return None
 
 
 def observation_id(compartment: Compartment, timestamp: datetime, kind: str) -> str:

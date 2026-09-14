@@ -149,9 +149,35 @@ day as their neighbours.
   converges on the day's measured total, so it is. The wind-direction column
   holds undocumented bit flags, not degrees, and is skipped. Ten weather
   channels plus the forecast sum add 253k site observations.
-- [ ] **E2. Remaining 2024 channels.** `*_vip` values, CO2 dosage counters,
-  minimum pipe/window setpoints, energy and economics accumulators, as new
-  ObservationType members with units from `channel_info.json`.
+- **E2. Remaining 2024 channels.** Profiled on 2026-09-14: 49 unmapped
+  compartment columns, split by what each needs.
+  - [x] **E2a. Real final-harvest date.** `dwarf_tomato/harvest_date` is the
+    day of year, written once on the harvest day's last row (12:00 local),
+    matching each team's final row. Use that instant for the HARVEST event
+    (`date_source` names the column) instead of "end of recording", and
+    refuse a day number that disagrees with its row.
+  - [ ] **E2b. Spacing.** `dwarf_tomato/plant_density` changes 56 → 42 → 30 →
+    20 plants/m2 at local midnight on team-specific dates (`pot_area` is its
+    reciprocal and is skipped). A density observation per row plus a SPACING
+    event per change.
+  - [ ] **E2c. Effective control values.** The ten `*_vip` channels are not
+    near-copies: CO2 VIP equals its setpoint only 62% of the time (up to
+    1114 ppm apart), irrigation interval 67%. Ingest as effective-setpoint
+    types, plus minimum pipe temperature / minimum lee window setpoints, CO2
+    dosing state (source 1 on / 2 off, recoded to 1 / 0) and cumulative
+    dosing minutes (resets daily around 07:40 local, not midnight).
+  - [ ] **E2d. Energy and cost increments.** `energy/*` and `economics/*` are
+    per-5-minute increments with 1e-10 as a zero placeholder; daily sums are
+    plausible (heating 0-1.8 MJ, lighting 0.4-1.1 kWh). Latest-value
+    reconstruction is meaningless for them, so this needs an accumulating
+    observation rule (daily totals) designed first.
+  - [ ] **E2e. Per-sensor extras (after F2).** Three substrate probes per
+    compartment for five teams (bulk EC, permittivity, temperature; probes
+    differ by about 0.3 degC), and single-team sensors: leaf temperature
+    (the `.1` column is an exact duplicate), microclimate, fluorescence,
+    biosignals, plant mass (agrifusion reads 18.9 → 3.9, trigger 2503 → 1198,
+    both declared kilogram, so the unit is inconsistent). These need the
+    Sensor model to keep probe identity.
 - [ ] **E3. 2023 climate adapter.** `ClimateTimeseries.xlsx` (MATLAB datenum,
   NaN padding rows) to observations for a `wur_agc4_2023` greenhouse with one
   compartment.

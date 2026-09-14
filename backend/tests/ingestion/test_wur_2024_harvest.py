@@ -90,3 +90,19 @@ def test_final_harvest_is_a_greenhouse_level_event_with_declared_date_source() -
     assert event.parameters["mean_red_fruit_count_per_plant"] == 22.5
     assert event.parameters["date_source"] == "end_of_recording"
     assert final_harvest_event(workbook, compartment("3.01"), harvested_at=recording_end) is None
+
+
+def test_final_harvest_event_records_where_its_date_came_from() -> None:
+    workbook = read_harvest_workbook(_workbook())
+    harvested_at = datetime(2024, 11, 15, 11, tzinfo=UTC)
+
+    event = final_harvest_event(
+        workbook,
+        compartment("3.06"),
+        harvested_at=harvested_at,
+        date_source="dwarf_tomato/harvest_date",
+    )
+
+    assert event is not None
+    assert event.timestamp == harvested_at
+    assert event.parameters["date_source"] == "dwarf_tomato/harvest_date"

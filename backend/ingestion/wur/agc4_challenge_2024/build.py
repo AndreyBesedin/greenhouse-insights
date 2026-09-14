@@ -23,7 +23,11 @@ from ingestion.wur.agc4_challenge_2024 import (
     TIMESERIES_ARTIFACT,
     TIMESERIES_MEMBER_PREFIX,
 )
-from ingestion.wur.agc4_challenge_2024.channels import FORECAST_MEMBER, WEATHER_MEMBER
+from ingestion.wur.agc4_challenge_2024.channels import (
+    FORECAST_MEMBER,
+    HARVEST_DAY_COLUMN,
+    WEATHER_MEMBER,
+)
 from ingestion.wur.agc4_challenge_2024.compartments import COMPARTMENTS, GREENHOUSE_ID, Compartment
 from ingestion.wur.agc4_challenge_2024.harvest import (
     final_harvest_event,
@@ -31,6 +35,7 @@ from ingestion.wur.agc4_challenge_2024.harvest import (
     sampling_observations,
 )
 from ingestion.wur.agc4_challenge_2024.timeseries import (
+    final_harvest_timestamp,
     parse_forecast,
     parse_timeseries,
     parse_weather,
@@ -69,14 +74,18 @@ def build_greenhouse(
         for compartment in compartments:
             member = TIMESERIES_MEMBER_PREFIX + compartment.timeseries_member
             members.append(member)
-            with archive.open(member) as raw:
-                compartment_observations = list(
-                    parse_timeseries(io.TextIOWrapper(raw, encoding="utf-8"), compartment)
-                )
+            lines = archive.read(member).decode("utf-8").splitlines()
+            compartment_observations = list(parse_timeseries(lines, compartment))
             compartment_observations.extend(sampling_observations(workbook, compartment))
-            if compartment_observations:
-                recording_end = max(o.timestamp for o in compartment_observations)
-                harvest = final_harvest_event(workbook, compartment, harvested_at=recording_end)
+            harvested_at = final_harvest_timestamp(lines, compartment)
+            date_source = HARVEST_DAY_COLUMN
+            if harvested_at is None and compartment_observations:
+                harvested_at = max(o.timestamp for o in compartment_observations)
+                date_source = "end_of_recording"
+            if harvested_at is not None:
+                harvest = final_harvest_event(
+                    workbook, compartment, harvested_at=harvested_at, date_source=date_source
+                )
                 if harvest is not None:
                     events.append(harvest)
             observations.extend(compartment_observations)
