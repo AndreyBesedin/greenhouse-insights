@@ -14,7 +14,7 @@ def _at(day: int) -> datetime:
     return DAY_ONE + timedelta(days=day - 1)
 
 
-def _make_observation(plant_id: str, day: int, observation_id: str) -> Observation:
+def _make_observation(plant_id: str | None, day: int, observation_id: str) -> Observation:
     return Observation(
         observation_id=observation_id,
         greenhouse_id="gh_001",
@@ -112,3 +112,19 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_observations(engine
 
     assert repo.list_for_greenhouse("gh_001") == []
     assert [o.observation_id for o in repo.list_for_greenhouse("gh_002")] == ["obs_gh_002"]
+
+
+def test_compartment_id_round_trips_and_filters(engine: Engine) -> None:
+    repo = ObservationRepository(engine)
+    in_306 = _make_observation(None, 1, "obs_306").model_copy(update={"compartment_id": "3.06"})
+    in_308 = _make_observation(None, 1, "obs_308").model_copy(update={"compartment_id": "3.08"})
+    whole_house = _make_observation(None, 1, "obs_house")
+    repo.save_many([in_306, in_308, whole_house])
+
+    assert repo.list_for_greenhouse("gh_001", compartment_id="3.06") == [in_306]
+    assert {o.observation_id for o in repo.list_for_greenhouse("gh_001")} == {
+        "obs_306",
+        "obs_308",
+        "obs_house",
+    }
+    assert repo.list_for_greenhouse("gh_001")[2].compartment_id is None

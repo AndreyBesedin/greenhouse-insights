@@ -24,10 +24,13 @@ class EventRepository:
         self,
         greenhouse_id: str,
         *,
+        compartment_id: str | None = None,
         plant_id: str | None = None,
         up_to: datetime | None = None,
     ) -> list[Event]:
         statement = select(events).where(events.c.greenhouse_id == greenhouse_id)
+        if compartment_id is not None:
+            statement = statement.where(events.c.compartment_id == compartment_id)
         if plant_id is not None:
             statement = statement.where(events.c.plant_id == plant_id)
         if up_to is not None:
@@ -48,6 +51,7 @@ def _event_to_row(event: Event) -> dict[str, object]:
     return {
         "event_id": event.event_id,
         "greenhouse_id": event.greenhouse_id,
+        "compartment_id": event.compartment_id,
         "plant_id": event.plant_id,
         "timestamp": to_db_timestamp(event.timestamp),
         "event_type": event.event_type.value,
@@ -61,6 +65,7 @@ def _row_to_event(mapping: RowMapping) -> Event:
     return Event(
         event_id=mapping["event_id"],
         greenhouse_id=mapping["greenhouse_id"],
+        compartment_id=mapping["compartment_id"],
         plant_id=mapping["plant_id"],
         timestamp=from_db_timestamp(mapping["timestamp"]),
         event_type=mapping["event_type"],

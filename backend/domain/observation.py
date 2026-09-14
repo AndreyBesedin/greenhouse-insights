@@ -11,6 +11,9 @@ class Observation(BaseModel):
 
     observation_id: str
     greenhouse_id: str
+    # The compartment this reading describes, when the greenhouse has
+    # compartments; None scopes it to the greenhouse as a whole.
+    compartment_id: str | None = None
     plant_id: str | None
     timestamp: datetime
     observation_type: ObservationType

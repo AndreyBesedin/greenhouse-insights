@@ -786,6 +786,8 @@ export interface components {
              * Format: date-time
              */
             context_timestamp: string;
+            /** Compartment Id */
+            compartment_id?: string | null;
             /** Plant Id */
             plant_id: string;
             /** Action */

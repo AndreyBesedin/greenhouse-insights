@@ -13,7 +13,7 @@ def _at(day: int) -> datetime:
     return DAY_ONE + timedelta(days=day - 1)
 
 
-def _make_event(plant_id: str, day: int, event_id: str) -> Event:
+def _make_event(plant_id: str | None, day: int, event_id: str) -> Event:
     return Event(
         event_id=event_id,
         greenhouse_id="gh_001",
@@ -79,3 +79,16 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_events(engine: Engi
 
     assert repo.list_for_greenhouse("gh_001") == []
     assert [e.event_id for e in repo.list_for_greenhouse("gh_002")] == ["evt_gh_002"]
+
+
+def test_compartment_id_round_trips_and_filters(engine: Engine) -> None:
+    repo = EventRepository(engine)
+    in_306 = _make_event(None, 1, "evt_306").model_copy(update={"compartment_id": "3.06"})
+    whole_house = _make_event(None, 1, "evt_house")
+    repo.save_many([in_306, whole_house])
+
+    assert repo.list_for_greenhouse("gh_001", compartment_id="3.06") == [in_306]
+    assert {e.event_id: e.compartment_id for e in repo.list_for_greenhouse("gh_001")} == {
+        "evt_306": "3.06",
+        "evt_house": None,
+    }

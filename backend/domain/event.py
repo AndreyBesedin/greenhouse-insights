@@ -11,6 +11,9 @@ class Event(BaseModel):
 
     event_id: str
     greenhouse_id: str
+    # The compartment the event happened in, when the greenhouse has
+    # compartments; None scopes it to the greenhouse as a whole.
+    compartment_id: str | None = None
     plant_id: str | None
     timestamp: datetime
     event_type: EventType

@@ -142,3 +142,15 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_recommendations(
 
     assert repo.list_for_context("gh_001", _at(1)) == []
     assert len(repo.list_for_context("gh_002", _at(1))) == 1
+
+
+def test_compartment_id_round_trips(engine: Engine) -> None:
+    repo = RecommendationRepository(engine)
+    scoped = _recommendation("rec_c", compartment_id="3.06")
+    unscoped = _recommendation("rec_u")
+    repo.save(scoped)
+    repo.save(unscoped)
+
+    assert repo.get("rec_c") == scoped
+    fetched = repo.get("rec_u")
+    assert fetched == unscoped and fetched.compartment_id is None

@@ -24,6 +24,7 @@ class ObservationRepository:
         self,
         greenhouse_id: str,
         *,
+        compartment_id: str | None = None,
         plant_id: str | None = None,
         up_to: datetime | None = None,
     ) -> list[Observation]:
@@ -31,6 +32,8 @@ class ObservationRepository:
         observed at or before `up_to` - the temporal-honesty boundary every
         reader (state reconstruction, policies, replay) must respect."""
         statement = select(observations).where(observations.c.greenhouse_id == greenhouse_id)
+        if compartment_id is not None:
+            statement = statement.where(observations.c.compartment_id == compartment_id)
         if plant_id is not None:
             statement = statement.where(observations.c.plant_id == plant_id)
         if up_to is not None:
@@ -51,6 +54,7 @@ def _observation_to_row(observation: Observation) -> dict[str, object]:
     return {
         "observation_id": observation.observation_id,
         "greenhouse_id": observation.greenhouse_id,
+        "compartment_id": observation.compartment_id,
         "plant_id": observation.plant_id,
         "timestamp": to_db_timestamp(observation.timestamp),
         "observation_type": observation.observation_type.value,
@@ -64,6 +68,7 @@ def _row_to_observation(mapping: RowMapping) -> Observation:
     return Observation(
         observation_id=mapping["observation_id"],
         greenhouse_id=mapping["greenhouse_id"],
+        compartment_id=mapping["compartment_id"],
         plant_id=mapping["plant_id"],
         timestamp=from_db_timestamp(mapping["timestamp"]),
         observation_type=mapping["observation_type"],

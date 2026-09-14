@@ -38,6 +38,9 @@ class Recommendation(BaseModel):
     # simulation day counter (docs/design/wur_real_data_ingestion_replay_plan.md
     # section 9).
     context_timestamp: datetime
+    # The compartment the proposal concerns, when the greenhouse has
+    # compartments; None for a compartment-less greenhouse.
+    compartment_id: str | None = None
     plant_id: str
 
     action: RequestedAction
