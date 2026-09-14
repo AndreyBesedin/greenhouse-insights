@@ -34,15 +34,25 @@ def client(engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> I
     app.dependency_overrides.clear()
 
 
+# Generous on purpose: a 28-step, 40-plant simulation writes every step to
+# the database, and on CI's PostgreSQL service a fixed 4-second cap (200 polls
+# of 20 ms) was not always enough. The loop still returns as soon as the run
+# completes, and a failed run is reported at once rather than waited out.
+_COMPLETION_TIMEOUT_SECONDS = 60.0
+
+
 def _run_to_completion(client: TestClient, simulation_id: str, *, total_steps: int) -> None:
     client.post(f"/simulations/{simulation_id}/run")
-    for _ in range(200):
+    deadline = time.monotonic() + _COMPLETION_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
         status = client.get(f"/simulations/{simulation_id}/status").json()
         if status["status"] == "COMPLETED":
             assert status["current_step"] == total_steps
             return
+        if status["status"] == "FAILED":
+            pytest.fail(f"{simulation_id} failed at step {status['current_step']}")
         time.sleep(0.02)
-    pytest.fail(f"{simulation_id} did not complete in time")
+    pytest.fail(f"{simulation_id} did not complete within {_COMPLETION_TIMEOUT_SECONDS:.0f} s")
 
 
 def test_backbone_flow_across_configured_greenhouses(client: TestClient) -> None:
