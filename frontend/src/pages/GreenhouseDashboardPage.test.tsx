@@ -762,7 +762,8 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
 
     const reference = await screen.findByRole('tab', { name: 'Compartment 3.06 (Reference)' })
     expect(reference).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('3 daily checkpoints · 2 compartments')).toBeInTheDocument()
+    // the tabs render once the greenhouse loads; the checkpoint count waits for the timeline
+    expect(await screen.findByText('3 daily checkpoints · 2 compartments')).toBeInTheDocument()
     expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
     expect(screen.getByText('15.0 kg')).toBeInTheDocument()
 
