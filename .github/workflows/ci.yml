@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Dockerfile pins Poetry 2 as well; the project uses the PEP 621
+      # [project] table, which Poetry 1.x cannot read.
+      - name: Install Poetry
+        run: pipx install "poetry>=2,<3"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: poetry
+          cache-dependency-path: backend/poetry.lock
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: ruff check
+        run: poetry run ruff check .
+
+      - name: ruff format --check
+        run: poetry run ruff format --check .
+
+      - name: mypy
+        run: poetry run mypy .
+
+      # Everything, including tests marked slow. Tests that need the
+      # network skip themselves unless GREENHOUSE_ONLINE_TESTS=1.
+      - name: pytest
+        run: poetry run pytest -q
+
+  frontend:
+    name: frontend (tsc, eslint, prettier, vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # --legacy-peer-deps matches the Makefile's frontend-install target.
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: eslint
+        run: npm run lint -- --max-warnings=0
+
+      - name: prettier --check
+        run: npm run format:check
+
+      - name: vitest
+        run: npm test
+
+      - name: build
+        run: npm run build
