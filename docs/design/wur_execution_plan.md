@@ -60,33 +60,32 @@ day as their neighbours.
 
 ### Track A - land what exists
 
-- [ ] **A1. Merge PR #7.** No code change needed; it is conflict-free against
+- [x] **A1. Merge PR #7.** No code change needed; it is conflict-free against
   main. Done when main has the vertical slice and `make test` passes.
-- [ ] **A2. Add CI.** PR #9: one GitHub Actions workflow: backend (ruff, mypy,
+- [x] **A2. Add CI.** PR #9: one GitHub Actions workflow: backend (ruff, mypy,
   pytest on SQLite), frontend (tsc, eslint, prettier, vitest, build), plus
   ruff version alignment between pre-commit and the lock. Done when the
   workflow is green on main and required for PRs.
-- [ ] **A3. Record Phase 0 facts in the plan doc.** Replace the "not inspected"
+- [x] **A3. Record Phase 0 facts in the plan doc.** Replace the "not inspected"
   bullets in section 19 with the measured archive structure (camera ids per
   compartment, capture cadence, intrinsics present, no pose), and note the
   4TU throttling behaviour. Docs only.
 
 ### Track B - Postgres
 
-- [ ] **B1. Dialect-neutral upsert.** Replace the seven
+- [x] **B1. Dialect-neutral upsert.** Replace the seven
   `sqlalchemy.dialects.sqlite.insert` imports with one helper that picks the
   dialect from the bound engine. Tests unchanged. Done when the suite passes on
   SQLite exactly as before.
-- [ ] **B2. Postgres in the test matrix.** Add a Postgres service to CI and a
+- [x] **B2. Postgres in the test matrix.** Add a Postgres service to CI and a
   `GREENHOUSE_TEST_DATABASE_URL` switch in `tests/conftest.py`; run the whole
-  suite against it. Fix whatever breaks (expected: the raw `INSERT ... SELECT`
-  in migration `5d1e7a9c2b41`, `check_same_thread`, string timestamps). Done
-  when CI is green on both databases.
-- [ ] **B3. Postgres in docker-compose.** Add a `postgres` service with a named
+  suite against it. Nothing broke: the migrations and string timestamps were
+  already portable. Done when CI is green on both databases.
+- [x] **B3. Postgres in docker-compose.** Add a `postgres` service with a named
   volume, point the backend at it, keep `.env.example` documenting both URLs.
   Done when `make docker-up` boots on Postgres and a simulation runs.
-- [ ] **B4. psycopg dependency and connection settings.** Pool size, timeouts,
-  `sslmode` passthrough. Small, separate so B3 stays readable.
+- [x] **B4. psycopg dependency.** Pulled forward into B2. Pool size, timeouts
+  and `sslmode` passthrough wait until the deployment needs them.
 - [ ] **B5 (later). Native timestamp columns.** Migrate ISO-string timestamp
   columns to `TIMESTAMPTZ` once Postgres is the only production database.
   Not needed for correctness; lexical comparison of UTC ISO strings is
