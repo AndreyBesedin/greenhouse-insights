@@ -32,6 +32,7 @@ def _greenhouse_from_config(config: ScenarioConfig) -> Greenhouse:
         name=config.name,
         description=config.description,
         source_type=SourceType.SIMULATION,
+        crop=config.variety,
         layout=GreenhouseLayout(rows=config.rows, columns=config.columns),
         plants=build_grid_plants(config.greenhouse_id, config.variety, config.rows, config.columns),
         created_at=datetime.now(UTC),

@@ -130,3 +130,26 @@ describe('DayNavigator', () => {
     expect(onSelectDay).toHaveBeenCalledWith(7)
   })
 })
+
+describe('DayNavigator for a recorded history', () => {
+  it('names steps and "current" the way the source does', () => {
+    render(
+      <DayNavigator
+        viewingDay={2}
+        currentDay={3}
+        totalDays={3}
+        onSelectDay={vi.fn()}
+        onReturnToCurrent={vi.fn()}
+        caption="Recorded timeline · 3 days"
+        formatDay={(day) => ['3 Sept 2024', '4 Sept 2024', '5 Sept 2024'][day - 1]}
+        currentLabel="latest recorded state"
+      />,
+    )
+
+    expect(screen.getByText('Recorded timeline · 3 days')).toBeInTheDocument()
+    expect(screen.getByText('4 Sept 2024 of 3')).toBeInTheDocument()
+    expect(
+      screen.getByText('Viewing 4 Sept 2024 — latest recorded state is 5 Sept 2024'),
+    ).toBeInTheDocument()
+  })
+})

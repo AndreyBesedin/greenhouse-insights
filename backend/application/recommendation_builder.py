@@ -48,7 +48,7 @@ def build_recommendation(
         recommendation_id=recommendation_id,
         source=RecordSource(type=SourceType.SIMULATION, source_id=proposal.simulation_id),
         greenhouse_id=proposal.greenhouse_id,
-        simulated_day=proposal.simulated_day,
+        context_timestamp=proposal.timestamp,
         plant_id=action.plant_id,
         action=action,
         source_policy=proposal.management_policy,

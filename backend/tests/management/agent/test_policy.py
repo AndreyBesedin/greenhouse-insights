@@ -37,11 +37,12 @@ def _context() -> GreenhouseManagementContext:
     plant_state = PlantState(
         plant_id=PLANT_ID,
         greenhouse_id="gh_001",
-        simulated_day=8,
         timestamp=TIMESTAMP,
         health=PlantHealth.HEALTHY,
     )
-    return GreenhouseManagementContext(greenhouse_id="gh_001", day=8, plant_states=[plant_state])
+    return GreenhouseManagementContext(
+        greenhouse_id="gh_001", timestamp=TIMESTAMP, plant_states=[plant_state]
+    )
 
 
 def test_agentic_policy_returns_the_providers_actions_and_records_a_successful_run() -> None:

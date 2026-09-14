@@ -92,7 +92,7 @@ def grade_case(case: EvalCase, provider: AgentModelProvider) -> tuple[CaseResult
     history = build_history(case)
     context = GreenhouseManagementContext(
         greenhouse_id=case.greenhouse_id,
-        day=case.day,
+        timestamp=plant_state.timestamp,
         plant_states=[plant_state],
     )
     toolkit = AgentToolkit(

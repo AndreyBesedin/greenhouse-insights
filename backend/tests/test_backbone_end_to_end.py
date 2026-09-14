@@ -60,21 +60,28 @@ def test_backbone_flow_across_configured_greenhouses(client: TestClient) -> None
     # 3-4. Run it and watch it progress to completion.
     _run_to_completion(client, "sim_gh_002", total_steps=40)
 
-    # 5. Current state is Day 40/40, persisted.
+    # 5. Current state is the last of 40 daily checkpoints, persisted.
+    timeline = client.get("/greenhouses/gh_002/timeline").json()
+    checkpoints = timeline["checkpoints"]
+    assert len(checkpoints) == 40
+    assert timeline["current_timestamp"] == checkpoints[-1]
     current_state = client.get("/greenhouses/gh_002/state").json()
-    assert current_state["simulated_day"] == 40
+    assert current_state["timestamp"] == checkpoints[-1]
 
-    # 6. Navigate backwards to a historical day...
-    past_state = client.get("/greenhouses/gh_002/state?day=20").json()
-    assert past_state["simulated_day"] == 20
+    # 6. Navigate backwards to a historical checkpoint...
+    day_20 = checkpoints[19]
+    past_state = client.get("/greenhouses/gh_002/state", params={"at": day_20}).json()
+    assert past_state["timestamp"] == day_20
 
     plant_id = gh_002_detail["greenhouse"]["plants"][0]["plant_id"]
-    history = client.get(f"/greenhouses/gh_002/plants/{plant_id}/history?up_to_day=20").json()
-    assert [entry["simulated_day"] for entry in history] == list(range(1, 21))
+    history = client.get(
+        f"/greenhouses/gh_002/plants/{plant_id}/history", params={"up_to": day_20}
+    ).json()
+    assert [entry["timestamp"] for entry in history] == checkpoints[:20]
 
-    # 7. ...then return to the current (final) day.
+    # 7. ...then return to the current (final) checkpoint.
     returned_state = client.get("/greenhouses/gh_002/state").json()
-    assert returned_state["simulated_day"] == 40
+    assert returned_state["timestamp"] == checkpoints[-1]
 
     # 8. Back to the greenhouse list, open the primary 40-plant/28-day greenhouse.
     gh_001_detail = client.get("/greenhouses/gh_001").json()
@@ -86,7 +93,7 @@ def test_backbone_flow_across_configured_greenhouses(client: TestClient) -> None
     _run_to_completion(client, "sim_gh_001", total_steps=28)
 
     gh_001_state = client.get("/greenhouses/gh_001/state").json()
-    assert gh_001_state["simulated_day"] == 28
+    assert len(client.get("/greenhouses/gh_001/timeline").json()["checkpoints"]) == 28
     assert len(gh_001_state["plant_states"]) == 40
 
     # GH002 remains independently completed and untouched by GH001's run.

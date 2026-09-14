@@ -8,10 +8,11 @@ type PlantDetail = components['schemas']['PlantDetail']
 export function usePlantDetail(
   greenhouseId: string,
   plantId: string | null,
-  day: number,
+  // See useGreenhouseState: the instant to view the plant at, null = latest.
+  at: string | null,
   // Bump this (e.g. after approving a recommendation or submitting a manual
   // action, either of which can change this plant's state) to force a
-  // refetch without waiting for greenhouseId/plantId/day to change - mirrors
+  // refetch without waiting for greenhouseId/plantId/at to change - mirrors
   // useGreenhouseState's refreshToken.
   refreshToken: number = 0,
 ): PlantDetail | null {
@@ -22,7 +23,10 @@ export function usePlantDetail(
     let cancelled = false
     apiClient
       .GET('/greenhouses/{greenhouse_id}/plants/{plant_id}', {
-        params: { path: { greenhouse_id: greenhouseId, plant_id: plantId }, query: { day } },
+        params: {
+          path: { greenhouse_id: greenhouseId, plant_id: plantId },
+          query: { at: at ?? undefined },
+        },
       })
       .then(({ data }) => {
         if (!cancelled) setDetail(data ?? null)
@@ -30,7 +34,7 @@ export function usePlantDetail(
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, plantId, day, refreshToken])
+  }, [greenhouseId, plantId, at, refreshToken])
 
   return plantId === null ? null : detail
 }

@@ -91,7 +91,7 @@ def _pending_recommendation(
         recommendation_id=recommendation_id,
         source=RecordSource(type=SourceType.SIMULATION, source_id="sim_test"),
         greenhouse_id="gh_test",
-        simulated_day=1,
+        context_timestamp=datetime(2026, 1, 1, tzinfo=UTC),
         plant_id=PLANT_ID,
         action=WaterPlantAction(plant_id=PLANT_ID, amount_ml=amount_ml),
         source_policy=ManagementPolicyType.DETERMINISTIC,
@@ -357,7 +357,7 @@ def _manual_pending_recommendation(
         recommendation_id=recommendation_id,
         source=RecordSource(type=SourceType.SIMULATION, source_id=_MANUAL_SIM_ID),
         greenhouse_id=_MANUAL_GH_ID,
-        simulated_day=1,
+        context_timestamp=datetime(2026, 1, 1, tzinfo=UTC),
         plant_id=_MANUAL_PLANT_ID,
         action=action,
         source_policy=ManagementPolicyType.DETERMINISTIC,
@@ -386,7 +386,7 @@ def test_approve_all_pending_executes_every_pending_recommendation_for_the_day(
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
 
     results = asyncio.run(scenario())
 
@@ -414,7 +414,7 @@ def test_approve_all_pending_handles_a_mix_of_accepted_and_rejected(engine: Engi
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
 
     results = asyncio.run(scenario())
     by_id = {r.recommendation_id: r for r in results}
@@ -431,7 +431,7 @@ def test_approve_all_pending_returns_an_empty_list_when_nothing_is_pending(
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, 1)
+        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
 
     assert asyncio.run(scenario()) == []
 
@@ -467,7 +467,7 @@ def test_advance_one_day_waits_for_an_in_flight_approve_all(
     order: list[str] = []
 
     async def run_approve_all() -> None:
-        await service.approve_all_pending(_MANUAL_GH_ID, 1)
+        await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
         order.append("approve_all_done")
 
     async def run_advance() -> None:
@@ -621,14 +621,16 @@ def test_submit_manual_action_executes_and_records_provenance(engine: Engine) ->
     assert result.source_policy == ManagementPolicyType.NONE
     assert result.approved_by == ApprovalSource.HUMAN
     assert result.executed_by == ActionExecutorType.SIMULATED_OPERATOR
-    assert result.simulated_day == 1
+    assert result.context_timestamp == datetime(2026, 1, 1, tzinfo=UTC)
     assert result.executed_at is not None
 
     world = WorldRepository(engine).get_latest(_MANUAL_GH_ID)
     assert world is not None
     assert world.plant(_MANUAL_PLANT_ID).water_reservoir_ml > 0
 
-    persisted = RecommendationRepository(engine).list_for_day(_MANUAL_GH_ID, 1)
+    persisted = RecommendationRepository(engine).list_for_context(
+        _MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC)
+    )
     assert len(persisted) == 1
     assert persisted[0].recommendation_id == result.recommendation_id
 

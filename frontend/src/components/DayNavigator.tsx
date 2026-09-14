@@ -4,6 +4,12 @@ interface DayNavigatorProps {
   totalDays: number
   onSelectDay: (day: number) => void
   onReturnToCurrent: () => void
+  /** Caption above the slider; defaults to the simulation wording. */
+  caption?: string
+  /** How a step is named ("Day 14" by default; a recorded history names the date). */
+  formatDay?: (day: number) => string
+  /** What "current" means for this source ("current state" / "latest recorded state"). */
+  currentLabel?: string
 }
 
 export function DayNavigator({
@@ -12,6 +18,9 @@ export function DayNavigator({
   totalDays,
   onSelectDay,
   onReturnToCurrent,
+  caption,
+  formatDay = (day) => `Day ${day}`,
+  currentLabel = 'current state',
 }: DayNavigatorProps) {
   const isViewingHistory = viewingDay !== currentDay
   const pct = totalDays > 0 ? Math.round((viewingDay / totalDays) * 100) : 0
@@ -19,9 +28,11 @@ export function DayNavigator({
   return (
     <nav className="rounded-lg bg-ink-850 px-5 py-3.5 outline-1 -outline-offset-1 outline-white/[0.06]">
       <div className="mb-2.5 flex items-center justify-between text-xs">
-        <span className="text-mist">Simulation timeline · {totalDays}-day cycle</span>
+        <span className="text-mist">
+          {caption ?? `Simulation timeline · ${totalDays}-day cycle`}
+        </span>
         <span className="font-medium text-paper">
-          Day {viewingDay} of {totalDays}
+          {formatDay(viewingDay)} of {totalDays}
         </span>
       </div>
 
@@ -70,7 +81,7 @@ export function DayNavigator({
       {isViewingHistory && (
         <div className="mt-3 flex items-center justify-between rounded-md bg-brand/[0.08] px-4 py-2.5 outline-1 -outline-offset-1 outline-brand/25">
           <span className="text-xs text-paper">
-            Viewing Day {viewingDay} — current state is Day {currentDay}
+            Viewing {formatDay(viewingDay)} — {currentLabel} is {formatDay(currentDay)}
           </span>
           <button
             type="button"

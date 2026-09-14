@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from sqlalchemy import Engine, delete, select
 from sqlalchemy.engine import RowMapping
 
 from application.persistence.schema import observations
+from application.persistence.timestamps import from_db_timestamp, to_db_timestamp
 from domain.observation import Observation
 from domain.provenance import RecordSource
 
@@ -22,14 +25,17 @@ class ObservationRepository:
         greenhouse_id: str,
         *,
         plant_id: str | None = None,
-        max_day: int | None = None,
+        up_to: datetime | None = None,
     ) -> list[Observation]:
+        """Observations in chronological order, optionally only those
+        observed at or before `up_to` - the temporal-honesty boundary every
+        reader (state reconstruction, policies, replay) must respect."""
         statement = select(observations).where(observations.c.greenhouse_id == greenhouse_id)
         if plant_id is not None:
             statement = statement.where(observations.c.plant_id == plant_id)
-        if max_day is not None:
-            statement = statement.where(observations.c.simulated_day <= max_day)
-        statement = statement.order_by(observations.c.simulated_day)
+        if up_to is not None:
+            statement = statement.where(observations.c.timestamp <= to_db_timestamp(up_to))
+        statement = statement.order_by(observations.c.timestamp)
 
         with self._engine.connect() as connection:
             rows = connection.execute(statement).mappings().all()
@@ -46,8 +52,7 @@ def _observation_to_row(observation: Observation) -> dict[str, object]:
         "observation_id": observation.observation_id,
         "greenhouse_id": observation.greenhouse_id,
         "plant_id": observation.plant_id,
-        "simulated_day": observation.simulated_day,
-        "timestamp": observation.timestamp.isoformat(),
+        "timestamp": to_db_timestamp(observation.timestamp),
         "observation_type": observation.observation_type.value,
         "value": observation.value,
         "source_type": observation.source.type.value,
@@ -60,8 +65,7 @@ def _row_to_observation(mapping: RowMapping) -> Observation:
         observation_id=mapping["observation_id"],
         greenhouse_id=mapping["greenhouse_id"],
         plant_id=mapping["plant_id"],
-        simulated_day=mapping["simulated_day"],
-        timestamp=mapping["timestamp"],
+        timestamp=from_db_timestamp(mapping["timestamp"]),
         observation_type=mapping["observation_type"],
         value=mapping["value"],
         source=RecordSource(type=mapping["source_type"], source_id=mapping["source_id"]),

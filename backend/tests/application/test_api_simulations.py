@@ -18,6 +18,11 @@ from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios import SCENARIO_REGISTRY
 
+# The seeded simulation starts on 2026-01-01 with one-day steps, so its
+# clock stamps simulated day N as 2026-01-0N T00:00 UTC.
+DAY_1 = "2026-01-01T00:00:00+00:00"
+DAY_2 = "2026-01-02T00:00:00+00:00"
+
 
 def _seed(engine: Engine) -> None:
     greenhouse = Greenhouse(
@@ -144,7 +149,7 @@ def test_management_progress_is_null_when_nothing_is_in_flight(client: TestClien
 def test_next_day_blocks_while_recommendations_are_pending(client: TestClient) -> None:
     client.post("/simulations/sim_test/next-day")  # day 1: no recommendations for this seed
     client.post("/simulations/sim_test/next-day")  # day 2: proposes a WATER_PLANT
-    pending = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    pending = client.get("/greenhouses/gh_test/recommendations", params={"at": DAY_2}).json()
     assert len(pending) >= 1
 
     response = client.post("/simulations/sim_test/next-day")
@@ -155,7 +160,7 @@ def test_next_day_blocks_while_recommendations_are_pending(client: TestClient) -
 def test_next_day_proceeds_when_confirmed_and_dismisses_the_rest(client: TestClient) -> None:
     client.post("/simulations/sim_test/next-day")
     client.post("/simulations/sim_test/next-day")
-    pending = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    pending = client.get("/greenhouses/gh_test/recommendations", params={"at": DAY_2}).json()
     assert len(pending) >= 1
 
     response = client.post(
@@ -164,5 +169,5 @@ def test_next_day_proceeds_when_confirmed_and_dismisses_the_rest(client: TestCli
 
     assert response.status_code == 200
     assert response.json()["current_step"] == 3
-    day_2 = client.get("/greenhouses/gh_test/recommendations", params={"day": 2}).json()
+    day_2 = client.get("/greenhouses/gh_test/recommendations", params={"at": DAY_2}).json()
     assert all(r["status"] == "DISMISSED" for r in day_2)

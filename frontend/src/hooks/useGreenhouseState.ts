@@ -7,9 +7,11 @@ type GreenhouseState = components['schemas']['GreenhouseState']
 
 export function useGreenhouseState(
   greenhouseId: string,
-  day: number,
-  // Bump this (e.g. after approving a recommendation, which can change this
-  // day's state) to force a refetch without waiting for greenhouseId/day to
+  // ISO-8601 instant: the state as it was known at that time (the latest
+  // snapshot taken at or before it). null asks for the latest snapshot.
+  at: string | null,
+  // Bump this (e.g. after approving a recommendation, which can change the
+  // current state) to force a refetch without waiting for greenhouseId/at to
   // change.
   refreshToken: number = 0,
 ): GreenhouseState | null {
@@ -19,7 +21,7 @@ export function useGreenhouseState(
     let cancelled = false
     apiClient
       .GET('/greenhouses/{greenhouse_id}/state', {
-        params: { path: { greenhouse_id: greenhouseId }, query: { day } },
+        params: { path: { greenhouse_id: greenhouseId }, query: { at: at ?? undefined } },
       })
       .then(({ data }) => {
         if (!cancelled) setState(data ?? null)
@@ -27,7 +29,7 @@ export function useGreenhouseState(
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, day, refreshToken])
+  }, [greenhouseId, at, refreshToken])
 
   return state
 }

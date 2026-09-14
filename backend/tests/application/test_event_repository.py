@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import Engine
 
@@ -6,14 +6,19 @@ from application.persistence.event_repository import EventRepository
 from domain.enums import EventSource, EventType
 from domain.event import Event
 
+DAY_ONE = datetime(2026, 1, 1, tzinfo=UTC)
 
-def _make_event(plant_id: str, simulated_day: int, event_id: str) -> Event:
+
+def _at(day: int) -> datetime:
+    return DAY_ONE + timedelta(days=day - 1)
+
+
+def _make_event(plant_id: str, day: int, event_id: str) -> Event:
     return Event(
         event_id=event_id,
         greenhouse_id="gh_001",
         plant_id=plant_id,
-        simulated_day=simulated_day,
-        timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+        timestamp=_at(day),
         event_type=EventType.WATERING,
         source=EventSource.SIMULATION,
     )
@@ -37,13 +42,13 @@ def test_list_for_greenhouse_filters_by_plant_id(engine: Engine) -> None:
     assert [e.event_id for e in listed] == ["evt_a"]
 
 
-def test_list_for_greenhouse_never_returns_days_beyond_max_day(engine: Engine) -> None:
+def test_list_for_greenhouse_never_returns_events_after_up_to(engine: Engine) -> None:
     repo = EventRepository(engine)
     repo.save_many([_make_event("plant_017", day, f"evt_day_{day}") for day in range(1, 6)])
 
-    listed = repo.list_for_greenhouse("gh_001", plant_id="plant_017", max_day=3)
+    listed = repo.list_for_greenhouse("gh_001", plant_id="plant_017", up_to=_at(3))
 
-    assert {e.simulated_day for e in listed} == {1, 2, 3}
+    assert {e.timestamp for e in listed} == {_at(1), _at(2), _at(3)}
 
 
 def test_event_parameters_round_trip_through_persistence(engine: Engine) -> None:

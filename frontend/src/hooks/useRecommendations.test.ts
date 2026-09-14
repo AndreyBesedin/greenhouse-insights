@@ -15,11 +15,13 @@ function ok<T>(data: T) {
   return { data, error: undefined, response: new Response() }
 }
 
+const AT_2 = '2026-01-02T00:00:00+00:00'
+
 const PENDING = {
   recommendation_id: 'rec_1',
   source: { type: 'SIMULATION', source_id: 'sim_gh_001' },
   greenhouse_id: 'gh_001',
-  simulated_day: 2,
+  context_timestamp: AT_2,
   plant_id: 'plant_017',
   action: { action_type: 'WATER_PLANT', plant_id: 'plant_017', amount_ml: 700 },
   source_policy: 'DETERMINISTIC',
@@ -40,14 +42,14 @@ beforeEach(() => {
 })
 
 describe('useRecommendations', () => {
-  it('fetches recommendations for the given greenhouse and day', async () => {
+  it('fetches recommendations for the given greenhouse and instant', async () => {
     mockedGet.mockResolvedValue(ok([PENDING]))
 
-    const { result } = renderHook(() => useRecommendations('gh_001', 2))
+    const { result } = renderHook(() => useRecommendations('gh_001', AT_2))
 
     await waitFor(() => expect(result.current.recommendations).toEqual([PENDING]))
     expect(mockedGet).toHaveBeenCalledWith('/greenhouses/{greenhouse_id}/recommendations', {
-      params: { path: { greenhouse_id: 'gh_001' }, query: { day: 2 } },
+      params: { path: { greenhouse_id: 'gh_001' }, query: { at: AT_2 } },
     })
   })
 
@@ -56,7 +58,7 @@ describe('useRecommendations', () => {
     const executed = { ...PENDING, status: 'EXECUTED', approved_by: 'HUMAN' } as const
     mockedPost.mockResolvedValue(ok(executed))
 
-    const { result } = renderHook(() => useRecommendations('gh_001', 2))
+    const { result } = renderHook(() => useRecommendations('gh_001', AT_2))
     await waitFor(() => expect(result.current.recommendations).toEqual([PENDING]))
 
     await act(async () => {
@@ -74,7 +76,7 @@ describe('useRecommendations', () => {
     const dismissed = { ...PENDING, status: 'DISMISSED' } as const
     mockedPost.mockResolvedValue(ok(dismissed))
 
-    const { result } = renderHook(() => useRecommendations('gh_001', 2))
+    const { result } = renderHook(() => useRecommendations('gh_001', AT_2))
     await waitFor(() => expect(result.current.recommendations).toEqual([PENDING]))
 
     await act(async () => {

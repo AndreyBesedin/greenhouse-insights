@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 
 from pydantic import BaseModel
 from sqlalchemy import Engine
@@ -119,8 +119,7 @@ class SimulationRunner:
         if config is None:
             raise LookupError(f"no scenario config found for {definition.scenario_definition!r}")
         plant_ids = [plant.plant_id for plant in greenhouse.plants]
-        timestamp = datetime.combine(definition.start_date, datetime.min.time(), tzinfo=UTC)
-        timestamp += timedelta(days=day - 1)
+        timestamp = definition.timestamp_for_step(day)
 
         world = self._worlds.get_latest(greenhouse.greenhouse_id)
         if world is None:
@@ -135,7 +134,6 @@ class SimulationRunner:
             reconstruct_plant_state(
                 plant_id=plant_id,
                 greenhouse_id=greenhouse.greenhouse_id,
-                day=day,
                 timestamp=timestamp,
                 observations=generation.observations,
                 events=[],
@@ -143,10 +141,16 @@ class SimulationRunner:
             for plant_id in plant_ids
         ]
         context = GreenhouseManagementContext(
-            greenhouse_id=greenhouse.greenhouse_id, day=day, plant_states=observable_plant_states
+            greenhouse_id=greenhouse.greenhouse_id,
+            timestamp=timestamp,
+            plant_states=observable_plant_states,
         )
 
-        policy = self._resolve_policy(definition.management_policy, greenhouse.greenhouse_id, day)
+        policy = self._resolve_policy(
+            definition.management_policy,
+            greenhouse.greenhouse_id,
+            history_up_to=definition.timestamp_for_step(day - 1) if day > 1 else None,
+        )
         if isinstance(policy, AgenticPolicy) and progress_reporter is not None:
             self._wire_progress(policy, simulation_id, day, progress_reporter)
             progress_reporter(
@@ -203,7 +207,6 @@ class SimulationRunner:
 
         greenhouse_state = reconstruct_greenhouse_state(
             greenhouse_id=greenhouse.greenhouse_id,
-            day=day,
             timestamp=timestamp,
             plant_states=[
                 ps.model_copy(
@@ -211,6 +214,7 @@ class SimulationRunner:
                 )
                 for ps in observable_plant_states
             ],
+            observations=generation.observations,
         )
         self._states.save(greenhouse_state)
 
@@ -272,8 +276,7 @@ class SimulationRunner:
         if world is None:
             raise LookupError(f"no world snapshot found for {definition.greenhouse_id!r}")
 
-        timestamp = datetime.combine(definition.start_date, datetime.min.time(), tzinfo=UTC)
-        timestamp += timedelta(days=day - 1)
+        timestamp = definition.timestamp_for_step(day)
         executor = self._resolve_executor(definition.action_executor)
 
         results: list[ActionResult] = []
@@ -308,26 +311,29 @@ class SimulationRunner:
         if world is None:
             raise LookupError(f"no world snapshot found for {greenhouse.greenhouse_id!r}")
 
-        timestamp = datetime.combine(definition.start_date, datetime.min.time(), tzinfo=UTC)
-        timestamp += timedelta(days=day - 1)
+        timestamp = definition.timestamp_for_step(day)
         plant_ids = [plant.plant_id for plant in greenhouse.plants]
 
+        # The simulator observes each plant exactly once per day, at the
+        # day's clock timestamp - so "this day's" records are the ones
+        # stamped with it.
         day_observations = [
             o
-            for o in self._observations.list_for_greenhouse(greenhouse.greenhouse_id, max_day=day)
-            if o.simulated_day == day
+            for o in self._observations.list_for_greenhouse(
+                greenhouse.greenhouse_id, up_to=timestamp
+            )
+            if o.timestamp == timestamp
         ]
         day_events = [
             e
-            for e in self._events.list_for_greenhouse(greenhouse.greenhouse_id, max_day=day)
-            if e.simulated_day == day
+            for e in self._events.list_for_greenhouse(greenhouse.greenhouse_id, up_to=timestamp)
+            if e.timestamp == timestamp
         ]
 
         plant_states = [
             reconstruct_plant_state(
                 plant_id=plant_id,
                 greenhouse_id=greenhouse.greenhouse_id,
-                day=day,
                 timestamp=timestamp,
                 observations=day_observations,
                 events=day_events,
@@ -336,9 +342,10 @@ class SimulationRunner:
         ]
         greenhouse_state = reconstruct_greenhouse_state(
             greenhouse_id=greenhouse.greenhouse_id,
-            day=day,
             timestamp=timestamp,
             plant_states=plant_states,
+            observations=day_observations,
+            events=day_events,
         )
         self._states.save(greenhouse_state)
 
@@ -375,13 +382,17 @@ class SimulationRunner:
         policy.progress_callback = on_tool_call
 
     def _resolve_policy(
-        self, policy_type: ManagementPolicyType, greenhouse_id: str, day: int
+        self,
+        policy_type: ManagementPolicyType,
+        greenhouse_id: str,
+        *,
+        history_up_to: datetime | None,
     ) -> ManagementPolicy:
         if policy_type == ManagementPolicyType.NONE:
             return NoOpPolicy()
         if policy_type == ManagementPolicyType.AGENTIC:
             return AgenticPolicy(
-                self._agent_provider, self._history_reader(greenhouse_id, up_to_day=day - 1)
+                self._agent_provider, self._history_reader(greenhouse_id, up_to=history_up_to)
             )
         return DeterministicPolicy()
 
@@ -390,11 +401,14 @@ class SimulationRunner:
             return SimulatedOperatorExecutor()
         raise ValueError(f"unknown action executor type: {executor_type!r}")
 
-    def _history_reader(self, greenhouse_id: str, *, up_to_day: int) -> PlantHistoryReader:
+    def _history_reader(self, greenhouse_id: str, *, up_to: datetime | None) -> PlantHistoryReader:
+        """History strictly before the day being decided: up_to is the
+        previous day's timestamp, or None on day 1 when there is none."""
+
         def read(plant_id: str, days: int) -> list[PlantState]:
-            if up_to_day < 1:
+            if up_to is None:
                 return []
-            states = self._states.list_up_to_day(greenhouse_id, max_day=up_to_day)
+            states = self._states.list_up_to(greenhouse_id, up_to=up_to)
             matching = [ps for gs in states for ps in gs.plant_states if ps.plant_id == plant_id]
             return matching[-days:]
 

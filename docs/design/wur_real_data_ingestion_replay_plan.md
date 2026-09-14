@@ -1,6 +1,6 @@
 # WUR Real-Data Ingestion & Replay Plan
 
-Status: planning document. This is a current implementation direction, not a statement that the WUR integration already exists.
+Status: active plan, partially implemented. See "Implementation status" at the end for what exists and what is still open; `docs/technical_reference.md` describes the implemented parts.
 
 ## Why this page exists
 
@@ -849,3 +849,29 @@ The first milestone is successful when all of the following are true:
 7. The simulator remains fully functional and remains the place where alternative actions can actually change the future.
 
 That would move the project from "real software around a synthetic agricultural world" to a system that can ingest and reason over genuine greenhouse sensing while preserving the simulator for the questions recorded data cannot answer.
+
+---
+
+## 19. Implementation status (2026-09-11)
+
+Implemented, on the branch merged as PR #7:
+
+- **Phase 0 - inventory: done.** `greenhouse-data inventory` generates and verifies the manifests in `backend/ingestion/manifests/` from the 4TU API. Findings: both releases are CC BY 4.0, version 1; the tabular archives total about 10 MB (2024: 6 MB timeseries; 2023: 4 MB), the image archives about 43 GB (2024 canopy 31.4 GB; 2023 canopy 4.5 GB, single-plant 7.5 GB). 4TU serves HTTP range requests, so archive members can in principle be read selectively. Decision gate: full data does not fit comfortably on a laptop, but everything the tabular phases need does, so the snapshot-first workflow is primary and no cloud mirror is required yet.
+- **Phase -1 - cloud baseline: deliberately not started.** Nothing before perception needs S3; the resolver's mirror seam (`ingestion/storage/resolver.py`) is where an S3 mirror plugs in.
+- **Phase 1 - simulation chronology removed from generic records: done.** Observations, events, state snapshots, recommendations and the management context are timestamp-only; the simulation clock is `SimulationDefinition.timestamp_for_step`; API and UI navigate by instant (`/timeline`, `?at=`); migration `5d1e7a9c2b41`.
+- **Phase 2 - storage resolver and source contracts: done for the tabular case.** `GREENHOUSE_DATA_DIR` layout, local → mirror → upstream resolution, checksum verification, resumable downloads, per-profile download caps, canonical provenance. Spatial / sensor / capture concepts (sections 7-8) are not built: the tabular data needs only compartment identity, modelled as `GreenhouseLayout(kind="compartment")`.
+- **Phase 3 - WUR ingestion: 2024 done, 2023 not started.** The 2024 adapter maps 23 channels to observations and the harvest workbook to sampled-crop observations plus a compartment-level HARVEST event; canonical output is deterministic; the loader reconstructs one state per local day; `tiny`/`dev`/`full` profiles exist. Compartment 3.06 renders in the UI as recorded history. Not ingested yet: the 2024 weather / weather-forecast files, `*_vip` setpoint duplicates, CO2 dosage counters, economics and energy accumulators, the 2023 workbooks (climate time series, weekly crop measurements, destructive harvests).
+
+Resolved open questions from section 17:
+
+- 5-minute control state is represented as observations (setpoints are observed controller state), not events; discrete manual harvests are events.
+- Canonical records live as JSONL artifacts under `canonical/`; the application DB holds what is loaded for replay (one compartment at 23 channels is about 480k rows, loads in seconds).
+- Replay checkpoints are product-friendly (one per local day) while snapshot timestamps stay the exact instant of the last reading at or before the boundary.
+- Licence: CC BY 4.0 - attribution to WUR / 4TU is carried in each greenhouse description and manifest; no other handling rule found.
+
+Still open / not started:
+
+- **Phase 4 - perception seam:** media capture model, RGB-D loading, a first derived feature, the 2023 label-based evaluation.
+- **Phase 5 - replay hardening:** choosing a replay "now" other than the end of the recording, strict `<= T` enforcement at the service layer for policy and agent calls, shadow (non-executing) recommendations for recorded sources. Today a recorded greenhouse has no policy attached and the UI states that its history cannot change.
+- **Phase 6 - temporal backtesting** and **Phase 7 - coverage expansion** (all six compartments in one view, the 2023 season, richer perception).
+- Archive structure of the image zips, camera calibration/pose metadata, and 2024 plant/pot identity across spacing changes have not been inspected.

@@ -5,14 +5,18 @@ import type { components } from '../../generated/schema'
 
 type Recommendation = components['schemas']['Recommendation']
 
-export function useRecommendations(greenhouseId: string, day: number) {
+// at: the ISO-8601 instant of the state snapshot being viewed - a
+// recommendation belongs to the snapshot it was made against. null means no
+// snapshot exists yet, so there is nothing to fetch.
+export function useRecommendations(greenhouseId: string, at: string | null) {
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null)
 
   useEffect(() => {
+    if (at === null) return
     let cancelled = false
     apiClient
       .GET('/greenhouses/{greenhouse_id}/recommendations', {
-        params: { path: { greenhouse_id: greenhouseId }, query: { day } },
+        params: { path: { greenhouse_id: greenhouseId }, query: { at } },
       })
       .then(({ data }) => {
         if (!cancelled) setRecommendations(data ?? null)
@@ -20,7 +24,7 @@ export function useRecommendations(greenhouseId: string, day: number) {
     return () => {
       cancelled = true
     }
-  }, [greenhouseId, day])
+  }, [greenhouseId, at])
 
   async function approve(recommendationId: string) {
     const { data } = await apiClient.POST('/recommendations/{recommendation_id}/approve', {
@@ -54,10 +58,11 @@ export function useRecommendations(greenhouseId: string, day: number) {
   }
 
   async function approveAll() {
+    if (at === null) return []
     const { data } = await apiClient.POST(
       '/greenhouses/{greenhouse_id}/recommendations/approve-all',
       {
-        params: { path: { greenhouse_id: greenhouseId }, query: { day } },
+        params: { path: { greenhouse_id: greenhouseId }, query: { at } },
       },
     )
     if (data) {
@@ -69,5 +74,5 @@ export function useRecommendations(greenhouseId: string, day: number) {
     return data
   }
 
-  return { recommendations, approve, dismiss, add, approveAll }
+  return { recommendations: at === null ? [] : recommendations, approve, dismiss, add, approveAll }
 }

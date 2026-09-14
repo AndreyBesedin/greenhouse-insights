@@ -1,9 +1,15 @@
+from collections.abc import Iterable
 from datetime import datetime
 
-from domain.enums import ObservationType, PlantHealth
+from domain.enums import EventType, ObservationType, PlantHealth
 from domain.event import Event
 from domain.observation import Observation
-from domain.state import EnvironmentState, GreenhouseState, PlantState
+from domain.state import (
+    EnvironmentState,
+    GreenhouseEnvironmentState,
+    GreenhouseState,
+    PlantState,
+)
 
 
 def reconstruct_environment_state(
@@ -51,7 +57,6 @@ def reconstruct_plant_state(
     *,
     plant_id: str,
     greenhouse_id: str,
-    day: int,
     timestamp: datetime,
     observations: list[Observation],
     events: list[Event],
@@ -70,7 +75,6 @@ def reconstruct_plant_state(
     return PlantState(
         plant_id=plant_id,
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
         timestamp=timestamp,
         health=condition,
         latest_soil_moisture_pct=environment.soil_moisture_pct,
@@ -85,18 +89,50 @@ def reconstruct_plant_state(
     )
 
 
+def reconstruct_greenhouse_environment(
+    observations: list[Observation],
+) -> GreenhouseEnvironmentState:
+    """The latest greenhouse-level reading of each type (plant_id None).
+    Pure over the observations it is given: a caller enforcing "as of T"
+    passes only observations at or before T."""
+    return GreenhouseEnvironmentState.from_latest_values(
+        latest_values_by_type(obs for obs in observations if obs.plant_id is None)
+    )
+
+
+def latest_values_by_type(observations: Iterable[Observation]) -> dict[ObservationType, float]:
+    latest: dict[ObservationType, Observation] = {}
+    for obs in observations:
+        current = latest.get(obs.observation_type)
+        if current is None or obs.timestamp >= current.timestamp:
+            latest[obs.observation_type] = obs
+    return {observation_type: obs.value for observation_type, obs in latest.items()}
+
+
+def greenhouse_harvested_total_g(events: list[Event]) -> float:
+    """Mass harvested from the greenhouse as a whole - HARVEST events that
+    name no plant (a recorded compartment harvest)."""
+    return sum(
+        float(event.parameters.get("harvested_mass_g", 0.0))
+        for event in events
+        if event.event_type == EventType.HARVEST and event.plant_id is None
+    )
+
+
 def reconstruct_greenhouse_state(
     *,
     greenhouse_id: str,
-    day: int,
     timestamp: datetime,
     plant_states: list[PlantState],
+    observations: list[Observation] | None = None,
+    events: list[Event] | None = None,
 ) -> GreenhouseState:
     return GreenhouseState.aggregate(
         greenhouse_id=greenhouse_id,
-        simulated_day=day,
         timestamp=timestamp,
         plant_states=plant_states,
+        environment=reconstruct_greenhouse_environment(observations or []),
+        greenhouse_harvested_g=greenhouse_harvested_total_g(events or []),
     )
 
 

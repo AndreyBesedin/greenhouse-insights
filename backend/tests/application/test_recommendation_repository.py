@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import Engine
 
@@ -15,6 +15,11 @@ from domain.recommendation import Recommendation
 from management.validation.actions import WaterPlantAction
 
 TIMESTAMP = datetime(2026, 1, 9, tzinfo=UTC)
+DAY_ONE = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+def _at(day: int) -> datetime:
+    return DAY_ONE + timedelta(days=day - 1)
 
 
 def _recommendation(
@@ -24,7 +29,7 @@ def _recommendation(
         recommendation_id=recommendation_id,
         source=RecordSource(type=SourceType.SIMULATION, source_id="sim_gh_001"),
         greenhouse_id="gh_001",
-        simulated_day=day,
+        context_timestamp=_at(day),
         plant_id="gh_001_plant_001",
         action=WaterPlantAction(plant_id="gh_001_plant_001", amount_ml=700),
         source_policy=ManagementPolicyType.DETERMINISTIC,
@@ -78,7 +83,7 @@ def test_save_overwrites_the_same_recommendation_by_id(engine: Engine) -> None:
     assert result.executed_by == ActionExecutorType.SIMULATED_OPERATOR
 
 
-def test_list_for_day_returns_only_that_greenhouse_and_day_in_requested_order(
+def test_list_for_context_returns_only_that_greenhouse_and_instant_in_requested_order(
     engine: Engine,
 ) -> None:
     repo = RecommendationRepository(engine)
@@ -101,12 +106,12 @@ def test_list_for_day_returns_only_that_greenhouse_and_day_in_requested_order(
         )
     )
 
-    result = repo.list_for_day("gh_001", 1)
+    result = repo.list_for_context("gh_001", _at(1))
 
     assert [r.recommendation_id for r in result] == ["rec_1", "rec_2"]
 
 
-def test_list_pending_for_day_excludes_resolved_recommendations(engine: Engine) -> None:
+def test_list_pending_for_context_excludes_resolved_recommendations(engine: Engine) -> None:
     repo = RecommendationRepository(engine)
     repo.save(_recommendation("rec_1", day=1))
     repo.save(
@@ -115,7 +120,7 @@ def test_list_pending_for_day_excludes_resolved_recommendations(engine: Engine) 
         )
     )
 
-    result = repo.list_pending_for_day("gh_001", 1)
+    result = repo.list_pending_for_context("gh_001", _at(1))
 
     assert [r.recommendation_id for r in result] == ["rec_1"]
 
@@ -135,5 +140,5 @@ def test_delete_for_greenhouse_removes_only_that_greenhouses_recommendations(
 
     repo.delete_for_greenhouse("gh_001")
 
-    assert repo.list_for_day("gh_001", 1) == []
-    assert len(repo.list_for_day("gh_002", 1)) == 1
+    assert repo.list_for_context("gh_001", _at(1)) == []
+    assert len(repo.list_for_context("gh_002", _at(1))) == 1

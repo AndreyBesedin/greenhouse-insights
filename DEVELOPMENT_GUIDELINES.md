@@ -56,6 +56,7 @@ greenhouse-insights/
 │   ├── management/        # decision-making: policy, agent, validation, evaluation (see below)
 │   ├── intelligence/      # feature extraction, reconciliation, inference, recommendations
 │   ├── evaluation/        # scenario evaluation, consistency checks, recommendation eval
+│   ├── ingestion/         # recorded datasets -> canonical records (manifests, storage, wur/ adapters)
 │   ├── application/       # persistence, services, FastAPI routers
 │   ├── alembic/           # schema migrations (versions/ has one file per schema change)
 │   ├── tests/
