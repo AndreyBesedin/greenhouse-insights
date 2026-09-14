@@ -1,5 +1,4 @@
 from datetime import date
-from pathlib import Path
 
 from sqlalchemy import Engine
 
@@ -54,8 +53,8 @@ def test_delete_is_a_noop_for_an_unknown_simulation(engine: Engine) -> None:
     repo.delete("does_not_exist")  # should not raise
 
 
-def test_status_and_current_step_survive_reopening_a_fresh_engine(db_path: Path) -> None:
-    first_engine = create_engine_and_tables(f"sqlite:///{db_path}")
+def test_status_and_current_step_survive_reopening_a_fresh_engine(database_url: str) -> None:
+    first_engine = create_engine_and_tables(database_url)
     definition = _make_definition()
     SimulationRepository(first_engine).save(definition)
 
@@ -65,7 +64,7 @@ def test_status_and_current_step_survive_reopening_a_fresh_engine(db_path: Path)
     SimulationRepository(first_engine).save(progressed)
     first_engine.dispose()
 
-    second_engine = create_engine_and_tables(f"sqlite:///{db_path}")
+    second_engine = create_engine_and_tables(database_url)
     reloaded = SimulationRepository(second_engine).get(definition.simulation_id)
 
     assert reloaded is not None

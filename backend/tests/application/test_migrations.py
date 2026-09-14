@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -14,19 +12,29 @@ def _config(database_url: str) -> Config:
     return config
 
 
-def test_upgrading_an_empty_database_to_head_succeeds(tmp_path: Path) -> None:
-    config = _config(f"sqlite:///{tmp_path / 'migrate.db'}")
+def test_upgrading_an_empty_database_to_head_succeeds(database_url: str) -> None:
+    config = _config(database_url)
 
     command.upgrade(config, "head")
 
 
-def test_schema_py_has_no_drift_from_the_migrations(tmp_path: Path) -> None:
+def test_every_migration_downgrades_and_upgrades_again(database_url: str) -> None:
+    """Each migration's downgrade must undo its upgrade on every supported
+    database, not only the one it was written against."""
+    config = _config(database_url)
+    command.upgrade(config, "head")
+
+    command.downgrade(config, "base")
+    command.upgrade(config, "head")
+
+
+def test_schema_py_has_no_drift_from_the_migrations(database_url: str) -> None:
     """Guards against the exact bug that motivated adding migrations: a
     column added to application/persistence/schema.py without a matching
     migration, which left `alembic upgrade head` producing a database the
     rest of the app could not query.
     """
-    config = _config(f"sqlite:///{tmp_path / 'drift.db'}")
+    config = _config(database_url)
     command.upgrade(config, "head")
 
     try:

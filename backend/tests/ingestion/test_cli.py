@@ -18,7 +18,7 @@ def test_tiny_and_dev_profiles_can_never_download_image_archives() -> None:
 
 
 def test_load_without_prepared_data_explains_what_to_run(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, database_url: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
     code = main(
         [
@@ -30,7 +30,7 @@ def test_load_without_prepared_data_explains_what_to_run(
             "--data-dir",
             str(tmp_path),
             "--database-url",
-            f"sqlite:///{tmp_path / 'app.db'}",
+            database_url,
         ]
     )
 
