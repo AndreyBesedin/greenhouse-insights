@@ -77,6 +77,14 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
     activeCompartmentId === null
       ? (state?.total_harvested_g ?? 0)
       : (compartmentState?.harvested_total_g ?? 0)
+  const costParts = [
+    environment.heating_cost_today_eur_m2,
+    environment.lighting_cost_today_eur_m2,
+    environment.co2_cost_today_eur_m2,
+    environment.fixed_cost_today_eur_m2,
+  ].filter((value): value is number => value !== null && value !== undefined)
+  const costsToday =
+    costParts.length === 0 ? '—' : `€${costParts.reduce((sum, value) => sum + value, 0).toFixed(3)}`
 
   const formatDay = (index: number) => {
     const checkpoint = checkpoints[index - 1]
@@ -285,6 +293,21 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
                       ? '—'
                       : `${environment.co2_dosing_on >= 0.5 ? 'On' : 'Off'} · ${formatReading(environment.co2_dosing_minutes_since_reset, 'min', 0)} since reset`,
                   ],
+                ]}
+              />
+              <ControlPanel
+                title="Energy and costs today (per m²)"
+                rows={[
+                  [
+                    'Heating energy',
+                    formatReading(environment.heating_energy_today_mj_m2, 'MJ', 2),
+                  ],
+                  [
+                    'Lighting electricity',
+                    formatReading(environment.lighting_electricity_today_kwh_m2, 'kWh', 2),
+                  ],
+                  ['CO₂ dosed', formatReading(environment.co2_dosed_today_kg_m2, 'kg', 3)],
+                  ['Costs (heating, lighting, CO₂, fixed)', costsToday],
                 ]}
               />
               <ControlPanel

@@ -14,7 +14,7 @@ from ingestion.wur.common.time import excel_serial_to_utc, local_noon, parse_off
 # A trimmed slice of reference.csv's shape: the time column, a few mapped
 # channels, one unmapped economics column, gaps, and the DST changeover.
 CSV = """\
-time,compartment/air_temperature,compartment/relative_humidity,compartment/heating_temperature_setpoint,economics/fixed_costs.per_m2
+time,compartment/air_temperature,compartment/relative_humidity,compartment/heating_temperature_setpoint,economics/fixed_costs.per_pot
 2024-10-27 02:55:00+02:00,19.5,81.0,18.0,0.01
 2024-10-27 02:00:00+01:00,19.4,,18.0,0.01
 2024-10-27 02:05:00+01:00,,80.5,18.5,0.01

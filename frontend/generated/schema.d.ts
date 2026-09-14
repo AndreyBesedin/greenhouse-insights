@@ -521,6 +521,20 @@ export interface components {
             co2_dosing_on?: number | null;
             /** Co2 Dosing Minutes Since Reset */
             co2_dosing_minutes_since_reset?: number | null;
+            /** Heating Energy Today Mj M2 */
+            heating_energy_today_mj_m2?: number | null;
+            /** Lighting Electricity Today Kwh M2 */
+            lighting_electricity_today_kwh_m2?: number | null;
+            /** Co2 Dosed Today Kg M2 */
+            co2_dosed_today_kg_m2?: number | null;
+            /** Heating Cost Today Eur M2 */
+            heating_cost_today_eur_m2?: number | null;
+            /** Lighting Cost Today Eur M2 */
+            lighting_cost_today_eur_m2?: number | null;
+            /** Co2 Cost Today Eur M2 */
+            co2_cost_today_eur_m2?: number | null;
+            /** Fixed Cost Today Eur M2 */
+            fixed_cost_today_eur_m2?: number | null;
             /** Irrigation Flow Duration Min */
             irrigation_flow_duration_min?: number | null;
             /** Drain Water Volume L M2 */

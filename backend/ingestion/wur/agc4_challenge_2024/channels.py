@@ -6,7 +6,14 @@ g/m3, minute, L/m2, dS/m, W/m2, J/cm2, m/s) - so no conversion is needed,
 only selection.
 
 Not ingested yet from the compartment files (docs/design/wur_execution_plan.md
-steps E2d-E2e): energy and cost increments, and per-sensor extras.
+step E2e): per-sensor extras. The per-pot cost columns are skipped: each is
+the per-m2 cost times the pot area.
+
+Energy and cost columns are increments over the 5 minutes ending at the row,
+per m2 of greenhouse. Cost per m2 divided by the energy column is a constant
+price (heating EUR 0.025/MJ, CO2 EUR 0.3/kg, lighting EUR 0.2-0.3/kWh), so the
+energy columns are per m2 too, even where channel_info omits the area. The
+source writes 1e-10 for zero.
 
 The `*_vip` channels are ingested as effective control values, separate from
 their setpoints: they differ far more than "value in process" suggests (CO2
@@ -118,6 +125,24 @@ CHANNELS: dict[str, ObservationType] = {
     # crop layout: recorded only on the day a density takes effect
     "dwarf_tomato/plant_density": ObservationType.PLANT_DENSITY_PER_M2,
 }
+
+# Per-interval increments, per m2. Reconstruction sums them into local-day
+# totals (domain/accumulation.py) instead of keeping the latest value.
+INCREMENT_CHANNELS: dict[str, ObservationType] = {
+    "energy/energy_use.heating": ObservationType.HEATING_ENERGY_INCREMENT_MJ_M2,
+    "energy/electricity_use.lighting": ObservationType.LIGHTING_ELECTRICITY_INCREMENT_KWH_M2,
+    "energy/co2_dosage": ObservationType.CO2_DOSED_INCREMENT_KG_M2,
+    "economics/heating_costs.per_m2": ObservationType.HEATING_COST_INCREMENT_EUR_M2,
+    "economics/lighting_costs.per_m2": ObservationType.LIGHTING_COST_INCREMENT_EUR_M2,
+    "economics/co2_costs.per_m2": ObservationType.CO2_COST_INCREMENT_EUR_M2,
+    "economics/fixed_costs.per_m2": ObservationType.FIXED_COST_INCREMENT_EUR_M2,
+}
+CHANNELS.update(INCREMENT_CHANNELS)
+
+# Channels whose positive values at or below ZERO_PLACEHOLDER_MAX are the
+# source's stand-in for zero.
+ZERO_PLACEHOLDER_CHANNELS = frozenset(INCREMENT_CHANNELS)
+ZERO_PLACEHOLDER_MAX = 1e-9
 
 # Channels whose source codes are recoded to domain values. A code that is
 # not listed is refused rather than guessed.

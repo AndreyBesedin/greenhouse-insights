@@ -655,6 +655,9 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
             co2_effective_ppm: 650,
             co2_dosing_on: 1,
             co2_dosing_minutes_since_reset: 355,
+            heating_energy_today_mj_m2: 1.5,
+            heating_cost_today_eur_m2: 0.04,
+            fixed_cost_today_eur_m2: 0.09,
           },
           harvested_total_g: 7119.65,
         },
@@ -713,6 +716,8 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     expect(screen.getByText('20 plants/m²')).toBeInTheDocument()
     expect(screen.getByText('800 ppm → 650 ppm')).toBeInTheDocument()
     expect(screen.getByText('On · 355 min since reset')).toBeInTheDocument()
+    expect(screen.getByText('1.50 MJ')).toBeInTheDocument()
+    expect(screen.getByText('€0.130')).toBeInTheDocument()
     expect(screen.getByText('7.1 kg')).toBeInTheDocument()
     // site weather is the greenhouse's, whichever compartment is shown
     expect(screen.getByText('11.4 °C')).toBeInTheDocument()

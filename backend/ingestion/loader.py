@@ -13,7 +13,7 @@ was last known, not a rounded boundary.
 from collections import defaultdict
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, tzinfo
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from itertools import islice
 
 from sqlalchemy import Engine
@@ -22,6 +22,7 @@ from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.observation_repository import ObservationRepository
 from application.persistence.state_repository import StateRepository
+from domain.accumulation import DAILY_TOTAL_FIELD, accounting_day
 from domain.enums import EventType, ObservationType
 from domain.event import Event
 from domain.observation import Observation
@@ -141,6 +142,10 @@ def reconstruct_checkpoints(
     # Latest value of each type, per scope: None is the greenhouse as a
     # whole, any other key a compartment id.
     latest: dict[str | None, dict[ObservationType, float]] = defaultdict(dict)
+    # Local-day totals of increment types, per scope, for the day recorded in
+    # totals_day; restarted when an increment from a later day arrives.
+    totals: dict[str | None, dict[str, float]] = defaultdict(dict)
+    totals_day: dict[str | None, date] = {}
     harvested_g: dict[str | None, float] = defaultdict(float)
     harvests = sorted(
         (e for e in events if e.event_type == EventType.HARVEST and e.plant_id is None),
@@ -158,19 +163,27 @@ def reconstruct_checkpoints(
                 harvest.parameters.get("harvested_mass_g", 0.0)
             )
             harvest_index += 1
-        compartment_ids = {k for k in latest if k is not None} | {
-            k for k in harvested_g if k is not None
-        }
+        compartment_ids = (
+            {k for k in latest if k is not None}
+            | {k for k in harvested_g if k is not None}
+            | {k for k in totals if k is not None}
+        )
+        snapshot_day = accounting_day(at, timezone)
+
+        def daily(scope: str | None) -> dict[str, float]:
+            # a day with no increments yet shows no totals, not yesterday's
+            return totals[scope] if totals_day.get(scope) == snapshot_day else {}
+
         return GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
             timestamp=at,
             plant_states=[],
-            environment=GreenhouseEnvironmentState.from_latest_values(latest[None]),
+            environment=GreenhouseEnvironmentState.from_latest_values(latest[None], daily(None)),
             compartments=[
                 CompartmentState(
                     compartment_id=compartment_id,
                     environment=GreenhouseEnvironmentState.from_latest_values(
-                        latest[compartment_id]
+                        latest[compartment_id], daily(compartment_id)
                     ),
                     harvested_total_g=harvested_g[compartment_id],
                 )
@@ -187,7 +200,16 @@ def reconstruct_checkpoints(
             yield snapshot(previous)
             boundary = _next_boundary(at, every, timezone)
         if observation.plant_id is None:
-            latest[observation.compartment_id][observation.observation_type] = observation.value
+            scope = observation.compartment_id
+            field = DAILY_TOTAL_FIELD.get(observation.observation_type)
+            if field is None:
+                latest[scope][observation.observation_type] = observation.value
+            else:
+                day = accounting_day(at, timezone)
+                if totals_day.get(scope) != day:
+                    totals[scope] = {}
+                    totals_day[scope] = day
+                totals[scope][field] = totals[scope].get(field, 0.0) + observation.value
         previous = at
 
     if previous is not None:

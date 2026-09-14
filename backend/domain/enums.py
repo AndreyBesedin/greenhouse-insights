@@ -74,6 +74,16 @@ class ObservationType(StrEnum):
     # minutes dosed since the controller's daily reset (not local midnight)
     CO2_DOSING_MINUTES_SINCE_RESET = "co2_dosing_minutes_since_reset"
 
+    # greenhouse-level increments per m2 over the interval ending at the
+    # timestamp; reconstructed as local-day totals (domain/accumulation.py)
+    HEATING_ENERGY_INCREMENT_MJ_M2 = "heating_energy_increment_mj_m2"
+    LIGHTING_ELECTRICITY_INCREMENT_KWH_M2 = "lighting_electricity_increment_kwh_m2"
+    CO2_DOSED_INCREMENT_KG_M2 = "co2_dosed_increment_kg_m2"
+    HEATING_COST_INCREMENT_EUR_M2 = "heating_cost_increment_eur_m2"
+    LIGHTING_COST_INCREMENT_EUR_M2 = "lighting_cost_increment_eur_m2"
+    CO2_COST_INCREMENT_EUR_M2 = "co2_cost_increment_eur_m2"
+    FIXED_COST_INCREMENT_EUR_M2 = "fixed_cost_increment_eur_m2"
+
     # greenhouse-level irrigation
     IRRIGATION_FLOW_DURATION_MIN = "irrigation_flow_duration_min"
     DRAIN_WATER_VOLUME_L_M2 = "drain_water_volume_l_m2"

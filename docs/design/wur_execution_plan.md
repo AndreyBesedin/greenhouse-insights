@@ -170,7 +170,7 @@ day as their neighbours.
     types, plus minimum pipe temperature / minimum lee window setpoints, CO2
     dosing state (source 1 on / 2 off, recoded to 1 / 0) and cumulative
     dosing minutes (resets daily around 07:40 local, not midnight).
-  - [ ] **E2d. Energy and cost increments.** `energy/*` and `economics/*` are
+  - [x] **E2d. Energy and cost increments.** `energy/*` and `economics/*` are
     per-5-minute increments with 1e-10 as a zero placeholder; daily sums are
     plausible (heating 0-1.8 MJ, lighting 0.4-1.1 kWh). Latest-value
     reconstruction is meaningless for them, so this needs an accumulating

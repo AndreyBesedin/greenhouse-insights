@@ -58,6 +58,16 @@ class GreenhouseEnvironmentState(BaseModel):
     co2_dosing_on: float | None = None
     co2_dosing_minutes_since_reset: float | None = None
 
+    # totals for the local day so far, summed from increments
+    # (domain/accumulation.py); None when nothing was recorded that day
+    heating_energy_today_mj_m2: float | None = None
+    lighting_electricity_today_kwh_m2: float | None = None
+    co2_dosed_today_kg_m2: float | None = None
+    heating_cost_today_eur_m2: float | None = None
+    lighting_cost_today_eur_m2: float | None = None
+    co2_cost_today_eur_m2: float | None = None
+    fixed_cost_today_eur_m2: float | None = None
+
     irrigation_flow_duration_min: float | None = None
     drain_water_volume_l_m2: float | None = None
     drain_ec_ds_m: float | None = None
@@ -83,10 +93,14 @@ class GreenhouseEnvironmentState(BaseModel):
 
     @classmethod
     def from_latest_values(
-        cls, latest: dict[ObservationType, float]
+        cls,
+        latest: dict[ObservationType, float],
+        daily_totals: dict[str, float] | None = None,
     ) -> "GreenhouseEnvironmentState":
         known = cls.model_fields
-        return cls(**{t.value: v for t, v in latest.items() if t.value in known})
+        values: dict[str, float] = {t.value: v for t, v in latest.items() if t.value in known}
+        values.update({field: v for field, v in (daily_totals or {}).items() if field in known})
+        return cls(**values)
 
 
 class PlantState(BaseModel):

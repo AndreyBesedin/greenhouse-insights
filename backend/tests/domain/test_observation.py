@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from domain.accumulation import DAILY_TOTAL_FIELD
 from domain.enums import ObservationType, SourceType
 from domain.observation import Observation
 from domain.provenance import RecordSource
@@ -59,8 +60,9 @@ def test_observation_type_keeps_the_plant_level_members() -> None:
 
 def test_every_greenhouse_level_observation_type_has_a_state_field() -> None:
     """The enum value is the field name on GreenhouseEnvironmentState, so a
-    reading of any greenhouse-level type lands in the reconstructed state
-    without a mapping table."""
+    reading of any greenhouse-level level type lands in the reconstructed
+    state without a mapping table. Increment types are the exception: they
+    are summed into the daily-total field domain.accumulation names."""
     plant_level = {
         ObservationType.SOIL_MOISTURE_PCT,
         ObservationType.VISIBLE_FRUIT_COUNT,
@@ -71,5 +73,9 @@ def test_every_greenhouse_level_observation_type_has_a_state_field() -> None:
     fields = GreenhouseEnvironmentState.model_fields
     for member in ObservationType:
         if member in plant_level:
+            continue
+        if member in DAILY_TOTAL_FIELD:
+            assert member.value not in fields, member
+            assert DAILY_TOTAL_FIELD[member] in fields, member
             continue
         assert member.value in fields, member

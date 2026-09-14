@@ -22,6 +22,8 @@ from ingestion.wur.agc4_challenge_2024.channels import (
     TIME_COLUMN,
     WEATHER_CHANNELS,
     WEATHER_MEMBER,
+    ZERO_PLACEHOLDER_CHANNELS,
+    ZERO_PLACEHOLDER_MAX,
 )
 from ingestion.wur.agc4_challenge_2024.compartments import GREENHOUSE_ID, Compartment
 from ingestion.wur.common.time import WUR_LOCAL_TIMEZONE, parse_offset_timestamp
@@ -122,6 +124,8 @@ def _parse(
                         f"{member}: {column} has unexpected code {raw!r} at {row[TIME_COLUMN]}"
                     )
                 value = codes[value]
+            if column in ZERO_PLACEHOLDER_CHANNELS and 0 < value <= ZERO_PLACEHOLDER_MAX:
+                value = 0.0
             yield Observation(
                 observation_id=_observation_id(scope, timestamp, observation_type.value),
                 greenhouse_id=GREENHOUSE_ID,
