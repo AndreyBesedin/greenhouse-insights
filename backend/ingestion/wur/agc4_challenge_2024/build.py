@@ -34,6 +34,7 @@ from ingestion.wur.agc4_challenge_2024.harvest import (
     read_harvest_workbook,
     sampling_observations,
 )
+from ingestion.wur.agc4_challenge_2024.spacing import spacing_events
 from ingestion.wur.agc4_challenge_2024.timeseries import (
     final_harvest_timestamp,
     parse_forecast,
@@ -77,6 +78,7 @@ def build_greenhouse(
             lines = archive.read(member).decode("utf-8").splitlines()
             compartment_observations = list(parse_timeseries(lines, compartment))
             compartment_observations.extend(sampling_observations(workbook, compartment))
+            events.extend(spacing_events(compartment_observations, compartment))
             harvested_at = final_harvest_timestamp(lines, compartment)
             date_source = HARVEST_DAY_COLUMN
             if harvested_at is None and compartment_observations:

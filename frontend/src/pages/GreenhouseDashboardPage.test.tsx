@@ -650,6 +650,7 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
             air_temperature_c: airTemperatureC,
             co2_ppm: 436,
             relative_humidity_pct: 80.5,
+            plant_density_per_m2: 20,
           },
           harvested_total_g: 7119.65,
         },
@@ -705,6 +706,7 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
     expect(await screen.findByText('Recorded history')).toBeInTheDocument()
     expect(await screen.findByText('23.7 °C')).toBeInTheDocument()
     expect(screen.getByText('436 ppm')).toBeInTheDocument()
+    expect(screen.getByText('20 plants/m²')).toBeInTheDocument()
     expect(screen.getByText('7.1 kg')).toBeInTheDocument()
     // site weather is the greenhouse's, whichever compartment is shown
     expect(screen.getByText('11.4 °C')).toBeInTheDocument()

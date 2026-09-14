@@ -50,6 +50,8 @@ class GreenhouseEnvironmentState(BaseModel):
     sampled_fruit_count_per_plant: float | None = None
     sampled_fruit_fresh_weight_g_per_plant: float | None = None
 
+    plant_density_per_m2: float | None = None
+
     # site weather: only ever set on the greenhouse-level environment
     outside_air_temperature_c: float | None = None
     outside_relative_humidity_pct: float | None = None

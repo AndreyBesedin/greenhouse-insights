@@ -63,6 +63,9 @@ class ObservationType(StrEnum):
     SAMPLED_FRUIT_COUNT_PER_PLANT = "sampled_fruit_count_per_plant"
     SAMPLED_FRUIT_FRESH_WEIGHT_G_PER_PLANT = "sampled_fruit_fresh_weight_g_per_plant"
 
+    # compartment crop layout
+    PLANT_DENSITY_PER_M2 = "plant_density_per_m2"
+
     # site weather outside the greenhouse (no compartment)
     OUTSIDE_AIR_TEMPERATURE_C = "outside_air_temperature_c"
     OUTSIDE_RELATIVE_HUMIDITY_PCT = "outside_relative_humidity_pct"
@@ -88,6 +91,8 @@ class EventType(StrEnum):
     PRUNING = "PRUNING"
     FERTILISATION = "FERTILISATION"
     MANUAL_INSPECTION = "MANUAL_INSPECTION"
+    # plants re-spaced to a different density (a whole compartment at once)
+    SPACING = "SPACING"
 
 
 class EventSource(StrEnum):

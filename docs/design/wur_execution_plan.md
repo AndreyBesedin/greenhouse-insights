@@ -156,7 +156,7 @@ day as their neighbours.
     matching each team's final row. Use that instant for the HARVEST event
     (`date_source` names the column) instead of "end of recording", and
     refuse a day number that disagrees with its row.
-  - [ ] **E2b. Spacing.** `dwarf_tomato/plant_density` changes 56 → 42 → 30 →
+  - [x] **E2b. Spacing.** `dwarf_tomato/plant_density` changes 56 → 42 → 30 →
     20 plants/m2 at local midnight on team-specific dates (`pot_area` is its
     reciprocal and is skipped). A density observation per row plus a SPACING
     event per change.

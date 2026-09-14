@@ -236,6 +236,10 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
                     'Fresh weight per sampled plant',
                     formatReading(environment.sampled_fruit_fresh_weight_g_per_plant, 'g'),
                   ],
+                  [
+                    'Plant density',
+                    formatReading(environment.plant_density_per_m2, 'plants/m²', 0),
+                  ],
                   ['Harvested total', formatMass(harvestedG)],
                   ...(compartments.length > 0
                     ? ([['Whole greenhouse harvested', formatMass(state.total_harvested_g)]] as [

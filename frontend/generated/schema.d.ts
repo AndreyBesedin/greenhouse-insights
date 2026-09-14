@@ -414,7 +414,7 @@ export interface components {
          * EventType
          * @enum {string}
          */
-        EventType: "WATERING" | "HARVEST" | "LOWERING" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION";
+        EventType: "WATERING" | "HARVEST" | "LOWERING" | "PRUNING" | "FERTILISATION" | "MANUAL_INSPECTION" | "SPACING";
         /** Greenhouse */
         Greenhouse: {
             /** Greenhouse Id */
@@ -505,6 +505,8 @@ export interface components {
             sampled_fruit_count_per_plant?: number | null;
             /** Sampled Fruit Fresh Weight G Per Plant */
             sampled_fruit_fresh_weight_g_per_plant?: number | null;
+            /** Plant Density Per M2 */
+            plant_density_per_m2?: number | null;
             /** Outside Air Temperature C */
             outside_air_temperature_c?: number | null;
             /** Outside Relative Humidity Pct */

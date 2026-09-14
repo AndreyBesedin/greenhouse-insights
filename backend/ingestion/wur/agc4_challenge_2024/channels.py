@@ -6,11 +6,12 @@ g/m3, minute, L/m2, dS/m, W/m2, J/cm2, m/s) - so no conversion is needed,
 only selection.
 
 Not ingested yet from the compartment files (docs/design/wur_execution_plan.md
-steps E2b-E2e): plant density, the `*_vip` effective setpoints (which differ
-from their setpoints far more than the name suggests), CO2 dosing state and
-counters, minimum pipe / window setpoints, energy and cost increments, and
-per-sensor extras. `dwarf_tomato/harvest_date` is read separately, as the
-final-harvest instant (timeseries.final_harvest_timestamp).
+steps E2c-E2e): the `*_vip` effective setpoints (which differ from their
+setpoints far more than the name suggests), CO2 dosing state and counters,
+minimum pipe / window setpoints, energy and cost increments, and per-sensor
+extras. `dwarf_tomato/harvest_date` is read separately, as the final-harvest
+instant (timeseries.final_harvest_timestamp); `dwarf_tomato/pot_area` is
+skipped as the exact reciprocal of plant density.
 
 Deliberately not ingested from the site files, both for temporal honesty
 (docs/design/wur_real_data_ingestion_replay_plan.md sections 10-11), as
@@ -77,6 +78,8 @@ CHANNELS: dict[str, ObservationType] = {
     "compartment/water_drain/water_volume": ObservationType.DRAIN_WATER_VOLUME_L_M2,
     "compartment/water_drain/ec": ObservationType.DRAIN_EC_DS_M,
     "compartment/water_drain/ph": ObservationType.DRAIN_PH,
+    # crop layout: recorded only on the day a density takes effect
+    "dwarf_tomato/plant_density": ObservationType.PLANT_DENSITY_PER_M2,
 }
 
 WEATHER_CHANNELS: dict[str, ObservationType] = {
