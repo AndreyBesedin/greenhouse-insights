@@ -19,7 +19,6 @@ Deliberately not ingested: `par1`-`par4`, PAR per light-treatment zone - zones
 inside the compartment, which need the spatial region model - and `ligth_on`,
 which the Info sheet does not document and which is fractional."""
 
-import math
 from collections.abc import Iterator
 from typing import IO
 
@@ -30,6 +29,7 @@ from domain.observation import Observation
 from domain.provenance import RecordSource
 from ingestion.wur.agc4_pretrial_2023 import SOURCE_ID
 from ingestion.wur.agc4_pretrial_2023.compartments import COMPARTMENT_ID, GREENHOUSE_ID
+from ingestion.wur.common.cells import number_cell
 from ingestion.wur.common.time import matlab_datenum_to_utc
 
 SHEET = "weather_climate"
@@ -84,11 +84,11 @@ def parse_climate(source: IO[bytes]) -> Iterator[Observation]:
             values = [
                 (observation_type, compartment_id, scope, value)
                 for index, observation_type, compartment_id, scope in mapped
-                if (value := _number(row, index)) is not None
+                if (value := number_cell(row, index)) is not None
             ]
             if not values:
                 continue
-            datenum = _number(row, datenum_index)
+            datenum = number_cell(row, datenum_index)
             if datenum is None:
                 raise ValueError(f"{SHEET}: a row with readings has no datenum")
             timestamp = matlab_datenum_to_utc(datenum)
@@ -106,20 +106,3 @@ def parse_climate(source: IO[bytes]) -> Iterator[Observation]:
                 )
     finally:
         workbook.close()
-
-
-def _number(row: tuple[object, ...], index: int) -> float | None:
-    """A numeric cell, or None for an empty or NaN one. Any other text is
-    refused: it would mean the column is not what the map assumes."""
-    if index >= len(row):
-        return None
-    cell = row[index]
-    if cell is None or isinstance(cell, bool):
-        return None
-    if isinstance(cell, int | float):
-        return None if math.isnan(cell) else float(cell)
-    text = str(cell).strip()
-    if text == "" or text.lower() == "nan":
-        return None
-    value = float(text)
-    return None if math.isnan(value) else value

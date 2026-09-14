@@ -3,13 +3,13 @@ number. Its light treatments (high, medium, low, no light) are zones of tables
 inside that compartment, not compartments of their own: they share one
 climate."""
 
-from domain.greenhouse import Compartment
+from domain.greenhouse import Compartment, Plant
 
 GREENHOUSE_ID = "wur_agc4_2023"
 COMPARTMENT_ID = "pretrial"
 
 
-def compartment() -> Compartment:
+def compartment(plants: list[Plant] | None = None) -> Compartment:
     return Compartment(
         compartment_id=COMPARTMENT_ID,
         name="Pre-trial compartment",
@@ -18,4 +18,5 @@ def compartment() -> Compartment:
             "number. Tables under four light treatments (high, medium, low, no light) and "
             "two EC levels."
         ),
+        plants=plants or [],
     )

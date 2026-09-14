@@ -28,6 +28,17 @@ class ObservationType(StrEnum):
     ESTIMATED_RIPE_MASS_G = "estimated_ripe_mass_g"
     VISIBLE_HEIGHT_CM = "visible_height_cm"
 
+    # plant-level manual measurements (ruler and visual counts)
+    PLANT_HEIGHT_CM = "plant_height_cm"
+    LEAF_COUNT = "leaf_count"
+    LEAF_LENGTH_CM = "leaf_length_cm"
+    LEAF_WIDTH_CM = "leaf_width_cm"
+    TRUSS_COUNT = "truss_count"
+    # counts over the plant's oldest five trusses; red fruit is RIPE_FRUIT_COUNT
+    OPEN_FLOWER_COUNT = "open_flower_count"
+    GREEN_FRUIT_COUNT = "green_fruit_count"
+    COLOURED_FRUIT_COUNT = "coloured_fruit_count"
+
     # greenhouse-level climate
     AIR_TEMPERATURE_C = "air_temperature_c"
     RELATIVE_HUMIDITY_PCT = "relative_humidity_pct"

@@ -129,8 +129,8 @@ and reconstructed state the simulator produces, with checksummed provenance
 back to the 4TU source files. The 2024 challenge is one greenhouse with six
 dwarf-tomato compartments: 5-minute climate, setpoints and effective control
 values, irrigation, spacing, energy and costs, site weather and harvests. The
-2023 pre-trial contributes its climate record so far. Crop measurements,
-imagery, perception, replay-time recommendations and temporal backtesting are
+2023 pre-trial contributes its climate record and weekly measurements of 40
+labelled plants. Plant-level replay, imagery, perception, replay-time recommendations and temporal backtesting are
 the next steps ([plan](docs/design/wur_execution_plan.md)).
 
 ### 5. Learn from real operations
@@ -221,8 +221,8 @@ The 2024 dataset is one greenhouse (`wur_agc4_2024`) with six compartments.
 `tiny` builds compartment 3.06 only; `dev` builds all six. `load` takes
 `--compartment` (repeatable) to load a subset.
 The 2023 pre-trial (`agc4-2023`) is one greenhouse (`wur_agc4_2023`) with a
-single compartment; its climate workbook imports with the same `prepare` and
-`load` commands, without `--compartment`. `tiny` and `dev` never download
+single compartment; its climate and crop-measurement workbooks import with the
+same `prepare` and `load` commands, without `--compartment`. `tiny` and `dev` never download
 the image archives (about 43 GB across both datasets); `--profile full` does.
 The imported greenhouse then appears in the greenhouse list as recorded history.
 

@@ -10,3 +10,4 @@ DATASET = AGC4_PRETRIAL_2023
 SOURCE_ID = DATASET.id
 TIMESERIES_ARTIFACT = "4th_autonomous_greenhouse_challenge_dwarf_tomato_pretrial_Timeseries.zip"
 CLIMATE_MEMBER = "ClimateTimeseries.xlsx"
+CROP_MEMBER = "CropMeasurements.xlsx"

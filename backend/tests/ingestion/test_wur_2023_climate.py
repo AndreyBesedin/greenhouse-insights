@@ -10,7 +10,7 @@ from domain.enums import ObservationType, SourceType
 from ingestion.manifests import load_manifest
 from ingestion.storage.layout import DataDirectory
 from ingestion.storage.resolver import ArtifactResolver
-from ingestion.wur.agc4_pretrial_2023 import CLIMATE_MEMBER, TIMESERIES_ARTIFACT
+from ingestion.wur.agc4_pretrial_2023 import CLIMATE_MEMBER, CROP_MEMBER, TIMESERIES_ARTIFACT
 from ingestion.wur.agc4_pretrial_2023.build import build_greenhouse
 from ingestion.wur.agc4_pretrial_2023.climate import parse_climate
 from ingestion.wur.agc4_pretrial_2023.compartments import COMPARTMENT_ID, GREENHOUSE_ID
@@ -124,6 +124,7 @@ def test_build_writes_one_greenhouse_with_its_single_compartment(tmp_path: Path)
     path.parent.mkdir(parents=True)
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(CLIMATE_MEMBER, _workbook(*ROWS))
+        archive.writestr(CROP_MEMBER, _empty_crop_workbook())
     # the fixture is not the real artifact: pre-mark it verified
     path.with_name(path.name + ".md5-verified").write_text(artifact.md5 + "\n")
 
@@ -136,4 +137,24 @@ def test_build_writes_one_greenhouse_with_its_single_compartment(tmp_path: Path)
     assert [c.compartment_id for c in greenhouse.compartments] == [COMPARTMENT_ID]
     assert greenhouse.created_at == datetime(2023, 9, 5, 10, tzinfo=UTC)
     assert first.provenance().observation_count == 7
-    assert [s.member for s in first.provenance().sources] == [CLIMATE_MEMBER]
+    assert [s.member for s in first.provenance().sources] == [CLIMATE_MEMBER, CROP_MEMBER]
+    assert greenhouse.compartments[0].plants == []
+
+
+def _empty_crop_workbook() -> bytes:
+    """A crop-measurement workbook with the expected columns and no plants."""
+    book = openpyxl.Workbook()
+    sheet = book.active
+    assert sheet is not None
+    sheet.title = "All data"
+    identity = ["Date", "Week", "# on label", "Variety", "Corrected EC", "Light", "field"]
+    single = ["Plant repetition#", "Plantheigth", "# leaves", "leaf length", "leaf width"]
+    trusses = [
+        f"# {kind} trus{t}"
+        for t in range(1, 6)
+        for kind in ("flowering", "set", "yellow", "orange", "red")
+    ]
+    sheet.append(identity + single + trusses + ["#trusses"])
+    buffer = BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()

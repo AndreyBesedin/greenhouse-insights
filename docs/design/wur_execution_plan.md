@@ -194,10 +194,29 @@ day as their neighbours.
   `ligth_on` is undocumented and fractional, so it is skipped. The
   destructive-harvest Info sheet lists density periods (48, 36, 25, 20
   plants/m2, with 29 September - 9 October unstated) for E4-E5.
-- [ ] **E4. 2023 crop measurements.** Weekly per-labelled-plant readings from
-  `CropMeasurements.xlsx` become plant-level observations, so the
-  plant-centric state and UI get their first real data. Plants are created
-  from the label ids and treatment columns.
+- **E4. 2023 crop measurements.** `CropMeasurements.xlsx`, profiled on
+  2026-09-14: 40 labelled plants (41-80) measured on nine weekly dates (6
+  September - 1 November 2023), each in one of eight treatment fields (Cherry,
+  EC3/EC6 x high/medium/low/no light) with repetition 1-5; `All data` agrees
+  with the per-week sheets.
+  - [x] **E4a. Plants and plant observations.** Plants from labels, with the
+    dataset's field and repetition numbers as row / position and the
+    treatment as zone. Label 47's measurement plant was replaced in week 40
+    (a recorded note), so from then on it is a separate plant. Height, leaf
+    count and size, truss count, and flower / green / coloured / red counts
+    over the oldest five trusses become plant-level observations at local
+    noon. Counts are summed from measured cells only: the sheet's own sums
+    treat blanks as zero (86 rows with no flowering cell show 0), and
+    coloured and red counts exist only where yellow / orange / red were
+    measured (weeks 43-44). On the real archive: 41 plants (label 47 split),
+    1,954 plant observations, and every computed count equals the sheet's own
+    sum wherever cells were measured; where none was, the sheet shows 0 and
+    nothing is emitted.
+  - [ ] **E4b. Plant state in recorded replay.** The loader reconstructs a
+    PlantState per plant per checkpoint from its latest manual readings, with
+    a health rule that fits weekly manual data rather than the simulator's.
+  - [ ] **E4c. Plant table on the recorded dashboard.** Per compartment,
+    plants with treatment and latest measurements, and a plant's history.
 - [ ] **E5. 2023 destructive harvests** as HARVEST events with per-sample
   parameters.
 

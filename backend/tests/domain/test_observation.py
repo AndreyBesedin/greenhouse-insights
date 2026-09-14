@@ -69,6 +69,14 @@ def test_every_greenhouse_level_observation_type_has_a_state_field() -> None:
         ObservationType.RIPE_FRUIT_COUNT,
         ObservationType.ESTIMATED_RIPE_MASS_G,
         ObservationType.VISIBLE_HEIGHT_CM,
+        ObservationType.PLANT_HEIGHT_CM,
+        ObservationType.LEAF_COUNT,
+        ObservationType.LEAF_LENGTH_CM,
+        ObservationType.LEAF_WIDTH_CM,
+        ObservationType.TRUSS_COUNT,
+        ObservationType.OPEN_FLOWER_COUNT,
+        ObservationType.GREEN_FRUIT_COUNT,
+        ObservationType.COLOURED_FRUIT_COUNT,
     }
     fields = GreenhouseEnvironmentState.model_fields
     for member in ObservationType:
