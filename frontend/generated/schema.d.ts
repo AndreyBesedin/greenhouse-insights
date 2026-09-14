@@ -345,6 +345,29 @@ export interface components {
          * @enum {string}
          */
         ApprovalSource: "HUMAN";
+        /**
+         * Compartment
+         * @description A physically separate growing space inside a greenhouse, with its own
+         *     climate and control: a WUR trial compartment, a research cell, a
+         *     section behind its own screens. Readings, events and state can be
+         *     scoped to a compartment; a greenhouse with no compartments (the
+         *     simulator today) scopes everything to the greenhouse itself
+         *     (docs/design/wur_real_data_ingestion_replay_plan.md section 7,
+         *     docs/design/wur_execution_plan.md track D).
+         */
+        Compartment: {
+            /** Compartment Id */
+            compartment_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Plants */
+            plants?: components["schemas"]["Plant"][];
+        };
         /** CreateGreenhouseRequest */
         CreateGreenhouseRequest: {
             /** Name */
@@ -387,6 +410,8 @@ export interface components {
             layout: components["schemas"]["GreenhouseLayout"];
             /** Plants */
             plants: components["schemas"]["Plant"][];
+            /** Compartments */
+            compartments?: components["schemas"]["Compartment"][];
             /**
              * Created At
              * Format: date-time

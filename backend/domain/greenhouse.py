@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from domain.enums import SourceType
 
@@ -29,6 +29,23 @@ class GreenhouseLayout(BaseModel):
     columns: int = Field(ge=0)
 
 
+class Compartment(BaseModel):
+    """A physically separate growing space inside a greenhouse, with its own
+    climate and control: a WUR trial compartment, a research cell, a
+    section behind its own screens. Readings, events and state can be
+    scoped to a compartment; a greenhouse with no compartments (the
+    simulator today) scopes everything to the greenhouse itself
+    (docs/design/wur_real_data_ingestion_replay_plan.md section 7,
+    docs/design/wur_execution_plan.md track D)."""
+
+    compartment_id: str  # unique within its greenhouse, e.g. "3.06"
+    name: str
+    description: str = ""
+    # Individually identified plants in this compartment, when the source
+    # knows them; empty when it only observes the compartment as a whole.
+    plants: list[Plant] = Field(default_factory=list)
+
+
 class Greenhouse(BaseModel):
     greenhouse_id: str
     name: str
@@ -37,10 +54,43 @@ class Greenhouse(BaseModel):
     # The crop grown, independent of whether individual plants are known.
     crop: str | None = None
     layout: GreenhouseLayout
+    # Plants not assigned to any compartment (the simulator's grid).
     plants: list[Plant]
+    compartments: list[Compartment] = Field(default_factory=list)
     created_at: datetime
     current_state_timestamp: datetime | None = None
     latest_available_timestamp: datetime | None = None
+
+    @model_validator(mode="after")
+    def _identities_are_unique(self) -> "Greenhouse":
+        compartment_ids = [c.compartment_id for c in self.compartments]
+        duplicates = _duplicates(compartment_ids)
+        if duplicates:
+            raise ValueError(f"duplicate compartment ids: {sorted(duplicates)}")
+        plant_ids = [p.plant_id for p in self.all_plants]
+        duplicates = _duplicates(plant_ids)
+        if duplicates:
+            raise ValueError(f"duplicate plant ids: {sorted(duplicates)}")
+        return self
+
+    @property
+    def all_plants(self) -> list[Plant]:
+        """Every plant in the greenhouse, unassigned ones first, then
+        compartment by compartment in declaration order."""
+        return [*self.plants, *(p for c in self.compartments for p in c.plants)]
+
+    def compartment(self, compartment_id: str) -> Compartment | None:
+        return next((c for c in self.compartments if c.compartment_id == compartment_id), None)
+
+
+def _duplicates(values: list[str]) -> set[str]:
+    seen: set[str] = set()
+    repeated: set[str] = set()
+    for value in values:
+        if value in seen:
+            repeated.add(value)
+        seen.add(value)
+    return repeated
 
 
 def build_grid_plants(greenhouse_id: str, variety: str, rows: int, columns: int) -> list[Plant]:

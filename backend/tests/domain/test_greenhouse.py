@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from domain.enums import SourceType
-from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
+from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
 
 FORBIDDEN_SIMULATION_FIELDS = {
     "status",
@@ -89,3 +89,60 @@ def test_greenhouse_state_timestamps_default_to_none() -> None:
 
 def test_greenhouse_model_has_no_simulation_specific_fields() -> None:
     assert set(Greenhouse.model_fields).isdisjoint(FORBIDDEN_SIMULATION_FIELDS)
+
+
+def _plant(plant_id: str) -> Plant:
+    return Plant(plant_id=plant_id, variety="dwarf_tomato", row=1, position_in_row=1)
+
+
+def test_greenhouse_has_no_compartments_by_default() -> None:
+    greenhouse = _make_greenhouse()
+
+    assert greenhouse.compartments == []
+    assert greenhouse.compartment("3.06") is None
+    assert greenhouse.all_plants == greenhouse.plants
+
+
+def test_compartments_are_looked_up_by_id_and_can_hold_their_own_plants() -> None:
+    reference = Compartment(
+        compartment_id="3.06", name="Reference", plants=[_plant("p_306_1"), _plant("p_306_2")]
+    )
+    trigger = Compartment(compartment_id="3.08", name="Trigger", description="team Trigger")
+    greenhouse = _make_greenhouse(plants=[], compartments=[reference, trigger])
+
+    assert greenhouse.compartment("3.06") is reference
+    assert greenhouse.compartment("3.08") is trigger
+    assert trigger.plants == []
+    assert [p.plant_id for p in greenhouse.all_plants] == ["p_306_1", "p_306_2"]
+
+
+def test_all_plants_lists_unassigned_plants_before_compartment_plants() -> None:
+    greenhouse = _make_greenhouse(
+        plants=[_plant("loose")],
+        compartments=[
+            Compartment(compartment_id="a", name="A", plants=[_plant("a1")]),
+            Compartment(compartment_id="b", name="B", plants=[_plant("b1")]),
+        ],
+    )
+
+    assert [p.plant_id for p in greenhouse.all_plants] == ["loose", "a1", "b1"]
+
+
+def test_compartment_ids_must_be_unique_within_a_greenhouse() -> None:
+    with pytest.raises(ValidationError, match="duplicate compartment ids.*3.06"):
+        _make_greenhouse(
+            compartments=[
+                Compartment(compartment_id="3.06", name="one"),
+                Compartment(compartment_id="3.06", name="two"),
+            ]
+        )
+
+
+def test_plant_ids_must_be_unique_across_the_whole_greenhouse() -> None:
+    with pytest.raises(ValidationError, match="duplicate plant ids.*plant_001"):
+        _make_greenhouse(
+            plants=[_plant("plant_001")],
+            compartments=[
+                Compartment(compartment_id="3.06", name="one", plants=[_plant("plant_001")])
+            ],
+        )
