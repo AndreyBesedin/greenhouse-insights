@@ -5,6 +5,7 @@ from domain.enums import EventType, ObservationType, PlantHealth
 from domain.event import Event
 from domain.observation import Observation
 from domain.state import (
+    CompartmentState,
     EnvironmentState,
     GreenhouseEnvironmentState,
     GreenhouseState,
@@ -92,12 +93,41 @@ def reconstruct_plant_state(
 def reconstruct_greenhouse_environment(
     observations: list[Observation],
 ) -> GreenhouseEnvironmentState:
-    """The latest greenhouse-level reading of each type (plant_id None).
-    Pure over the observations it is given: a caller enforcing "as of T"
-    passes only observations at or before T."""
+    """The latest greenhouse-level reading of each type: no plant and no
+    compartment named. Pure over the observations it is given: a caller
+    enforcing "as of T" passes only observations at or before T."""
     return GreenhouseEnvironmentState.from_latest_values(
-        latest_values_by_type(obs for obs in observations if obs.plant_id is None)
+        latest_values_by_type(
+            obs for obs in observations if obs.plant_id is None and obs.compartment_id is None
+        )
     )
+
+
+def reconstruct_compartment_states(
+    observations: list[Observation], events: list[Event]
+) -> list[CompartmentState]:
+    """One CompartmentState per compartment that any observation or event
+    names, in compartment-id order: its latest compartment-level reading
+    of each type and its whole-compartment harvests."""
+    compartment_ids = {obs.compartment_id for obs in observations if obs.compartment_id} | {
+        event.compartment_id for event in events if event.compartment_id
+    }
+    return [
+        CompartmentState(
+            compartment_id=compartment_id,
+            environment=GreenhouseEnvironmentState.from_latest_values(
+                latest_values_by_type(
+                    obs
+                    for obs in observations
+                    if obs.compartment_id == compartment_id and obs.plant_id is None
+                )
+            ),
+            harvested_total_g=_whole_harvested_g(
+                event for event in events if event.compartment_id == compartment_id
+            ),
+        )
+        for compartment_id in sorted(compartment_ids)
+    ]
 
 
 def latest_values_by_type(observations: Iterable[Observation]) -> dict[ObservationType, float]:
@@ -111,7 +141,11 @@ def latest_values_by_type(observations: Iterable[Observation]) -> dict[Observati
 
 def greenhouse_harvested_total_g(events: list[Event]) -> float:
     """Mass harvested from the greenhouse as a whole - HARVEST events that
-    name no plant (a recorded compartment harvest)."""
+    name neither a plant nor a compartment."""
+    return _whole_harvested_g(event for event in events if event.compartment_id is None)
+
+
+def _whole_harvested_g(events: Iterable[Event]) -> float:
     return sum(
         float(event.parameters.get("harvested_mass_g", 0.0))
         for event in events
@@ -132,6 +166,7 @@ def reconstruct_greenhouse_state(
         timestamp=timestamp,
         plant_states=plant_states,
         environment=reconstruct_greenhouse_environment(observations or []),
+        compartments=reconstruct_compartment_states(observations or [], events or []),
         greenhouse_harvested_g=greenhouse_harvested_total_g(events or []),
     )
 

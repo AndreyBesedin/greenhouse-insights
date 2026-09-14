@@ -61,6 +61,8 @@ class GreenhouseEnvironmentState(BaseModel):
 class PlantState(BaseModel):
     plant_id: str
     greenhouse_id: str
+    # The compartment the plant stands in, when the greenhouse has them.
+    compartment_id: str | None = None
     timestamp: datetime
     health: PlantHealth
     latest_soil_moisture_pct: float | None = None
@@ -74,6 +76,19 @@ class PlantState(BaseModel):
     provenance: Provenance = Provenance.DETERMINISTICALLY_DERIVED
 
 
+class CompartmentState(BaseModel):
+    """The reconstructed state of one compartment at the snapshot's instant:
+    its own climate / control readings and what has been harvested from it
+    as a whole. Its plants are the GreenhouseState's plant_states carrying
+    this compartment_id - kept in one flat list so the per-plant views need
+    no second lookup."""
+
+    compartment_id: str
+    environment: GreenhouseEnvironmentState = GreenhouseEnvironmentState()
+    # Harvests recorded for the compartment as a whole (no plant named).
+    harvested_total_g: float = 0.0
+
+
 class GreenhouseState(BaseModel):
     """A reconstructed snapshot of the whole greenhouse at one instant.
 
@@ -85,16 +100,23 @@ class GreenhouseState(BaseModel):
 
     greenhouse_id: str
     timestamp: datetime
+    # Readings scoped to the greenhouse as a whole (no compartment).
     environment: GreenhouseEnvironmentState = GreenhouseEnvironmentState()
+    # One entry per compartment that has any reconstructed state, in
+    # compartment-id order; empty for a compartment-less greenhouse.
+    compartments: list[CompartmentState] = []
     plant_states: list[PlantState]
     plants_healthy: int
     plants_monitor: int
     plants_action_required: int
     total_ripe_mass_g: float = 0.0
     # Everything harvested so far: per-plant harvests plus harvests recorded
-    # for the greenhouse as a whole (a recorded dataset's compartment-level
-    # harvest events, which name no individual plant).
+    # for the greenhouse or a compartment as a whole (a recorded dataset's
+    # compartment-level harvest events, which name no individual plant).
     total_harvested_g: float = 0.0
+
+    def compartment(self, compartment_id: str) -> CompartmentState | None:
+        return next((c for c in self.compartments if c.compartment_id == compartment_id), None)
 
     @classmethod
     def aggregate(
@@ -104,12 +126,15 @@ class GreenhouseState(BaseModel):
         timestamp: datetime,
         plant_states: list[PlantState],
         environment: GreenhouseEnvironmentState | None = None,
+        compartments: list[CompartmentState] | None = None,
         greenhouse_harvested_g: float = 0.0,
     ) -> "GreenhouseState":
+        compartments = sorted(compartments or [], key=lambda c: c.compartment_id)
         return cls(
             greenhouse_id=greenhouse_id,
             timestamp=timestamp,
             environment=environment or GreenhouseEnvironmentState(),
+            compartments=compartments,
             plant_states=plant_states,
             plants_healthy=sum(1 for s in plant_states if s.health == PlantHealth.HEALTHY),
             plants_monitor=sum(1 for s in plant_states if s.health == PlantHealth.MONITOR),
@@ -118,5 +143,6 @@ class GreenhouseState(BaseModel):
             ),
             total_ripe_mass_g=sum(s.latest_estimated_ripe_mass_g or 0.0 for s in plant_states),
             total_harvested_g=greenhouse_harvested_g
+            + sum(c.harvested_total_g for c in compartments)
             + sum(s.harvested_total_g for s in plant_states),
         )

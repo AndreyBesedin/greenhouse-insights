@@ -10,6 +10,7 @@ the last observation at or before T - the exact underlying time the state
 was last known, not a rounded boundary.
 """
 
+from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
@@ -24,7 +25,7 @@ from application.persistence.state_repository import StateRepository
 from domain.enums import EventType, ObservationType
 from domain.event import Event
 from domain.observation import Observation
-from domain.state import GreenhouseEnvironmentState, GreenhouseState
+from domain.state import CompartmentState, GreenhouseEnvironmentState, GreenhouseState
 from ingestion.canonical import CanonicalGreenhouse
 
 _BATCH = 5_000
@@ -122,27 +123,45 @@ def reconstruct_checkpoints(
     Boundaries are aligned to local midnight in `timezone` for daily
     cadences (so a checkpoint is "end of that day" where the greenhouse
     stands), and to `every` multiples within the day otherwise."""
-    latest: dict[ObservationType, float] = {}
+    # Latest value of each type, per scope: None is the greenhouse as a
+    # whole, any other key a compartment id.
+    latest: dict[str | None, dict[ObservationType, float]] = defaultdict(dict)
+    harvested_g: dict[str | None, float] = defaultdict(float)
     harvests = sorted(
         (e for e in events if e.event_type == EventType.HARVEST and e.plant_id is None),
         key=lambda e: e.timestamp,
     )
-    harvested_g = 0.0
     harvest_index = 0
     boundary: datetime | None = None
     previous: datetime | None = None
 
     def snapshot(at: datetime) -> GreenhouseState:
-        nonlocal harvested_g, harvest_index
+        nonlocal harvest_index
         while harvest_index < len(harvests) and harvests[harvest_index].timestamp <= at:
-            harvested_g += float(harvests[harvest_index].parameters.get("harvested_mass_g", 0.0))
+            harvest = harvests[harvest_index]
+            harvested_g[harvest.compartment_id] += float(
+                harvest.parameters.get("harvested_mass_g", 0.0)
+            )
             harvest_index += 1
+        compartment_ids = {k for k in latest if k is not None} | {
+            k for k in harvested_g if k is not None
+        }
         return GreenhouseState.aggregate(
             greenhouse_id=greenhouse_id,
             timestamp=at,
             plant_states=[],
-            environment=GreenhouseEnvironmentState.from_latest_values(latest),
-            greenhouse_harvested_g=harvested_g,
+            environment=GreenhouseEnvironmentState.from_latest_values(latest[None]),
+            compartments=[
+                CompartmentState(
+                    compartment_id=compartment_id,
+                    environment=GreenhouseEnvironmentState.from_latest_values(
+                        latest[compartment_id]
+                    ),
+                    harvested_total_g=harvested_g[compartment_id],
+                )
+                for compartment_id in sorted(compartment_ids)
+            ],
+            greenhouse_harvested_g=harvested_g[None],
         )
 
     for observation in observations:
@@ -152,7 +171,8 @@ def reconstruct_checkpoints(
         elif at > boundary and previous is not None:
             yield snapshot(previous)
             boundary = _next_boundary(at, every, timezone)
-        latest[observation.observation_type] = observation.value
+        if observation.plant_id is None:
+            latest[observation.compartment_id][observation.observation_type] = observation.value
         previous = at
 
     if previous is not None:

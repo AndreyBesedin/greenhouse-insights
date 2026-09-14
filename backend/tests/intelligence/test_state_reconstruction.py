@@ -251,3 +251,62 @@ def test_greenhouse_state_carries_environment_and_compartment_level_harvest() ->
     assert state.environment.relative_humidity_pct == 78.5
     assert state.total_harvested_g == 1250.0
     assert state.plant_states == []
+
+
+def _compartment_obs(
+    compartment_id: str, observation_type: ObservationType, value: float
+) -> Observation:
+    return _greenhouse_obs(observation_type, value).model_copy(
+        update={
+            "observation_id": f"obs_{compartment_id}_{observation_type.value}",
+            "compartment_id": compartment_id,
+        }
+    )
+
+
+def test_compartment_readings_and_harvests_reconstruct_per_compartment() -> None:
+    harvest_306 = Event(
+        event_id="evt_harvest_306",
+        greenhouse_id="gh_001",
+        compartment_id="3.06",
+        plant_id=None,
+        timestamp=TIMESTAMP,
+        event_type=EventType.HARVEST,
+        source=EventSource.HUMAN_REPORTED,
+        parameters={"harvested_mass_g": 900.0},
+    )
+    house_harvest = harvest_306.model_copy(
+        update={
+            "event_id": "evt_house",
+            "compartment_id": None,
+            "parameters": {"harvested_mass_g": 100.0},
+        }
+    )
+
+    state = reconstruct_greenhouse_state(
+        greenhouse_id="gh_001",
+        timestamp=TIMESTAMP,
+        plant_states=[],
+        observations=[
+            _compartment_obs("3.08", ObservationType.AIR_TEMPERATURE_C, 24.0),
+            _compartment_obs("3.06", ObservationType.AIR_TEMPERATURE_C, 21.0),
+            _compartment_obs("3.06", ObservationType.CO2_PPM, 650.0),
+            _greenhouse_obs(ObservationType.RELATIVE_HUMIDITY_PCT, 70.0),
+        ],
+        events=[harvest_306, house_harvest],
+    )
+
+    assert [c.compartment_id for c in state.compartments] == ["3.06", "3.08"]
+    reference = state.compartment("3.06")
+    assert reference is not None
+    assert reference.environment.air_temperature_c == 21.0
+    assert reference.environment.co2_ppm == 650.0
+    assert reference.harvested_total_g == 900.0
+    trigger = state.compartment("3.08")
+    assert trigger is not None and trigger.environment.air_temperature_c == 24.0
+    assert trigger.harvested_total_g == 0.0
+    # compartment readings never bleed into the greenhouse-level environment
+    assert state.environment.air_temperature_c is None
+    assert state.environment.relative_humidity_pct == 70.0
+    assert state.total_harvested_g == 1000.0
+    assert state.compartment("3.07") is None

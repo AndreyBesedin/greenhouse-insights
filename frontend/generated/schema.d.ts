@@ -368,6 +368,25 @@ export interface components {
             /** Plants */
             plants?: components["schemas"]["Plant"][];
         };
+        /**
+         * CompartmentState
+         * @description The reconstructed state of one compartment at the snapshot's instant:
+         *     its own climate / control readings and what has been harvested from it
+         *     as a whole. Its plants are the GreenhouseState's plant_states carrying
+         *     this compartment_id - kept in one flat list so the per-plant views need
+         *     no second lookup.
+         */
+        CompartmentState: {
+            /** Compartment Id */
+            compartment_id: string;
+            /** @default {} */
+            environment: components["schemas"]["GreenhouseEnvironmentState"];
+            /**
+             * Harvested Total G
+             * @default 0
+             */
+            harvested_total_g: number;
+        };
         /** CreateGreenhouseRequest */
         CreateGreenhouseRequest: {
             /** Name */
@@ -547,6 +566,11 @@ export interface components {
             timestamp: string;
             /** @default {} */
             environment: components["schemas"]["GreenhouseEnvironmentState"];
+            /**
+             * Compartments
+             * @default []
+             */
+            compartments: components["schemas"]["CompartmentState"][];
             /** Plant States */
             plant_states: components["schemas"]["PlantState"][];
             /** Plants Healthy */
@@ -726,6 +750,8 @@ export interface components {
             plant_id: string;
             /** Greenhouse Id */
             greenhouse_id: string;
+            /** Compartment Id */
+            compartment_id?: string | null;
             /**
              * Timestamp
              * Format: date-time

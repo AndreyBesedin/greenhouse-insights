@@ -161,3 +161,27 @@ def test_load_window_keeps_only_records_inside_it(tmp_path: Path, engine: Engine
         ObservationType.AIR_TEMPERATURE_C,
         ObservationType.CO2_PPM,
     }
+
+
+def test_checkpoints_keep_compartment_readings_in_their_compartment() -> None:
+    observations = [
+        o.model_copy(update={"compartment_id": "3.06"})
+        for o in parse_timeseries(_csv(days=2).splitlines(), C306)
+    ]
+
+    states = list(
+        reconstruct_checkpoints(
+            C306.greenhouse_id,
+            observations,
+            [],
+            every=timedelta(days=1),
+            timezone=WUR_LOCAL_TIMEZONE,
+        )
+    )
+
+    assert len(states) == 2
+    assert states[0].environment.air_temperature_c is None
+    assert [c.compartment_id for c in states[0].compartments] == ["3.06"]
+    reference = states[1].compartment("3.06")
+    assert reference is not None
+    assert reference.environment.co2_ppm == 401.0
