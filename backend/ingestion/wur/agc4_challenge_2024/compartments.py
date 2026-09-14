@@ -1,7 +1,15 @@
 """The six 2024 compartments, from the dataset README: compartment number,
-the team that controlled it, its time-series file and its canopy camera."""
+the team that controlled it, its time-series file and its canopy camera.
+
+They are six compartments of one greenhouse (the Bleiswijk trial facility),
+not six greenhouses: the domain record is one Greenhouse, GREENHOUSE_ID,
+whose compartments these are (docs/design/wur_execution_plan.md, D5)."""
 
 from dataclasses import dataclass
+
+from domain.greenhouse import Compartment as DomainCompartment
+
+GREENHOUSE_ID = "wur_agc4_2024"
 
 
 @dataclass(frozen=True)
@@ -12,17 +20,27 @@ class Compartment:
     camera: str
 
     @property
+    def compartment_id(self) -> str:
+        return self.number
+
+    @property
     def code(self) -> str:
         """'3.06' -> '306', the form the harvest workbooks use."""
         return self.number.replace(".", "")
 
     @property
-    def greenhouse_id(self) -> str:
-        return f"wur_agc4_2024_c{self.code}"
-
-    @property
     def name(self) -> str:
-        return f"WUR AGC4 2024 · compartment {self.number} ({self.team})"
+        return f"Compartment {self.number} ({self.team})"
+
+    def to_domain(self) -> DomainCompartment:
+        return DomainCompartment(
+            compartment_id=self.compartment_id,
+            name=self.name,
+            description=(
+                f"Controlled by team {self.team} during the 2024 challenge; "
+                f"canopy RGB-D camera {self.camera}."
+            ),
+        )
 
 
 COMPARTMENTS: dict[str, Compartment] = {

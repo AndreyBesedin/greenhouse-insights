@@ -3,7 +3,11 @@ from datetime import UTC, datetime
 import pytest
 
 from domain.enums import ObservationType, SourceType
-from ingestion.wur.agc4_challenge_2024.compartments import COMPARTMENTS, compartment
+from ingestion.wur.agc4_challenge_2024.compartments import (
+    COMPARTMENTS,
+    GREENHOUSE_ID,
+    compartment,
+)
 from ingestion.wur.agc4_challenge_2024.timeseries import parse_timeseries
 from ingestion.wur.common.time import excel_serial_to_utc, local_noon, parse_offset_timestamp
 
@@ -21,7 +25,8 @@ def test_parses_mapped_channels_into_utc_greenhouse_level_observations() -> None
     observations = list(parse_timeseries(CSV.splitlines(), compartment("3.06")))
 
     first = observations[0]
-    assert first.greenhouse_id == "wur_agc4_2024_c306"
+    assert first.greenhouse_id == GREENHOUSE_ID == "wur_agc4_2024"
+    assert first.compartment_id == "3.06"
     assert first.plant_id is None
     assert first.timestamp == datetime(2024, 10, 27, 0, 55, tzinfo=UTC)
     assert first.observation_type == ObservationType.AIR_TEMPERATURE_C
@@ -60,10 +65,11 @@ def test_a_file_without_the_time_column_is_refused() -> None:
         list(parse_timeseries(["a,b", "1,2"], compartment("3.06")))
 
 
-def test_every_compartment_has_a_distinct_greenhouse_identity() -> None:
-    ids = {c.greenhouse_id for c in COMPARTMENTS.values()}
+def test_every_compartment_has_a_distinct_identity_in_the_one_greenhouse() -> None:
+    ids = {c.compartment_id for c in COMPARTMENTS.values()}
     assert len(ids) == 6
     assert compartment("3.01").code == "301"
+    assert compartment("3.06").to_domain().name == "Compartment 3.06 (Reference)"
     with pytest.raises(KeyError):
         compartment("9.99")
 

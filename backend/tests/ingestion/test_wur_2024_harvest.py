@@ -59,7 +59,8 @@ def test_samplings_become_mean_per_plant_observations_at_local_noon() -> None:
     noon_oct_22 = datetime(2024, 10, 22, 10, tzinfo=UTC)
     assert by_key[(noon_oct_22, ObservationType.SAMPLED_FRUIT_COUNT_PER_PLANT)] == 50.0
     assert all(o.plant_id is None for o in observations)
-    assert all(o.greenhouse_id == "wur_agc4_2024_c306" for o in observations)
+    assert all(o.greenhouse_id == "wur_agc4_2024" for o in observations)
+    assert all(o.compartment_id == "3.06" for o in observations)
 
 
 def test_other_compartments_samples_never_leak_in() -> None:
@@ -81,6 +82,7 @@ def test_final_harvest_is_a_greenhouse_level_event_with_declared_date_source() -
     assert event.event_type == EventType.HARVEST
     assert event.source == EventSource.HUMAN_REPORTED
     assert event.plant_id is None
+    assert event.compartment_id == "3.06"
     assert event.timestamp == recording_end
     assert event.parameters["harvested_mass_g"] == 400.0
     assert event.parameters["harvested_fruit_count"] == 60

@@ -11,7 +11,7 @@ was last known, not a rounded boundary.
 """
 
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
 from itertools import islice
@@ -59,11 +59,20 @@ def load_canonical_greenhouse(
     canonical: CanonicalGreenhouse,
     *,
     window: TimeWindow | None = None,
+    compartment_ids: Collection[str] | None = None,
     checkpoint_every: timedelta = timedelta(days=1),
     checkpoint_timezone: tzinfo = UTC,
 ) -> LoadReport:
-    """Replaces whatever the database held for this greenhouse."""
+    """Replaces whatever the database held for this greenhouse. With
+    `compartment_ids`, only records of those compartments (and records
+    scoped to the greenhouse as a whole) are loaded."""
     window = window or TimeWindow()
+
+    def selected(compartment_id: str | None) -> bool:
+        return (
+            compartment_ids is None or compartment_id is None or compartment_id in compartment_ids
+        )
+
     greenhouse = canonical.greenhouse()
     greenhouse_id = greenhouse.greenhouse_id
 
@@ -74,7 +83,9 @@ def load_canonical_greenhouse(
     events_repo.delete_for_greenhouse(greenhouse_id)
     states_repo.delete_for_greenhouse(greenhouse_id)
 
-    events = [e for e in canonical.events() if window.contains(e.timestamp)]
+    events = [
+        e for e in canonical.events() if window.contains(e.timestamp) and selected(e.compartment_id)
+    ]
     events_repo.save_many(events)
 
     snapshots = 0
@@ -91,7 +102,11 @@ def load_canonical_greenhouse(
             last = batch[-1].timestamp
             yield from batch
 
-    in_window = (o for o in canonical.observations() if window.contains(o.timestamp))
+    in_window = (
+        o
+        for o in canonical.observations()
+        if window.contains(o.timestamp) and selected(o.compartment_id)
+    )
     for state in reconstruct_checkpoints(
         greenhouse_id,
         persisted(in_window),

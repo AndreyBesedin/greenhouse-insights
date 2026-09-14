@@ -10,7 +10,7 @@ from domain.observation import Observation
 from domain.provenance import RecordSource
 from ingestion.wur.agc4_challenge_2024 import SOURCE_ID
 from ingestion.wur.agc4_challenge_2024.channels import CHANNELS, TIME_COLUMN
-from ingestion.wur.agc4_challenge_2024.compartments import Compartment
+from ingestion.wur.agc4_challenge_2024.compartments import GREENHOUSE_ID, Compartment
 from ingestion.wur.common.time import parse_offset_timestamp
 
 SOURCE = RecordSource(type=SourceType.IMPORTED_DATA, source_id=SOURCE_ID)
@@ -34,7 +34,8 @@ def parse_timeseries(lines: Iterable[str], compartment: Compartment) -> Iterator
                 continue
             yield Observation(
                 observation_id=observation_id(compartment, timestamp, observation_type.value),
-                greenhouse_id=compartment.greenhouse_id,
+                greenhouse_id=GREENHOUSE_ID,
+                compartment_id=compartment.compartment_id,
                 plant_id=None,
                 timestamp=timestamp,
                 observation_type=observation_type,

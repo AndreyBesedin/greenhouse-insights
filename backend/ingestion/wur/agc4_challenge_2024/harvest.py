@@ -6,10 +6,10 @@ compartments on one sheet each) and one final-harvest sheet per
 compartment. The dataset never shared these with the teams, so they are
 outcome ground truth, not something a controller could have seen.
 
-- an intermediate sampling becomes two greenhouse-level Observations per
+- an intermediate sampling becomes two compartment-level Observations per
   compartment (mean fruit count and mean fruit fresh weight per sampled
   plant), stamped local noon on the sheet's date;
-- the final harvest becomes one greenhouse-level HARVEST Event per
+- the final harvest becomes one compartment-level HARVEST Event per
   compartment. The workbook gives no date for it (the README: "on the
   requested date of each team"), so the caller supplies one - the
   compartment's last recorded timestamp - and the event says so in
@@ -29,7 +29,11 @@ import openpyxl
 from domain.enums import EventSource, EventType, ObservationType
 from domain.event import Event
 from domain.observation import Observation
-from ingestion.wur.agc4_challenge_2024.compartments import Compartment, compartment_by_code
+from ingestion.wur.agc4_challenge_2024.compartments import (
+    GREENHOUSE_ID,
+    Compartment,
+    compartment_by_code,
+)
 from ingestion.wur.agc4_challenge_2024.timeseries import SOURCE, observation_id
 from ingestion.wur.common.time import local_noon
 
@@ -103,7 +107,8 @@ def sampling_observations(
         for observation_type, value in values.items():
             yield Observation(
                 observation_id=observation_id(compartment, timestamp, observation_type.value),
-                greenhouse_id=compartment.greenhouse_id,
+                greenhouse_id=GREENHOUSE_ID,
+                compartment_id=compartment.compartment_id,
                 plant_id=None,
                 timestamp=timestamp,
                 observation_type=observation_type,
@@ -125,7 +130,8 @@ def final_harvest_event(
     red_weights = [p.red_fresh_weight_g for p in plants if p.red_fresh_weight_g is not None]
     return Event(
         event_id=f"wur24_c{compartment.code}_final_harvest",
-        greenhouse_id=compartment.greenhouse_id,
+        greenhouse_id=GREENHOUSE_ID,
+        compartment_id=compartment.compartment_id,
         plant_id=None,
         timestamp=harvested_at,
         event_type=EventType.HARVEST,

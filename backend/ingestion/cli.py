@@ -3,7 +3,7 @@
 
     greenhouse-data inventory wur agc4-2024 [--write]
     greenhouse-data prepare   wur agc4-2024 --profile tiny|dev|full [--compartment 3.06]
-    greenhouse-data load      wur agc4-2024 --compartment 3.06 [--from DATE] [--to DATE]
+    greenhouse-data load      wur agc4-2024 [--compartment 3.06] [--from DATE] [--to DATE]
 
 Data lives under GREENHOUSE_DATA_DIR (default ~/.greenhouse-insights/data);
 `load` writes to the application database (GREENHOUSE_DATABASE_URL, same
@@ -84,11 +84,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     load = commands.add_parser(
         "load",
-        help="load one prepared compartment into the application database with "
+        help="load the prepared greenhouse into the application database with "
         "checkpointed state snapshots (replaces any previous load of it)",
     )
     _add_wur_dataset_arguments(load)
-    load.add_argument("--compartment", choices=sorted(COMPARTMENTS), required=True)
+    load.add_argument(
+        "--compartment",
+        action="append",
+        choices=sorted(COMPARTMENTS),
+        help="only these compartments' records (default: every prepared compartment)",
+    )
     load.add_argument("--from", dest="start", type=date.fromisoformat, default=None)
     load.add_argument("--to", dest="end", type=date.fromisoformat, default=None)
     load.add_argument(
@@ -198,14 +203,15 @@ def _prepare(args: argparse.Namespace) -> int:
     numbers = args.compartment or (
         ["3.06"] if rules.profile == Profile.TINY else sorted(COMPARTMENTS)
     )
-    for number in numbers:
-        canonical = agc4_2024.build_compartment(data_dir, resolver, compartment(number))
-        provenance = canonical.provenance()
-        print(
-            f"  built  {canonical.directory} "
-            f"({provenance.observation_count:,} observations, {provenance.event_count} events, "
-            f"{provenance.first_timestamp} .. {provenance.last_timestamp})"
-        )
+    canonical = agc4_2024.build_greenhouse(
+        data_dir, resolver, [compartment(number) for number in numbers]
+    )
+    provenance = canonical.provenance()
+    print(
+        f"  built  {canonical.directory} compartments {', '.join(numbers)} "
+        f"({provenance.observation_count:,} observations, {provenance.event_count} events, "
+        f"{provenance.first_timestamp} .. {provenance.last_timestamp})"
+    )
     return 0
 
 
@@ -213,13 +219,11 @@ def _load(args: argparse.Namespace) -> int:
     dataset = _wur_dataset(args)
     _require_2024(dataset)
     data_dir = DataDirectory(args.data_dir)
-    target = compartment(args.compartment)
-    directory = agc4_2024.canonical_directory(data_dir, target)
+    directory = agc4_2024.canonical_directory(data_dir)
     if not directory.exists():
         print(
             f"no canonical data at {directory}; run "
-            f"`greenhouse-data prepare wur {dataset.cli_name} --profile tiny --compartment "
-            f"{target.number}` first"
+            f"`greenhouse-data prepare wur {dataset.cli_name} --profile tiny` first"
         )
         return 1
 
@@ -232,6 +236,7 @@ def _load(args: argparse.Namespace) -> int:
         engine,
         CanonicalGreenhouse(directory),
         window=window,
+        compartment_ids=args.compartment,
         checkpoint_every=timedelta(hours=args.checkpoint_hours),
         checkpoint_timezone=WUR_LOCAL_TIMEZONE,
     )

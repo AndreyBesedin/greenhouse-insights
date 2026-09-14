@@ -209,15 +209,17 @@ manifests are committed.
 cd backend
 # metadata only: verify the committed manifest against 4TU
 poetry run greenhouse-data inventory wur agc4-2024
-# fetch the ~6 MB time-series archive and build canonical records for one compartment
+# fetch the ~6 MB time-series archive and build canonical records (tiny: compartment 3.06)
 poetry run greenhouse-data prepare wur agc4-2024 --profile tiny
 # load two weeks of it into the app database with one state snapshot per day
-poetry run greenhouse-data load wur agc4-2024 --compartment 3.06 --from 2024-09-03 --to 2024-09-16
+poetry run greenhouse-data load wur agc4-2024 --from 2024-09-03 --to 2024-09-16
 ```
 
-`tiny` and `dev` profiles never download the image archives (about 30 GB);
-`--profile full` does. The imported compartment then appears in the
-greenhouse list as recorded history.
+The 2024 dataset is one greenhouse (`wur_agc4_2024`) with six compartments.
+`tiny` builds compartment 3.06 only; `dev` builds all six. `load` takes
+`--compartment` (repeatable) to load a subset. `tiny` and `dev` never download
+the image archives (about 43 GB across both datasets); `--profile full` does.
+The imported greenhouse then appears in the greenhouse list as recorded history.
 
 ### Agent provider
 

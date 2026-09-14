@@ -1,9 +1,11 @@
-"""Builds the canonical tier for one 2024 compartment from the raw
-time-series archive: resolve the artifact, read its members straight out
-of the zip, parse, and write deterministic canonical files."""
+"""Builds the canonical tier for the 2024 greenhouse from the raw
+time-series archive: resolve the artifact, read the selected compartments'
+members straight out of the zip, parse, and write one deterministic
+canonical greenhouse whose records carry their compartment id."""
 
 import io
 import zipfile
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,7 +22,7 @@ from ingestion.wur.agc4_challenge_2024 import (
     TIMESERIES_ARTIFACT,
     TIMESERIES_MEMBER_PREFIX,
 )
-from ingestion.wur.agc4_challenge_2024.compartments import Compartment
+from ingestion.wur.agc4_challenge_2024.compartments import COMPARTMENTS, GREENHOUSE_ID, Compartment
 from ingestion.wur.agc4_challenge_2024.harvest import (
     final_harvest_event,
     read_harvest_workbook,
@@ -37,37 +39,46 @@ def manifest() -> DatasetManifest:
     return load_manifest(DATASET.id)
 
 
-def canonical_directory(data_dir: DataDirectory, compartment: Compartment) -> Path:
-    return data_dir.canonical(manifest()) / compartment.greenhouse_id
+def canonical_directory(data_dir: DataDirectory) -> Path:
+    return data_dir.canonical(manifest()) / GREENHOUSE_ID
 
 
-def build_compartment(
-    data_dir: DataDirectory, resolver: ArtifactResolver, compartment: Compartment
+def build_greenhouse(
+    data_dir: DataDirectory, resolver: ArtifactResolver, compartments: Sequence[Compartment]
 ) -> CanonicalGreenhouse:
+    """The canonical greenhouse holding the records of `compartments`. The
+    Greenhouse record always lists all six compartments (the facility as
+    the dataset describes it); `selection` in the provenance says which of
+    them this build carries data for."""
     dataset = manifest()
     artifact = dataset.artifact(TIMESERIES_ARTIFACT)
     archive_path = resolver.resolve(dataset, artifact.name)
-
-    timeseries_member = TIMESERIES_MEMBER_PREFIX + compartment.timeseries_member
     harvest_member = TIMESERIES_MEMBER_PREFIX + HARVEST_MEMBER
-    with zipfile.ZipFile(archive_path) as archive:
-        with archive.open(timeseries_member) as raw:
-            observations = list(
-                parse_timeseries(io.TextIOWrapper(raw, encoding="utf-8"), compartment)
-            )
-        workbook = read_harvest_workbook(io.BytesIO(archive.read(harvest_member)))
 
-    observations.extend(sampling_observations(workbook, compartment))
+    observations: list[Observation] = []
     events: list[Event] = []
-    if observations:
-        recording_end = max(o.timestamp for o in observations)
-        harvest = final_harvest_event(workbook, compartment, harvested_at=recording_end)
-        if harvest is not None:
-            events.append(harvest)
+    members: list[str] = []
+    with zipfile.ZipFile(archive_path) as archive:
+        workbook = read_harvest_workbook(io.BytesIO(archive.read(harvest_member)))
+        for compartment in compartments:
+            member = TIMESERIES_MEMBER_PREFIX + compartment.timeseries_member
+            members.append(member)
+            with archive.open(member) as raw:
+                compartment_observations = list(
+                    parse_timeseries(io.TextIOWrapper(raw, encoding="utf-8"), compartment)
+                )
+            compartment_observations.extend(sampling_observations(workbook, compartment))
+            if compartment_observations:
+                recording_end = max(o.timestamp for o in compartment_observations)
+                harvest = final_harvest_event(workbook, compartment, harvested_at=recording_end)
+                if harvest is not None:
+                    events.append(harvest)
+            observations.extend(compartment_observations)
+    members.append(harvest_member)
 
     return write_canonical_greenhouse(
-        canonical_directory(data_dir, compartment),
-        greenhouse=_greenhouse(compartment, observations),
+        canonical_directory(data_dir),
+        greenhouse=_greenhouse(observations),
         observations=observations,
         events=events,
         dataset_id=dataset.id,
@@ -75,28 +86,32 @@ def build_compartment(
         adapter=ADAPTER,
         sources=[
             SourceMember(artifact=artifact.name, artifact_md5=artifact.md5, member=member)
-            for member in (timeseries_member, harvest_member)
+            for member in members
         ],
-        selection={"compartment": compartment.number, "team": compartment.team},
+        selection={
+            "compartments": [c.number for c in compartments],
+            "teams": [c.team for c in compartments],
+        },
     )
 
 
-def _greenhouse(compartment: Compartment, observations: list[Observation]) -> Greenhouse:
+def _greenhouse(observations: list[Observation]) -> Greenhouse:
     # created_at is the start of the recording so the canonical record is a
     # pure function of the source data, not of when the build ran.
     recording_start = min(o.timestamp for o in observations) if observations else datetime.now(UTC)
     return Greenhouse(
-        greenhouse_id=compartment.greenhouse_id,
-        name=compartment.name,
+        greenhouse_id=GREENHOUSE_ID,
+        name="WUR AGC4 2024",
         description=(
-            f"Recorded history of compartment {compartment.number} of the 4th Autonomous "
-            f"Greenhouse Challenge (2024), controlled by team {compartment.team}. "
-            f"Dwarf tomato; 5-minute climate, control and irrigation channels plus manual "
-            f"harvest samples. Source: WUR / 4TU, {DATASET.id}."
+            "Recorded history of the 4th Autonomous Greenhouse Challenge (2024) at the WUR "
+            "Bleiswijk facility: six dwarf-tomato compartments, each controlled by one team, "
+            "with 5-minute climate, control and irrigation channels plus manual harvest "
+            f"samples. Source: WUR / 4TU, {DATASET.id}."
         ),
         source_type=SourceType.IMPORTED_DATA,
         crop=CROP,
         layout=GreenhouseLayout(kind="compartment", rows=0, columns=0),
         plants=[],
+        compartments=[c.to_domain() for c in COMPARTMENTS.values()],
         created_at=recording_start,
     )
