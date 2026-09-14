@@ -81,8 +81,8 @@ Today the project includes:
 - deterministic evaluation against simulator ground truth;
 - ingestion of recorded real greenhouse data (the WUR Autonomous Greenhouse
   Challenge 2023 pre-trial and 2024 challenge) into the same observation /
-  state / timeline model, browsable day by day and compartment by compartment
-  in the UI;
+  state / timeline model, browsable day by day, compartment by compartment
+  and plant by plant in the UI;
 - a React + TypeScript frontend and Python + FastAPI backend.
 
 ## What is intentionally simplified
@@ -130,7 +130,7 @@ back to the 4TU source files. The 2024 challenge is one greenhouse with six
 dwarf-tomato compartments: 5-minute climate, setpoints and effective control
 values, irrigation, spacing, energy and costs, site weather and harvests. The
 2023 pre-trial contributes its climate record and weekly measurements of 40
-labelled plants. Plant-level replay, imagery, perception, replay-time recommendations and temporal backtesting are
+labelled plants, browsable plant by plant. Imagery, perception, replay-time recommendations and temporal backtesting are
 the next steps ([plan](docs/design/wur_execution_plan.md)).
 
 ### 5. Learn from real operations

@@ -222,8 +222,12 @@ day as their neighbours.
     starts on 4 October. Source values are kept as recorded, including plant
     41's height dropping from 32 to 19.5 cm on 18 October and reading 31.5 cm
     a week later.
-  - [ ] **E4c. Plant table on the recorded dashboard.** Per compartment,
+  - [x] **E4c. Plant table on the recorded dashboard.** Per compartment,
     plants with treatment and latest measurements, and a plant's history.
+    The table comes from the viewed snapshot's plant states, with no extra
+    request. Selecting a plant loads its history up to the viewed checkpoint,
+    one row per measurement date: daily snapshots repeat each weekly reading,
+    so they are collapsed by when the plant was last measured.
 - [ ] **E5. 2023 destructive harvests** as HARVEST events with per-sample
   parameters.
 

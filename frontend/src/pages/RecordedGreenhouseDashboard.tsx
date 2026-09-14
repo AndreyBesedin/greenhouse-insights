@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { AppShell } from '../components/AppShell'
 import { DayNavigator } from '../components/DayNavigator'
+import { RecordedPlants } from '../components/RecordedPlants'
 import { useGreenhouseState } from '../hooks/useGreenhouseState'
 import { useTimeline } from '../hooks/useTimeline'
 import { cn } from '../lib/utils'
@@ -65,6 +66,8 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
 
   const activeCompartmentId = selectedCompartmentId ?? compartments[0]?.compartment_id ?? null
   const activeCompartment = compartments.find((c) => c.compartment_id === activeCompartmentId)
+  // the generated schema marks a compartment's plants optional
+  const compartmentPlants = activeCompartment?.plants ?? []
   const compartmentState =
     activeCompartmentId === null
       ? null
@@ -342,6 +345,18 @@ export function RecordedGreenhouseDashboard({ detail }: { detail: GreenhouseDeta
                 ]}
               />
             </div>
+
+            {activeCompartment !== undefined && compartmentPlants.length > 0 && (
+              <RecordedPlants
+                key={activeCompartment.compartment_id}
+                greenhouseId={greenhouse.greenhouse_id}
+                plants={compartmentPlants}
+                states={state.plant_states.filter(
+                  (plantState) => plantState.compartment_id === activeCompartment.compartment_id,
+                )}
+                upTo={viewingAt}
+              />
+            )}
           </>
         )}
       </main>
