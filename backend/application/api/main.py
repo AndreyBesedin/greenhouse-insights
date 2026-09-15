@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Read before touching the database so a misconfigured deployment
     # fails fast instead of serving anything.
     app.state.auth_settings = AuthSettings.from_env()
+    app.state.authenticator = app.state.auth_settings.authenticator()
     engine = create_engine_and_tables(_database_url())
     bootstrap_greenhouses(engine)
     app.state.engine = engine

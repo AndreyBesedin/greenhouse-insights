@@ -5,15 +5,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from application.api.auth import AuthMode, AuthSettings, get_auth_settings
+from application.api.auth import AuthMode, AuthSettings, get_auth_settings, get_authenticator
 from application.api.dependencies import get_engine
 from application.api.main import app
+from application.auth.identity import DevHeaderAuthenticator, NotAuthenticated
 from application.auth.models import (
     SERRAPULSE_INTERNAL_ORGANIZATION_ID,
     Organization,
     OrganizationMembership,
     OrganizationRole,
 )
+from application.auth.oidc import OidcAuthenticator
 from application.persistence.membership_repository import MembershipRepository
 from application.persistence.organization_repository import OrganizationRepository
 from application.persistence.user_repository import UserRepository
@@ -28,6 +30,7 @@ def client(engine: Engine) -> Iterator[TestClient]:
     app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
         mode=AuthMode.DEV, platform_admin_subjects=frozenset({ADMIN_SUBJECT})
     )
+    app.dependency_overrides[get_authenticator] = lambda: DevHeaderAuthenticator()
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -114,3 +117,34 @@ def test_app_starts_in_dev_mode_and_authenticates_the_header(
     with TestClient(app) as started:
         assert started.get("/me").status_code == 401
         assert started.get("/me", headers=_as("dev-bob")).status_code == 200
+
+
+def test_oidc_mode_requires_issuer_and_audience(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREENHOUSE_AUTH_MODE", "oidc")
+    monkeypatch.delenv("GREENHOUSE_OIDC_ISSUER", raising=False)
+    monkeypatch.setenv("GREENHOUSE_OIDC_AUDIENCE", "https://api")
+
+    with pytest.raises(RuntimeError, match="GREENHOUSE_OIDC_ISSUER"):
+        AuthSettings.from_env()
+
+    monkeypatch.setenv("GREENHOUSE_OIDC_ISSUER", "http://insecure.example/")
+    with pytest.raises(RuntimeError, match="https://"):
+        AuthSettings.from_env()
+
+
+def test_oidc_mode_builds_a_bearer_token_authenticator(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREENHOUSE_AUTH_MODE", "oidc")
+    monkeypatch.setenv("GREENHOUSE_OIDC_ISSUER", "https://tenant.eu.auth0.com/")
+    monkeypatch.setenv("GREENHOUSE_OIDC_AUDIENCE", "https://api.serrapulse.example")
+    monkeypatch.setenv("GREENHOUSE_OIDC_EMAIL_CLAIM", "https://serrapulse/email")
+
+    settings = AuthSettings.from_env()
+
+    assert settings.mode == AuthMode.OIDC
+    assert settings.oidc is not None
+    assert settings.oidc.jwks_url == "https://tenant.eu.auth0.com/.well-known/jwks.json"
+    assert settings.oidc.email_claim == "https://serrapulse/email"
+    assert isinstance(settings.authenticator(), OidcAuthenticator)
+    # Without a token, an X-Dev-Subject header means nothing in this mode.
+    with pytest.raises(NotAuthenticated):
+        settings.authenticator().authenticate({"x-dev-subject": "dev-admin"})

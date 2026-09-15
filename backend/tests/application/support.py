@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Engine
 
-from application.api.auth import AuthMode, AuthSettings, get_auth_settings
+from application.api.auth import AuthMode, AuthSettings, get_auth_settings, get_authenticator
 from application.api.main import app
 from application.auth.actor import ActorContext
 from application.auth.identity import DevHeaderAuthenticator, UserResolver, actor_for
@@ -27,9 +27,11 @@ ROOT = ActorContext.user("user_root", is_platform_admin=True)
 
 
 def install_dev_auth(*, platform_admin_subjects: tuple[str, ...] = (ADMIN_SUBJECT,)) -> None:
-    app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(
+    settings = AuthSettings(
         mode=AuthMode.DEV, platform_admin_subjects=frozenset(platform_admin_subjects)
     )
+    app.dependency_overrides[get_auth_settings] = lambda: settings
+    app.dependency_overrides[get_authenticator] = lambda: DevHeaderAuthenticator()
 
 
 def as_user(subject: str) -> dict[str, str]:
