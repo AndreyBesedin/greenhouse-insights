@@ -160,6 +160,18 @@ The fake provider is deterministic and serves as a stable reference. A real prov
 
 Profiles: `tiny` (compartment 3.06, tabular only), `dev` (all six compartments, tabular only), `full` (also the ~43 GB image archives). Both datasets have adapters: 2024 for its full tabular data, 2023 for its climate record, weekly crop measurements and destructive samples. Perception, replay-time recommendations and backtesting are later phases of the plan.
 
+## Authentication and authorization
+
+Design: `docs/design/authentication_authorization_plan.md`. The shape in code:
+
+- **Tenancy model** (`application/auth/models.py`): `Organization` is the tenant boundary, `User` is a local identity keyed by the identity provider's stable subject (never by email), `OrganizationMembership` gives a user one role per organization (`VIEWER` < `EDITOR` < `ORGANIZATION_ADMIN`). Platform admin is a flag on the user, not a membership role. Every `Greenhouse` has a mandatory `organization_id`; demo, simulator and WUR-backed greenhouses belong to `SerraPulse Internal` (`org_serrapulse_internal`, created by the migration that made ownership mandatory).
+- **Authentication** (`application/auth/identity.py`, `application/api/auth.py`): an `Authenticator` turns request headers into an `AuthenticatedIdentity`; `UserResolver` maps that to the local `User`, creating it on first login and granting platform admin to subjects listed in `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` (removing a subject never revokes). `GREENHOUSE_AUTH_MODE` has no default: `dev` trusts an `X-Dev-Subject` header and is for local development and tests only. The identity-provider mode plugs in behind the same `Authenticator` protocol.
+- **Authorization** (`application/auth/actor.py`, `application/auth/authorizer.py`): routes receive an `ActorContext` from the `get_actor` dependency and hand it to the application services, which authorize every operation against the target greenhouse's organization. `GreenhouseService` is built for an actor; `SimulationService` (one long-lived instance owning locks and tasks) takes the actor per call. Repositories stay authorization-free, so calling them directly is privileged infrastructure code (bootstrap, ingestion, the simulation runner), not a product path.
+- **Responses**: no credential is `401`; a resource in an organization the actor cannot read is `404` (identifiers cannot be probed across tenants); a visible resource the actor's role cannot act on is `403`. Creating and deleting greenhouses is platform-admin only for now.
+- **Frontend**: `src/auth/` holds the session (dev subject in `localStorage`), the `SessionProvider` that loads `GET /me`, and the `RequireSession` route guard. Frontend checks are UX only.
+
+Tests: `tests/application/auth/` (rules and identity resolution), `test_greenhouse_authorization.py` and `test_simulation_authorization.py` (tenant isolation through the services alone), and the `_api_` tests (the same over HTTP). `tests/application/support.py` has the fixtures for organizations, members and greenhouses.
+
 ## Persistence and migrations
 
 Persistence uses SQLAlchemy Core against either SQLite or PostgreSQL; schema migrations use Alembic.

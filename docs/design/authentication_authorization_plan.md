@@ -4,6 +4,26 @@
 
 Design plan for introducing real authentication, multi-tenant authorization, and security-by-design application boundaries.
 
+Implementation progress (branch `auth/foundation`, September 2026):
+
+- [x] 1. Authorization domain and persistence
+- [ ] 2. Real authentication — dev-mode authentication (`X-Dev-Subject`) and the `Authenticator` boundary are in; the identity-provider mode is not
+- [x] 3. Application authorization boundary
+- [~] 4. Tenant-aware API — `GET /me`, filtered greenhouse listing and tenant-aware routes are in; membership administration and platform-admin setup endpoints are not
+- [~] 5. Frontend authorization UX — sign-in/out, session and route guard are in; organization switching and role-based mutation controls are not
+- [~] 6. Security and end-to-end tests — every listed case except the identity-provider path is covered
+
+## Decisions made during implementation
+
+- Steps 3 and 4 were built before step 2: the authorization boundary needs only an `ActorContext`, so it was proven with dev-mode identities and the identity provider becomes a thin `Authenticator` implementation rather than a prerequisite.
+- Identifiers are strings (`user_…`, `org_…`) like every other identifier in the codebase, not UUID columns.
+- `organization_id` lives on the domain `Greenhouse` model, so the invariant is visible wherever a greenhouse is constructed. Canonical dataset records written before ownership existed are read as internal.
+- `SimulationService` takes the actor per call instead of at construction: it is one long-lived instance owning per-simulation locks and background tasks.
+- A greenhouse in an organization the actor cannot read is reported as absent (`404`), not forbidden, so identifiers cannot be probed across tenants; `403` is reserved for a visible resource the actor's role cannot act on.
+- `GREENHOUSE_AUTH_MODE` has no default so a deployment that forgets to configure authentication fails to start.
+- The first platform admin is bootstrapped from `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` on login; removing a subject from the list does not revoke, revocation is an explicit operation to be added with membership administration.
+- Creating a greenhouse accepts an optional `organization_id` defaulting to the internal organization until the UI lets a platform admin pick one.
+
 ## Goals
 
 - Real user login through an external identity provider.

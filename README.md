@@ -97,7 +97,7 @@ Current simplifications include:
 - no production actuator or robot integration;
 - a single-process application architecture;
 - human-reviewed management rather than autonomous control;
-- no production authentication or multi-tenant organisation model.
+- development-mode authentication only (an external identity provider is the next step); the multi-tenant organisation model and application-level authorization are in place.
 
 ## Development path
 
@@ -183,6 +183,12 @@ poetry run uvicorn application.api.main:app --reload
 ```
 
 API: `http://localhost:8000`
+
+The API refuses to start without `GREENHOUSE_AUTH_MODE`. `.env.example` sets
+it to `dev`, where the caller names themselves in an `X-Dev-Subject` header
+and the frontend's sign-in page fills that in; list the subject you sign in
+with in `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` to be the platform admin. See
+"Authentication and authorization" in the technical reference.
 
 Native development defaults to a SQLite database created automatically at
 `backend/data/greenhouse.db`. Docker compose and the deployment run PostgreSQL;
