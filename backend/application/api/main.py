@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from application.api.routers import greenhouses, recommendations, simulations, system
+from application.api.auth import AuthSettings, install_auth_error_handlers
+from application.api.routers import greenhouses, me, recommendations, simulations, system
 from application.bootstrap import bootstrap_greenhouses
 from application.db import create_engine_and_tables
 from application.simulation_service import SimulationService
@@ -33,6 +34,9 @@ def _allowed_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Read before touching the database so a misconfigured deployment
+    # fails fast instead of serving anything.
+    app.state.auth_settings = AuthSettings.from_env()
     engine = create_engine_and_tables(_database_url())
     bootstrap_greenhouses(engine)
     app.state.engine = engine
@@ -50,6 +54,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_auth_error_handlers(app)
+app.include_router(me.router)
 app.include_router(greenhouses.router)
 app.include_router(simulations.router)
 app.include_router(recommendations.router)

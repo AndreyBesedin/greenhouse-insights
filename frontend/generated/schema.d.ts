@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current User
+         * @description The authenticated user and the organizations they can reach.
+         */
+        get: operations["get_current_user_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/greenhouses": {
         parameters: {
             query?: never;
@@ -412,6 +432,19 @@ export interface components {
             management_policy?: components["schemas"]["ManagementPolicyType"] | null;
             action_executor?: components["schemas"]["ActionExecutorType"] | null;
         };
+        /** CurrentUser */
+        CurrentUser: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Is Platform Admin */
+            is_platform_admin: boolean;
+            /** Organizations */
+            organizations: components["schemas"]["OrganizationAccess"][];
+        };
         /**
          * EventType
          * @enum {string}
@@ -779,6 +812,23 @@ export interface components {
              */
             completed_at: string;
         };
+        /** OrganizationAccess */
+        OrganizationAccess: {
+            /** Organization Id */
+            organization_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            role: components["schemas"]["OrganizationRole"] | null;
+        };
+        /**
+         * OrganizationRole
+         * @description What a member may do inside one organization, smallest first.
+         *     Each role includes everything the roles before it may do.
+         * @enum {string}
+         */
+        OrganizationRole: "VIEWER" | "EDITOR" | "ORGANIZATION_ADMIN";
         /** Plant */
         Plant: {
             /** Plant Id */
@@ -1055,6 +1105,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_current_user_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+        };
+    };
     list_greenhouses_greenhouses_get: {
         parameters: {
             query?: never;

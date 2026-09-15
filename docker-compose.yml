@@ -36,6 +36,10 @@ services:
       # Dataset tiers (raw / canonical / features) live on the volume below
       # rather than in the image's home directory.
       GREENHOUSE_DATA_DIR: /app/data
+      # Local docker compose is a development deployment; a real one sets
+      # a real mode and its identity-provider configuration.
+      GREENHOUSE_AUTH_MODE: ${GREENHOUSE_AUTH_MODE:-dev}
+      GREENHOUSE_PLATFORM_ADMIN_SUBJECTS: ${GREENHOUSE_PLATFORM_ADMIN_SUBJECTS:-dev-admin}
     volumes:
       - greenhouse_data:/app/data
     depends_on:

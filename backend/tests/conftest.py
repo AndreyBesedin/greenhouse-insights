@@ -24,6 +24,15 @@ def _fake_agent_provider_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREENHOUSE_AGENT_PROVIDER", "fake")
 
 
+@pytest.fixture(autouse=True)
+def _dev_auth_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The API refuses to start without an auth mode; tests run in dev
+    mode (identity from an X-Dev-Subject header) and never inherit a
+    developer's platform-admin bootstrap list."""
+    monkeypatch.setenv("GREENHOUSE_AUTH_MODE", "dev")
+    monkeypatch.delenv("GREENHOUSE_PLATFORM_ADMIN_SUBJECTS", raising=False)
+
+
 @pytest.fixture
 def db_path(tmp_path: Path) -> Path:
     return tmp_path / "greenhouse.db"
