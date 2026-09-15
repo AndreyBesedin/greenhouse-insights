@@ -4,14 +4,26 @@
 
 Design plan for introducing real authentication, multi-tenant authorization, and security-by-design application boundaries.
 
-Implementation progress (branch `auth/foundation`, September 2026):
+Implementation progress (on `main`, September 2026):
 
 - [x] 1. Authorization domain and persistence
-- [ ] 2. Real authentication — dev-mode authentication (`X-Dev-Subject`) and the `Authenticator` boundary are in; the identity-provider mode is not
+- [x] 2. Real authentication — dev mode (`X-Dev-Subject`) and oidc mode (bearer tokens validated against the provider's signing keys); the Auth0 tenant itself still has to be created and configured (see "Provider setup" below)
 - [x] 3. Application authorization boundary
-- [~] 4. Tenant-aware API — `GET /me`, filtered greenhouse listing and tenant-aware routes are in; membership administration and platform-admin setup endpoints are not
-- [~] 5. Frontend authorization UX — sign-in/out, session and route guard are in; organization switching and role-based mutation controls are not
-- [~] 6. Security and end-to-end tests — every listed case except the identity-provider path is covered
+- [x] 4. Tenant-aware API — `GET /me`, organizations, membership administration, platform-admin user administration, greenhouse reassignment, audit trail
+- [x] 5. Frontend authorization UX — sign-in/out in both modes, organization switcher, role-gated controls, Members and Admin pages
+- [x] 6. Security and end-to-end tests — every listed case, with the provider stood in for by a locally generated key pair
+
+## Provider setup (to do once, outside the code)
+
+In the Auth0 tenant:
+
+1. Create an **API** with an identifier such as `https://api.serrapulse.example` (this is `GREENHOUSE_OIDC_AUDIENCE` and `VITE_OIDC_AUDIENCE`); RS256 signing.
+2. Create a **Single Page Application** for the frontend; allowed callback, logout and web-origin URLs are the frontend's origin (plus `/login` for logout). Enable refresh-token rotation. Its client id is `VITE_OIDC_CLIENT_ID`; the tenant domain is `VITE_OIDC_DOMAIN`.
+3. Add a post-login **Action** that copies `event.user.email` and `event.user.name` into namespaced access-token claims (e.g. `https://serrapulse/email`), and set `GREENHOUSE_OIDC_EMAIL_CLAIM` / `GREENHOUSE_OIDC_NAME_CLAIM` to those names. Without it the API falls back to the userinfo endpoint, which works but costs a provider call per user every fifteen minutes.
+4. Put the first administrator's Auth0 subject (`auth0|…`, visible in the Users list) in `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS`.
+5. Set `GREENHOUSE_OIDC_ISSUER` to `https://<tenant-domain>/` exactly as it appears in a token's `iss` claim.
+
+Keep separate tenants (or at least separate applications and APIs) for development and production, as `docs/design/infrastructure_update_plan.md` section 1 asks.
 
 ## Decisions made during implementation
 
@@ -22,7 +34,11 @@ Implementation progress (branch `auth/foundation`, September 2026):
 - A greenhouse in an organization the actor cannot read is reported as absent (`404`), not forbidden, so identifiers cannot be probed across tenants; `403` is reserved for a visible resource the actor's role cannot act on.
 - `GREENHOUSE_AUTH_MODE` has no default so a deployment that forgets to configure authentication fails to start.
 - The first platform admin is bootstrapped from `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` on login; removing a subject from the list does not revoke, revocation is an explicit operation to be added with membership administration.
-- Creating a greenhouse accepts an optional `organization_id` defaulting to the internal organization until the UI lets a platform admin pick one.
+- Creating a greenhouse accepts an optional `organization_id` defaulting to the internal organization; the UI always sends one.
+- Organization admins add members by the email a user signed in with; there is no invitation flow, the user must have signed in once. Adding by an email shared by two identities is refused rather than guessed.
+- A platform admin cannot revoke their own platform admin status, so the last one cannot lock everyone out by accident.
+- Audit events are append-only rows written by the application services for organization creation, membership changes, platform-admin grants and revocations (including the bootstrap grant, recorded as `system:bootstrap`), and greenhouse creation, deletion and reassignment.
+- Tokens without an email claim fall back to the provider's userinfo endpoint, cached per subject for fifteen minutes, rather than being refused.
 
 ## Goals
 

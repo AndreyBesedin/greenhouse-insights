@@ -97,7 +97,7 @@ Current simplifications include:
 - no production actuator or robot integration;
 - a single-process application architecture;
 - human-reviewed management rather than autonomous control;
-- development-mode authentication only (an external identity provider is the next step); the multi-tenant organisation model and application-level authorization are in place.
+- authentication is either a development mode or an external identity provider (Auth0) that still has to be configured for a deployment; the multi-tenant organisation model, application-level authorization and audit trail are in place.
 
 ## Development path
 
@@ -187,7 +187,10 @@ API: `http://localhost:8000`
 The API refuses to start without `GREENHOUSE_AUTH_MODE`. `.env.example` sets
 it to `dev`, where the caller names themselves in an `X-Dev-Subject` header
 and the frontend's sign-in page fills that in; list the subject you sign in
-with in `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` to be the platform admin. See
+with in `GREENHOUSE_PLATFORM_ADMIN_SUBJECTS` to be the platform admin. A
+deployment runs `oidc` mode against an Auth0 tenant instead (settings in
+`backend/.env.example` and `frontend/.env.example`; tenant setup in
+`docs/design/authentication_authorization_plan.md`, "Provider setup"). See
 "Authentication and authorization" in the technical reference.
 
 Native development defaults to a SQLite database created automatically at
