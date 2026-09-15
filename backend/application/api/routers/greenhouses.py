@@ -7,6 +7,7 @@ from application.api.auth import get_actor
 from application.api.dependencies import get_engine, get_simulation_service
 from application.auth.actor import ActorContext
 from application.greenhouse_service import (
+    AssignOrganizationRequest,
     CreateGreenhouseRequest,
     GreenhouseDetail,
     GreenhouseListItem,
@@ -69,6 +70,22 @@ def delete_greenhouse(
     if detail.simulation is not None:
         simulation_service.cancel(detail.simulation.simulation_id)
     service.delete_greenhouse(greenhouse_id)
+
+
+@router.put("/{greenhouse_id}/organization")
+def assign_organization(
+    greenhouse_id: str,
+    request: AssignOrganizationRequest,
+    service: GreenhouseService = Depends(_get_service),
+) -> GreenhouseDetail:
+    """Moves the greenhouse to another organization (platform admin)."""
+    try:
+        detail = service.assign_organization(greenhouse_id, request)
+    except UnknownOrganization as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if detail is None:
+        raise HTTPException(status_code=404, detail="greenhouse not found")
+    return detail
 
 
 @router.get("/{greenhouse_id}/state")

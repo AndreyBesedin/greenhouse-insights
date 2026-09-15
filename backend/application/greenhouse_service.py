@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Engine
 
 from application.auth.actor import ActorContext
+from application.auth.audit import AuditAction, AuditEvent
 from application.auth.authorizer import Action, Authorizer
 from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
+from application.persistence.audit_repository import AuditRepository
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
@@ -86,6 +88,10 @@ class UnknownOrganization(LookupError):
         super().__init__(f"organization {organization_id!r} does not exist")
 
 
+class AssignOrganizationRequest(BaseModel):
+    organization_id: str
+
+
 class CreateGreenhouseRequest(BaseModel):
     name: str
     description: str = ""
@@ -146,6 +152,7 @@ class GreenhouseService:
         self._worlds = WorldRepository(engine)
         self._recommendations = RecommendationRepository(engine)
         self._organizations = OrganizationRepository(engine)
+        self._audit = AuditRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         """The greenhouses in every organization the actor may read."""
@@ -222,6 +229,38 @@ class GreenhouseService:
             )
             self._simulations.save(simulation)
 
+        self._record(
+            AuditAction.GREENHOUSE_CREATED,
+            greenhouse,
+            details={"name": greenhouse.name, "source_type": greenhouse.source_type.value},
+        )
+        return GreenhouseDetail(
+            greenhouse=greenhouse,
+            simulation=_to_summary(simulation) if simulation is not None else None,
+        )
+
+    def assign_organization(
+        self, greenhouse_id: str, request: AssignOrganizationRequest
+    ) -> GreenhouseDetail | None:
+        """Moves a greenhouse to another organization (customer setup;
+        platform admin only). None if the greenhouse is absent or not
+        visible; raises UnknownOrganization for a bad target."""
+        greenhouse = self._readable(greenhouse_id)
+        if greenhouse is None:
+            return None
+        self._authorizer.require(self._actor, Action.GREENHOUSE_ASSIGN, greenhouse.organization_id)
+        if self._organizations.get(request.organization_id) is None:
+            raise UnknownOrganization(request.organization_id)
+        if request.organization_id != greenhouse.organization_id:
+            previous = greenhouse.organization_id
+            greenhouse = greenhouse.model_copy(update={"organization_id": request.organization_id})
+            self._greenhouses.save(greenhouse)
+            self._record(
+                AuditAction.GREENHOUSE_REASSIGNED,
+                greenhouse,
+                details={"previous_organization_id": previous},
+            )
+        simulation = self._simulation_for(greenhouse_id)
         return GreenhouseDetail(
             greenhouse=greenhouse,
             simulation=_to_summary(simulation) if simulation is not None else None,
@@ -311,7 +350,24 @@ class GreenhouseService:
         self._observations.delete_for_greenhouse(greenhouse_id)
         self._recommendations.delete_for_greenhouse(greenhouse_id)
         self._greenhouses.delete(greenhouse_id)
+        self._record(AuditAction.GREENHOUSE_DELETED, greenhouse, details={"name": greenhouse.name})
         return True
+
+    def _record(
+        self, action: AuditAction, greenhouse: Greenhouse, *, details: dict[str, str]
+    ) -> None:
+        self._audit.append(
+            AuditEvent(
+                audit_id=f"aud_{uuid4().hex[:12]}",
+                timestamp=datetime.now(UTC),
+                actor_id=self._actor.actor_id,
+                action=action,
+                target_type="greenhouse",
+                target_id=greenhouse.greenhouse_id,
+                organization_id=greenhouse.organization_id,
+                details=dict(details),
+            )
+        )
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition | None:
         return self._simulations.get_by_greenhouse(greenhouse_id)

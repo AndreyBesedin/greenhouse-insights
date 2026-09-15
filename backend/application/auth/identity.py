@@ -19,12 +19,17 @@ from uuid import uuid4
 from sqlalchemy import Engine
 
 from application.auth.actor import ActorContext
+from application.auth.audit import AuditAction, AuditEvent
 from application.auth.models import User
+from application.persistence.audit_repository import AuditRepository
 from application.persistence.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
 DEV_SUBJECT_HEADER = "x-dev-subject"
+# The audit actor when the platform acts from configuration, not a user.
+BOOTSTRAP_ACTOR_ID = "system:bootstrap"
+PLATFORM_ADMIN_BOOTSTRAP_SOURCE = "GREENHOUSE_PLATFORM_ADMIN_SUBJECTS"
 
 
 class NotAuthenticated(Exception):
@@ -71,6 +76,7 @@ class UserResolver:
 
     def __init__(self, engine: Engine, *, platform_admin_subjects: frozenset[str]) -> None:
         self._users = UserRepository(engine)
+        self._audit = AuditRepository(engine)
         self._platform_admin_subjects = platform_admin_subjects
 
     def resolve(self, identity: AuthenticatedIdentity) -> User:
@@ -92,6 +98,17 @@ class UserResolver:
                 "granted platform admin to user %s (subject %s) from the bootstrap list",
                 user.user_id,
                 identity.auth_subject,
+            )
+            self._audit.append(
+                AuditEvent(
+                    audit_id=f"aud_{uuid4().hex[:12]}",
+                    timestamp=datetime.now(UTC),
+                    actor_id=BOOTSTRAP_ACTOR_ID,
+                    action=AuditAction.PLATFORM_ADMIN_GRANTED,
+                    target_type="user",
+                    target_id=user.user_id,
+                    details={"email": user.email, "source": PLATFORM_ADMIN_BOOTSTRAP_SOURCE},
+                )
             )
         return user
 

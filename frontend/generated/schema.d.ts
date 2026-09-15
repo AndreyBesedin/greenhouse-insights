@@ -24,6 +24,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Organizations
+         * @description The organizations the current user can reach, with their role.
+         */
+        get: operations["list_organizations_organizations_get"];
+        put?: never;
+        /** Create Organization */
+        post: operations["create_organization_organizations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organization_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members_organizations__organization_id__members_get"];
+        /**
+         * Set Member
+         * @description Adds a user (by the email they signed in with) to the organization,
+         *     or changes their role.
+         */
+        put: operations["set_member_organizations__organization_id__members_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organization_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Member */
+        delete: operations["remove_member_organizations__organization_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organization_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Organization Audit */
+        get: operations["list_organization_audit_organizations__organization_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Users */
+        get: operations["list_users_admin_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/platform-admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Platform Admin */
+        put: operations["set_platform_admin_admin_users__user_id__platform_admin_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Audit */
+        get: operations["list_audit_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/greenhouses": {
         parameters: {
             query?: never;
@@ -55,6 +183,26 @@ export interface paths {
         post?: never;
         /** Delete Greenhouse */
         delete: operations["delete_greenhouse_greenhouses__greenhouse_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/greenhouses/{greenhouse_id}/organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Assign Organization
+         * @description Moves the greenhouse to another organization (platform admin).
+         */
+        put: operations["assign_organization_greenhouses__greenhouse_id__organization_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -365,6 +513,39 @@ export interface components {
          * @enum {string}
          */
         ApprovalSource: "HUMAN";
+        /** AssignOrganizationRequest */
+        AssignOrganizationRequest: {
+            /** Organization Id */
+            organization_id: string;
+        };
+        /**
+         * AuditAction
+         * @enum {string}
+         */
+        AuditAction: "ORGANIZATION_CREATED" | "MEMBERSHIP_SET" | "MEMBERSHIP_REMOVED" | "PLATFORM_ADMIN_GRANTED" | "PLATFORM_ADMIN_REVOKED" | "GREENHOUSE_CREATED" | "GREENHOUSE_DELETED" | "GREENHOUSE_REASSIGNED";
+        /** AuditEvent */
+        AuditEvent: {
+            /** Audit Id */
+            audit_id: string;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Actor Id */
+            actor_id: string;
+            action: components["schemas"]["AuditAction"];
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string;
+            /** Organization Id */
+            organization_id?: string | null;
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * Compartment
          * @description A physically separate growing space inside a greenhouse, with its own
@@ -431,6 +612,13 @@ export interface components {
             random_seed?: number | null;
             management_policy?: components["schemas"]["ManagementPolicyType"] | null;
             action_executor?: components["schemas"]["ActionExecutorType"] | null;
+        };
+        /** CreateOrganizationRequest */
+        CreateOrganizationRequest: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
         };
         /** CurrentUser */
         CurrentUser: {
@@ -812,6 +1000,30 @@ export interface components {
              */
             completed_at: string;
         };
+        /** Member */
+        Member: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string | null;
+            role: components["schemas"]["OrganizationRole"];
+        };
+        /** Organization */
+        Organization: {
+            /** Organization Id */
+            organization_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** OrganizationAccess */
         OrganizationAccess: {
             /** Organization Id */
@@ -1024,6 +1236,17 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** SetMemberRequest */
+        SetMemberRequest: {
+            /** Email */
+            email: string;
+            role: components["schemas"]["OrganizationRole"];
+        };
+        /** SetPlatformAdminRequest */
+        SetPlatformAdminRequest: {
+            /** Is Platform Admin */
+            is_platform_admin: boolean;
+        };
         /**
          * SimulationStatus
          * @enum {string}
@@ -1069,6 +1292,22 @@ export interface components {
             };
             /** Summary */
             summary: string;
+        };
+        /** UserSummary */
+        UserSummary: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Is Platform Admin */
+            is_platform_admin: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1121,6 +1360,261 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentUser"];
+                };
+            };
+        };
+    };
+    list_organizations_organizations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationAccess"][];
+                };
+            };
+        };
+    };
+    create_organization_organizations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_organizations__organization_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_organizations__organization_id__members_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_organizations__organization_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_organization_audit_organizations__organization_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEvent"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSummary"][];
+                };
+            };
+        };
+    };
+    set_platform_admin_admin_users__user_id__platform_admin_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPlatformAdminRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audit_admin_audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEvent"][];
                 };
             };
         };
@@ -1226,6 +1720,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_organization_greenhouses__greenhouse_id__organization_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                greenhouse_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreenhouseDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

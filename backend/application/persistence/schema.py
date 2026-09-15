@@ -185,3 +185,16 @@ organization_memberships = Table(
     Column("role", String, nullable=False),
     Column("created_at", String, nullable=False),
 )
+
+audit_events = Table(
+    "audit_events",
+    metadata,
+    Column("audit_id", String, primary_key=True),
+    Column("timestamp", String, nullable=False, index=True),
+    Column("actor_id", String, nullable=False, index=True),
+    Column("action", String, nullable=False),
+    Column("target_type", String, nullable=False),
+    Column("target_id", String, nullable=False, index=True),
+    Column("organization_id", String, nullable=True, index=True),
+    Column("details_json", String, nullable=False),
+)

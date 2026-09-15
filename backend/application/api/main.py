@@ -7,7 +7,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from application.api.auth import AuthSettings, install_auth_error_handlers
-from application.api.routers import greenhouses, me, recommendations, simulations, system
+from application.api.routers import (
+    admin,
+    greenhouses,
+    me,
+    organizations,
+    recommendations,
+    simulations,
+    system,
+)
 from application.bootstrap import bootstrap_greenhouses
 from application.db import create_engine_and_tables
 from application.simulation_service import SimulationService
@@ -56,6 +64,8 @@ app.add_middleware(
 )
 install_auth_error_handlers(app)
 app.include_router(me.router)
+app.include_router(organizations.router)
+app.include_router(admin.router)
 app.include_router(greenhouses.router)
 app.include_router(simulations.router)
 app.include_router(recommendations.router)

@@ -9,9 +9,16 @@ import pytest
 from sqlalchemy import Engine
 
 from application.auth.actor import ActorContext
+from application.auth.audit import AuditAction
 from application.auth.authorizer import Forbidden
 from application.auth.models import OrganizationRole
-from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseService
+from application.greenhouse_service import (
+    AssignOrganizationRequest,
+    CreateGreenhouseRequest,
+    GreenhouseService,
+    UnknownOrganization,
+)
+from application.persistence.audit_repository import AuditRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from domain.enums import SourceType
 from tests.application.support import ROOT, greenhouse, member, organization
@@ -120,3 +127,57 @@ def test_delete_is_forbidden_for_an_organization_admin_and_absent_for_outsiders(
 
     assert GreenhouseService(engine, ROOT).delete_greenhouse("gh_a") is True
     assert GreenhouseRepository(engine).get("gh_a") is None
+
+
+def test_platform_admin_moves_a_greenhouse_between_organizations_with_audit(
+    engine: Engine, two_tenants: dict[str, ActorContext]
+) -> None:
+    detail = GreenhouseService(engine, ROOT).assign_organization(
+        "gh_a", AssignOrganizationRequest(organization_id="org_b")
+    )
+
+    assert detail is not None and detail.greenhouse.organization_id == "org_b"
+    assert GreenhouseService(engine, two_tenants["admin_b"]).get_greenhouse_detail("gh_a")
+    assert GreenhouseService(engine, two_tenants["admin_a"]).get_greenhouse_detail("gh_a") is None
+    trail = AuditRepository(engine).list_for_organization("org_b")
+    assert [(e.action, e.details) for e in trail] == [
+        (AuditAction.GREENHOUSE_REASSIGNED, {"previous_organization_id": "org_a"})
+    ]
+
+
+def test_reassigning_needs_a_platform_admin_and_a_real_organization(
+    engine: Engine, two_tenants: dict[str, ActorContext]
+) -> None:
+    with pytest.raises(Forbidden):
+        GreenhouseService(engine, two_tenants["admin_a"]).assign_organization(
+            "gh_a", AssignOrganizationRequest(organization_id="org_b")
+        )
+    assert (
+        GreenhouseService(engine, two_tenants["admin_b"]).assign_organization(
+            "gh_a", AssignOrganizationRequest(organization_id="org_b")
+        )
+        is None
+    )
+    with pytest.raises(UnknownOrganization):
+        GreenhouseService(engine, ROOT).assign_organization(
+            "gh_a", AssignOrganizationRequest(organization_id="org_nope")
+        )
+    stored = GreenhouseRepository(engine).get("gh_a")
+    assert stored is not None and stored.organization_id == "org_a"
+
+
+def test_creating_and_deleting_greenhouses_is_audited(
+    engine: Engine, two_tenants: dict[str, ActorContext]
+) -> None:
+    service = GreenhouseService(engine, ROOT)
+    created = service.create_greenhouse(_create_request()).greenhouse
+    service.delete_greenhouse(created.greenhouse_id)
+
+    trail = [
+        e for e in AuditRepository(engine).list_recent() if e.target_id == created.greenhouse_id
+    ]
+    assert [e.action for e in trail] == [
+        AuditAction.GREENHOUSE_DELETED,
+        AuditAction.GREENHOUSE_CREATED,
+    ]
+    assert all(e.organization_id == "org_a" and e.actor_id == ROOT.actor_id for e in trail)
