@@ -39,11 +39,12 @@ from domain.recommendation import Recommendation
 from domain.state import GreenhouseState, PlantState
 from management.validation.actions import WaterPlantAction
 from simulation.world_builder import initialize_world
+from tests.application.support import ROOT
 
 
 def test_list_greenhouses_returns_all_seeded_greenhouses(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     items = service.list_greenhouses()
 
@@ -54,7 +55,7 @@ def test_list_greenhouses_reports_plant_count_crop_and_not_started_status(
     engine: Engine,
 ) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     items = {item.greenhouse_id: item for item in service.list_greenhouses()}
     gh_001 = items["gh_001"]
@@ -68,7 +69,7 @@ def test_list_greenhouses_reports_plant_count_crop_and_not_started_status(
 
 
 def test_get_greenhouse_detail_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_greenhouse_detail("does_not_exist") is None
 
@@ -77,7 +78,7 @@ def test_get_greenhouse_detail_embeds_full_greenhouse_and_simulation_summary(
     engine: Engine,
 ) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.get_greenhouse_detail("gh_001")
 
@@ -116,7 +117,7 @@ def test_get_state_returns_the_latest_snapshot_when_no_instant_given(engine: Eng
     bootstrap_greenhouses(engine)
     _save_state(engine, "gh_001", day=5)
     _save_state(engine, "gh_001", day=8)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     state = service.get_state("gh_001", at=None)
 
@@ -128,7 +129,7 @@ def test_get_state_returns_the_snapshot_as_of_the_given_instant(engine: Engine) 
     bootstrap_greenhouses(engine)
     _save_state(engine, "gh_001", day=5)
     _save_state(engine, "gh_001", day=8)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert (state := service.get_state("gh_001", at=_at(5))) is not None
     assert state.timestamp == _at(5)
@@ -139,20 +140,20 @@ def test_get_state_returns_the_snapshot_as_of_the_given_instant(engine: Engine) 
 
 def test_get_state_returns_none_when_no_snapshot_exists_yet(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_state("gh_001", at=_at(3)) is None
 
 
 def test_get_plant_detail_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_plant_detail("does_not_exist", "plant_001", at=None) is None
 
 
 def test_get_plant_detail_returns_none_for_unknown_plant(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_plant_detail("gh_001", "does_not_exist", at=None) is None
 
@@ -161,7 +162,7 @@ def test_get_plant_detail_returns_plant_config_with_no_state_before_simulation_s
     engine: Engine,
 ) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.get_plant_detail("gh_001", "gh_001_plant_001", at=None)
 
@@ -173,7 +174,7 @@ def test_get_plant_detail_returns_plant_config_with_no_state_before_simulation_s
 def test_get_plant_detail_includes_that_plants_state_once_it_exists(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
     _save_state(engine, "gh_001", day=5)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.get_plant_detail("gh_001", "gh_001_plant_001", at=_at(5))
 
@@ -184,14 +185,14 @@ def test_get_plant_detail_includes_that_plants_state_once_it_exists(engine: Engi
 
 
 def test_get_plant_history_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_plant_history("does_not_exist", "plant_001", up_to=_at(10)) is None
 
 
 def test_get_plant_history_returns_none_for_unknown_plant(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_plant_history("gh_001", "does_not_exist", up_to=_at(10)) is None
 
@@ -200,7 +201,7 @@ def test_get_plant_history_never_returns_states_after_up_to(engine: Engine) -> N
     bootstrap_greenhouses(engine)
     for day in range(1, 6):
         _save_state(engine, "gh_001", day)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to=_at(3))
 
@@ -210,7 +211,7 @@ def test_get_plant_history_never_returns_states_after_up_to(engine: Engine) -> N
 
 def test_get_plant_history_is_empty_before_any_state_exists(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     history = service.get_plant_history("gh_001", "gh_001_plant_001", up_to=_at(10))
 
@@ -218,14 +219,14 @@ def test_get_plant_history_is_empty_before_any_state_exists(engine: Engine) -> N
 
 
 def test_get_timeline_returns_none_for_unknown_greenhouse(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.get_timeline("does_not_exist") is None
 
 
 def test_get_timeline_is_empty_before_any_snapshot_exists(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     timeline = service.get_timeline("gh_001")
 
@@ -238,7 +239,7 @@ def test_get_timeline_lists_every_snapshot_instant_in_order(engine: Engine) -> N
     bootstrap_greenhouses(engine)
     for day in (2, 1, 3):
         _save_state(engine, "gh_001", day)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     timeline = service.get_timeline("gh_001")
 
@@ -249,7 +250,7 @@ def test_get_timeline_lists_every_snapshot_instant_in_order(engine: Engine) -> N
 def test_create_greenhouse_with_simulation_source_creates_a_runnable_simulation(
     engine: Engine,
 ) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
@@ -276,7 +277,7 @@ def test_create_greenhouse_with_simulation_source_creates_a_runnable_simulation(
 def test_create_greenhouse_without_duration_days_is_rejected_for_simulation_source(
     engine: Engine,
 ) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     with pytest.raises(ValidationError):
         CreateGreenhouseRequest(
@@ -318,7 +319,7 @@ def test_create_greenhouse_rejects_too_many_plants_for_agentic(engine: Engine) -
 def test_create_greenhouse_allows_the_same_duration_and_size_for_deterministic(
     engine: Engine,
 ) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
@@ -336,7 +337,7 @@ def test_create_greenhouse_allows_the_same_duration_and_size_for_deterministic(
 
 
 def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
@@ -360,13 +361,13 @@ def test_create_greenhouse_with_real_sensors_source_has_no_simulation(engine: En
 
 
 def test_delete_greenhouse_returns_false_for_an_unknown_greenhouse(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     assert service.delete_greenhouse("does_not_exist") is False
 
 
 def test_delete_greenhouse_removes_a_greenhouse_with_no_simulation(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
             name="Live Greenhouse",
@@ -386,7 +387,7 @@ def test_delete_greenhouse_removes_a_greenhouse_with_no_simulation(engine: Engin
 
 def test_delete_greenhouse_cleans_up_every_derived_table(engine: Engine) -> None:
     bootstrap_greenhouses(engine)
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
     greenhouse_id = "gh_001"
     simulation_id = "sim_gh_001"
     timestamp = datetime(2026, 1, 1, tzinfo=UTC)
@@ -492,7 +493,7 @@ def test_list_greenhouses_reports_the_crop_of_a_compartment_without_plants(
         )
     )
 
-    [item] = GreenhouseService(engine).list_greenhouses()
+    [item] = GreenhouseService(engine, ROOT).list_greenhouses()
 
     assert item.crop == "dwarf_tomato"
     assert item.plant_count == 0
@@ -526,7 +527,7 @@ def test_list_greenhouses_counts_compartments_and_the_plants_inside_them(
         )
     )
 
-    [item] = GreenhouseService(engine).list_greenhouses()
+    [item] = GreenhouseService(engine, ROOT).list_greenhouses()
 
     assert item.compartment_count == 2
     assert item.plant_count == 1
@@ -566,7 +567,7 @@ def test_plant_detail_and_history_find_plants_inside_compartments(engine: Engine
     StateRepository(engine).save(
         GreenhouseState.aggregate(greenhouse_id="wur_agc4_2023", timestamp=at, plant_states=[state])
     )
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.get_plant_detail("wur_agc4_2023", "wur23_p41", at=None)
 
@@ -586,7 +587,7 @@ def test_create_greenhouse_records_the_owning_organization(engine: Engine) -> No
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
     )
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
@@ -606,7 +607,7 @@ def test_create_greenhouse_records_the_owning_organization(engine: Engine) -> No
 
 
 def test_create_greenhouse_defaults_to_the_internal_organization(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     detail = service.create_greenhouse(
         CreateGreenhouseRequest(
@@ -623,7 +624,7 @@ def test_create_greenhouse_defaults_to_the_internal_organization(engine: Engine)
 
 
 def test_create_greenhouse_rejects_an_unknown_organization(engine: Engine) -> None:
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
 
     with pytest.raises(UnknownOrganization):
         service.create_greenhouse(

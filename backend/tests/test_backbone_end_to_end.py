@@ -19,6 +19,7 @@ from application.api.dependencies import get_engine, get_simulation_service
 from application.api.main import app
 from application.bootstrap import bootstrap_greenhouses
 from application.simulation_service import SimulationService
+from tests.application.support import ADMIN_HEADERS, install_dev_auth
 
 
 @pytest.fixture
@@ -26,10 +27,11 @@ def client(engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> I
     bootstrap_greenhouses(engine)
     monkeypatch.setenv("GREENHOUSE_DATABASE_URL", f"sqlite:///{tmp_path / 'unused.db'}")
     app.dependency_overrides[get_engine] = lambda: engine
+    install_dev_auth()
     app.dependency_overrides[get_simulation_service] = lambda: SimulationService(
         engine, step_delay_seconds=0
     )
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=ADMIN_HEADERS) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 

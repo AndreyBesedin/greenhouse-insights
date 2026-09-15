@@ -12,6 +12,7 @@ from domain.provenance import RecordSource
 from ingestion.canonical import write_canonical_greenhouse
 from ingestion.loader import load_canonical_greenhouse, reconstruct_checkpoints
 from ingestion.wur.common.time import WUR_LOCAL_TIMEZONE
+from tests.application.support import ROOT
 
 SOURCE = RecordSource(type=SourceType.IMPORTED_DATA, source_id="test")
 DAY_ONE_NOON = datetime(2023, 10, 4, 10, tzinfo=UTC)
@@ -117,7 +118,7 @@ def test_loaded_compartment_plants_have_detail_and_history(tmp_path: Path, engin
 
     load_canonical_greenhouse(engine, canonical, checkpoint_timezone=WUR_LOCAL_TIMEZONE)
 
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
     history = service.get_plant_history("gh", "p41", up_to=DAY_TWO_NOON)
     assert history is not None
     assert [s.latest_plant_height_cm for s in history] == [20.0, 25.0]

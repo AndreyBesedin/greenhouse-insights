@@ -3,7 +3,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Engine
 
+from application.api.auth import get_actor
 from application.api.dependencies import get_engine, get_simulation_service
+from application.auth.actor import ActorContext
 from application.greenhouse_service import (
     CreateGreenhouseRequest,
     GreenhouseDetail,
@@ -22,8 +24,10 @@ from management.validation.actions import RequestedAction
 router = APIRouter(prefix="/greenhouses", tags=["greenhouses"])
 
 
-def _get_service(engine: Engine = Depends(get_engine)) -> GreenhouseService:
-    return GreenhouseService(engine)
+def _get_service(
+    engine: Engine = Depends(get_engine), actor: ActorContext = Depends(get_actor)
+) -> GreenhouseService:
+    return GreenhouseService(engine, actor)
 
 
 @router.get("")

@@ -7,13 +7,15 @@ from sqlalchemy import Engine
 from application.api.dependencies import get_engine
 from application.api.main import app
 from application.bootstrap import bootstrap_greenhouses
+from tests.application.support import ADMIN_HEADERS, install_dev_auth
 
 
 @pytest.fixture
 def client(engine: Engine) -> Iterator[TestClient]:
     bootstrap_greenhouses(engine)
     app.dependency_overrides[get_engine] = lambda: engine
-    yield TestClient(app)
+    install_dev_auth()
+    yield TestClient(app, headers=ADMIN_HEADERS)
     app.dependency_overrides.clear()
 
 

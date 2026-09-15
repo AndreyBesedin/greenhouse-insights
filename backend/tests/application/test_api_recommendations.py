@@ -17,6 +17,7 @@ from domain.enums import SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from simulation.definitions import SimulationDefinition
 from simulation.scenarios import SCENARIO_REGISTRY
+from tests.application.support import ADMIN_HEADERS, install_dev_auth
 
 # The seeded simulation starts on 2026-01-01 with one-day steps, so its
 # clock stamps simulated day N as 2026-01-0N T00:00 UTC.
@@ -61,10 +62,11 @@ def client(engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> I
     _seed(engine)
     monkeypatch.setenv("GREENHOUSE_DATABASE_URL", f"sqlite:///{tmp_path / 'unused.db'}")
     app.dependency_overrides[get_engine] = lambda: engine
+    install_dev_auth()
     app.dependency_overrides[get_simulation_service] = lambda: SimulationService(
         engine, step_delay_seconds=0
     )
-    with TestClient(app) as test_client:
+    with TestClient(app, headers=ADMIN_HEADERS) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 

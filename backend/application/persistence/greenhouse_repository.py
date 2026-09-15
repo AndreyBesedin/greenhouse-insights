@@ -42,6 +42,14 @@ class GreenhouseRepository:
             row = connection.execute(statement).mappings().one_or_none()
         return None if row is None else _row_to_greenhouse(row)
 
+    def list_for_organizations(self, organization_ids: list[str]) -> list[Greenhouse]:
+        if not organization_ids:
+            return []
+        statement = select(greenhouses).where(greenhouses.c.organization_id.in_(organization_ids))
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
+        return [_row_to_greenhouse(row) for row in rows]
+
     def list(self) -> list[Greenhouse]:
         with self._engine.connect() as connection:
             rows = connection.execute(select(greenhouses)).mappings().all()

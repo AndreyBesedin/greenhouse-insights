@@ -19,6 +19,7 @@ from ingestion.wur.agc4_challenge_2024.compartments import GREENHOUSE_ID, compar
 from ingestion.wur.agc4_challenge_2024.timeseries import parse_timeseries
 from ingestion.wur.common.time import WUR_LOCAL_TIMEZONE
 from ingestion.wur.datasets import AGC4_CHALLENGE_2024
+from tests.application.support import ROOT
 
 C306 = compartment("3.06")
 
@@ -164,7 +165,7 @@ def test_load_replaces_records_and_exposes_a_navigable_timeline(
     assert again == report
     assert len(ObservationRepository(engine).list_for_greenhouse(GREENHOUSE_ID)) == 15
 
-    service = GreenhouseService(engine)
+    service = GreenhouseService(engine, ROOT)
     timeline = service.get_timeline(GREENHOUSE_ID)
     assert timeline is not None
     assert len(timeline.checkpoints) == 3

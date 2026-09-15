@@ -7,21 +7,31 @@ from sqlalchemy import Engine
 
 from application.api.dependencies import get_engine, get_simulation_service
 from application.api.main import app
+from application.auth.models import OrganizationRole
 from application.bootstrap import bootstrap_greenhouses
 from application.persistence.state_repository import StateRepository
 from application.simulation_service import SimulationService
 from domain.enums import PlantHealth
 from domain.state import GreenhouseState, PlantState
+from tests.application.support import (
+    ADMIN_HEADERS,
+    as_user,
+    greenhouse,
+    install_dev_auth,
+    member,
+    organization,
+)
 
 
 @pytest.fixture
 def client(engine: Engine) -> Iterator[TestClient]:
     bootstrap_greenhouses(engine)
     app.dependency_overrides[get_engine] = lambda: engine
+    install_dev_auth()
     app.dependency_overrides[get_simulation_service] = lambda: SimulationService(
         engine, step_delay_seconds=0
     )
-    yield TestClient(app)
+    yield TestClient(app, headers=ADMIN_HEADERS)
     app.dependency_overrides.clear()
 
 
@@ -406,3 +416,72 @@ def test_approve_all_recommendations_returns_empty_list_when_nothing_pending(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_greenhouse_routes_require_authentication(client: TestClient) -> None:
+    unauthenticated = TestClient(app)
+
+    assert unauthenticated.get("/greenhouses").status_code == 401
+    assert unauthenticated.get("/greenhouses/gh_001").status_code == 401
+    assert unauthenticated.post("/greenhouses", json={}).status_code == 401
+    assert unauthenticated.delete("/greenhouses/gh_001").status_code == 401
+
+
+def test_a_member_sees_only_their_organizations_greenhouses(
+    client: TestClient, engine: Engine
+) -> None:
+    organization(engine, "org_acme")
+    greenhouse(engine, "gh_acme", "org_acme")
+    member(engine, "acme-viewer", "org_acme", OrganizationRole.VIEWER)
+
+    listed = client.get("/greenhouses", headers=as_user("acme-viewer")).json()
+
+    assert [item["greenhouse_id"] for item in listed] == ["gh_acme"]
+
+
+def test_guessing_another_tenants_greenhouse_id_is_a_404(
+    client: TestClient, engine: Engine
+) -> None:
+    organization(engine, "org_acme")
+    member(engine, "acme-viewer", "org_acme", OrganizationRole.VIEWER)
+
+    # gh_001 is seeded into the internal organization, which acme is not in.
+    assert client.get("/greenhouses/gh_001", headers=as_user("acme-viewer")).status_code == 404
+    assert (
+        client.get("/greenhouses/gh_001/timeline", headers=as_user("acme-viewer")).status_code
+        == 404
+    )
+    assert client.get("/greenhouses/gh_001").status_code == 200
+
+
+def test_creating_a_greenhouse_is_forbidden_for_a_non_platform_admin(
+    client: TestClient, engine: Engine
+) -> None:
+    organization(engine, "org_acme")
+    member(engine, "acme-admin", "org_acme", OrganizationRole.ORGANIZATION_ADMIN)
+    body = {
+        "name": "Acme wing",
+        "organization_id": "org_acme",
+        "source_type": "SIMULATION",
+        "crop": "cherry_tomato",
+        "rows": 1,
+        "columns": 1,
+        "duration_days": 2,
+    }
+
+    response = client.post("/greenhouses", json=body, headers=as_user("acme-admin"))
+
+    assert response.status_code == 403
+    assert client.post("/greenhouses", json=body).status_code == 201
+
+
+def test_deleting_another_tenants_greenhouse_is_a_404_and_changes_nothing(
+    client: TestClient, engine: Engine
+) -> None:
+    organization(engine, "org_acme")
+    member(engine, "acme-admin", "org_acme", OrganizationRole.ORGANIZATION_ADMIN)
+
+    response = client.delete("/greenhouses/gh_001", headers=as_user("acme-admin"))
+
+    assert response.status_code == 404
+    assert client.get("/greenhouses/gh_001").status_code == 200

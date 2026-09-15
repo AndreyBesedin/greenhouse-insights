@@ -5,10 +5,13 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Engine
 
+from application.auth.actor import ActorContext
+from application.auth.authorizer import Action, Authorizer
 from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
+from application.persistence.membership_repository import MembershipRepository
 from application.persistence.observation_repository import ObservationRepository
 from application.persistence.organization_repository import OrganizationRepository
 from application.persistence.recommendation_repository import RecommendationRepository
@@ -122,7 +125,17 @@ class CreateGreenhouseRequest(BaseModel):
 
 
 class GreenhouseService:
-    def __init__(self, engine: Engine) -> None:
+    """Greenhouse reads and writes for one actor. Every operation is
+    authorized here against the greenhouse's organization, whoever calls
+    (HTTP, CLI, a worker): a greenhouse the actor may not read is reported
+    as absent (None/False, a 404 over HTTP) so identifiers cannot be
+    probed across tenants; an action the actor may see but not perform
+    raises Forbidden (docs/design/authentication_authorization_plan.md,
+    "Authorization in application services")."""
+
+    def __init__(self, engine: Engine, actor: ActorContext) -> None:
+        self._actor = actor
+        self._authorizer = Authorizer(MembershipRepository(engine))
         self._greenhouses = GreenhouseRepository(engine)
         self._simulations = SimulationRepository(engine)
         self._states = StateRepository(engine)
@@ -135,13 +148,20 @@ class GreenhouseService:
         self._organizations = OrganizationRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
+        """The greenhouses in every organization the actor may read."""
+        visible = self._authorizer.visible_organization_ids(self._actor)
+        greenhouses = (
+            self._greenhouses.list()
+            if visible is None
+            else self._greenhouses.list_for_organizations(visible)
+        )
         return [
             _list_item(greenhouse, self._simulation_for(greenhouse.greenhouse_id))
-            for greenhouse in self._greenhouses.list()
+            for greenhouse in greenhouses
         ]
 
     def get_greenhouse_detail(self, greenhouse_id: str) -> GreenhouseDetail | None:
-        greenhouse = self._greenhouses.get(greenhouse_id)
+        greenhouse = self._readable(greenhouse_id)
         if greenhouse is None:
             return None
         simulation = self._simulation_for(greenhouse_id)
@@ -152,6 +172,7 @@ class GreenhouseService:
 
     def create_greenhouse(self, request: CreateGreenhouseRequest) -> GreenhouseDetail:
         organization_id = request.organization_id or SERRAPULSE_INTERNAL_ORGANIZATION_ID
+        self._authorizer.require(self._actor, Action.GREENHOUSE_CREATE, organization_id)
         if self._organizations.get(organization_id) is None:
             raise UnknownOrganization(organization_id)
         greenhouse_id = f"gh_{uuid4().hex[:8]}"
@@ -209,6 +230,8 @@ class GreenhouseService:
     def get_state(self, greenhouse_id: str, *, at: datetime | None) -> GreenhouseState | None:
         """The greenhouse as of `at`: the latest snapshot taken at or
         before it (the latest of all when `at` is None)."""
+        if self._readable(greenhouse_id) is None:
+            return None
         if at is not None:
             return self._states.get_at(greenhouse_id, at=at)
         return self._states.get_latest(greenhouse_id)
@@ -216,7 +239,7 @@ class GreenhouseService:
     def get_plant_detail(
         self, greenhouse_id: str, plant_id: str, *, at: datetime | None
     ) -> PlantDetail | None:
-        greenhouse = self._greenhouses.get(greenhouse_id)
+        greenhouse = self._readable(greenhouse_id)
         if greenhouse is None:
             return None
         plant = next((p for p in greenhouse.all_plants if p.plant_id == plant_id), None)
@@ -234,7 +257,7 @@ class GreenhouseService:
     def get_plant_history(
         self, greenhouse_id: str, plant_id: str, *, up_to: datetime
     ) -> list[PlantState] | None:
-        greenhouse = self._greenhouses.get(greenhouse_id)
+        greenhouse = self._readable(greenhouse_id)
         if greenhouse is None:
             return None
         if not any(p.plant_id == plant_id for p in greenhouse.all_plants):
@@ -249,7 +272,7 @@ class GreenhouseService:
         ]
 
     def get_timeline(self, greenhouse_id: str) -> TimelineSummary | None:
-        greenhouse = self._greenhouses.get(greenhouse_id)
+        greenhouse = self._readable(greenhouse_id)
         if greenhouse is None:
             return None
         return TimelineSummary(
@@ -258,6 +281,8 @@ class GreenhouseService:
         )
 
     def get_management_history(self, greenhouse_id: str) -> list[ManagementTrace] | None:
+        if self._readable(greenhouse_id) is None:
+            return None
         simulation = self._simulation_for(greenhouse_id)
         if simulation is None:
             return None
@@ -267,9 +292,13 @@ class GreenhouseService:
         """Deletes a greenhouse and everything derived from it: its simulation
         definition and scenario config (if any), management traces, world and
         state snapshots, observations, events, and recommendations. Returns
-        False if the greenhouse did not exist."""
-        if self._greenhouses.get(greenhouse_id) is None:
+        False if the greenhouse did not exist (or is not visible to the
+        actor); raises Forbidden if it is visible but the actor may not
+        delete it."""
+        greenhouse = self._readable(greenhouse_id)
+        if greenhouse is None:
             return False
+        self._authorizer.require(self._actor, Action.GREENHOUSE_DELETE, greenhouse.organization_id)
 
         simulation = self._simulation_for(greenhouse_id)
         if simulation is not None:
@@ -286,6 +315,17 @@ class GreenhouseService:
 
     def _simulation_for(self, greenhouse_id: str) -> SimulationDefinition | None:
         return self._simulations.get_by_greenhouse(greenhouse_id)
+
+    def _readable(self, greenhouse_id: str) -> Greenhouse | None:
+        """The greenhouse, if it exists and the actor may read it."""
+        greenhouse = self._greenhouses.get(greenhouse_id)
+        if greenhouse is None:
+            return None
+        if not self._authorizer.can(
+            self._actor, Action.GREENHOUSE_READ, greenhouse.organization_id
+        ):
+            return None
+        return greenhouse
 
 
 def _to_summary(simulation: SimulationDefinition) -> SimulationSummary:
