@@ -10,6 +10,8 @@ export type SessionState = {
   /** The signed-in user as the API sees them; null until loaded or when signed out. */
   user: CurrentUser | null
   loading: boolean
+  /** True while the identity provider is still establishing the session. */
+  initializing: boolean
   /** The organization the UI is filtered to; null shows every reachable one. */
   organizationId: string | null
   selectOrganization: (organizationId: string | null) => void
@@ -21,6 +23,7 @@ export const SessionContext = createContext<SessionState>({
   subject: null,
   user: null,
   loading: false,
+  initializing: false,
   organizationId: null,
   selectOrganization: () => {},
   signIn: () => {},

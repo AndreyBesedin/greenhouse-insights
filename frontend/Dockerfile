@@ -14,6 +14,15 @@ RUN npm ci --legacy-peer-deps
 COPY . .
 ARG VITE_API_BASE_URL=http://localhost:8000
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# Authentication mode and, for "oidc", the identity-provider application.
+ARG VITE_AUTH_MODE=dev
+ARG VITE_OIDC_DOMAIN=
+ARG VITE_OIDC_CLIENT_ID=
+ARG VITE_OIDC_AUDIENCE=
+ENV VITE_AUTH_MODE=${VITE_AUTH_MODE} \
+    VITE_OIDC_DOMAIN=${VITE_OIDC_DOMAIN} \
+    VITE_OIDC_CLIENT_ID=${VITE_OIDC_CLIENT_ID} \
+    VITE_OIDC_AUDIENCE=${VITE_OIDC_AUDIENCE}
 RUN npm run build
 
 # Runtime stage: static files behind nginx, with SPA fallback so client-side

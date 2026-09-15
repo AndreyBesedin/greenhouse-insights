@@ -42,6 +42,7 @@ export function withSession(
     subject: user ? 'dev' : null,
     user,
     loading: false,
+    initializing: false,
     organizationId: null,
     selectOrganization: () => {},
     signIn: () => {},

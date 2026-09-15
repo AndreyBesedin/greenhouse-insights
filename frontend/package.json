@@ -16,6 +16,7 @@
     "generate:api": "openapi-typescript ./openapi.json -o generated/schema.d.ts"
   },
   "dependencies": {
+    "@auth0/auth0-spa-js": "^2.25.0",
     "@tailwindcss/vite": "^4.3.3",
     "clsx": "^2.1.1",
     "openapi-fetch": "^0.17.0",

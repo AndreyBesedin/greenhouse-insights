@@ -55,6 +55,10 @@ services:
         # network - hence localhost:8000 (the backend's host port mapping
         # above), not http://backend:8000.
         VITE_API_BASE_URL: http://localhost:8000
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-dev}
+        VITE_OIDC_DOMAIN: ${VITE_OIDC_DOMAIN:-}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
+        VITE_OIDC_AUDIENCE: ${VITE_OIDC_AUDIENCE:-}
     ports:
       - "8080:80"
     depends_on:

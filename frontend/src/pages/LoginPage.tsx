@@ -1,22 +1,33 @@
 import { useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
+import { authMode } from '../auth/session'
 import { useSession } from '../auth/SessionContext'
 import { CropIcon } from '../components/CropIcon'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signIn } = useSession()
+  const { signIn, subject: signedInAs } = useSession()
+  const mode = authMode()
   const [subject, setSubject] = useState('dev-admin')
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (mode === 'oidc') {
+      // Hands off to the identity provider; the redirect comes back to /.
+      signIn(from)
+      return
+    }
     if (!subject.trim()) {
       return
     }
     signIn(subject)
+    navigate(from, { replace: true })
+  }
+
+  if (mode === 'oidc' && signedInAs !== null) {
     navigate(from, { replace: true })
   }
 

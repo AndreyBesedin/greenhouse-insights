@@ -3,7 +3,9 @@ import { Navigate, useLocation } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
 import {
+  authMode,
   currentSubject,
+  oidc,
   rememberOrganization,
   selectedOrganization,
   signIn as storeSubject,
@@ -12,13 +14,38 @@ import {
 import { SessionContext, useSession, type CurrentUser } from './SessionContext'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [subject, setSubject] = useState<string | null>(() => currentSubject())
+  const mode = authMode()
+  // In dev mode the subject is known synchronously; in oidc mode it is
+  // known once the provider has finished any login redirect.
+  const [subject, setSubject] = useState<string | null>(() =>
+    mode === 'dev' ? currentSubject() : null,
+  )
+  const [initializing, setInitializing] = useState(mode === 'oidc')
   const [user, setUser] = useState<CurrentUser | null>(null)
   // Which subject `user` was loaded for, so a change of identity shows as
   // loading rather than briefly as the previous user.
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
-  const loading = subject !== null && loadedFor !== subject
+  const loading = initializing || (subject !== null && loadedFor !== subject)
   const [organizationId, setOrganizationId] = useState<string | null>(() => selectedOrganization())
+
+  useEffect(() => {
+    if (mode !== 'oidc') return
+    let cancelled = false
+    oidc()
+      .bootstrap()
+      .then((signedInAs) => {
+        if (!cancelled) {
+          setSubject(signedInAs)
+          setInitializing(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInitializing(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mode])
 
   useEffect(() => {
     if (subject === null) {
@@ -36,19 +63,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [subject])
 
-  const signIn = useCallback((next: string) => {
-    storeSubject(next)
-    setSubject(currentSubject())
-  }, [])
+  const signIn = useCallback(
+    (next: string) => {
+      if (mode === 'oidc') {
+        void oidc().login(next || '/')
+        return
+      }
+      storeSubject(next)
+      setSubject(currentSubject())
+    },
+    [mode],
+  )
 
   const signOut = useCallback(() => {
-    clearSubject()
     rememberOrganization(null)
     setSubject(null)
     setUser(null)
     setLoadedFor(null)
     setOrganizationId(null)
-  }, [])
+    if (mode === 'oidc') {
+      void oidc().logout()
+      return
+    }
+    clearSubject()
+  }, [mode])
 
   const selectOrganization = useCallback((next: string | null) => {
     rememberOrganization(next)
@@ -68,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         subject,
         user,
         loading,
+        initializing,
         organizationId: effectiveOrganizationId,
         selectOrganization,
         signIn,
@@ -81,8 +120,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
 /** Route guard: UX only - the backend enforces access regardless. */
 export function RequireSession({ children }: { children: ReactNode }) {
-  const { subject } = useSession()
+  const { subject, initializing } = useSession()
   const location = useLocation()
+  if (initializing) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-ink text-sm text-mist">
+        Signing in…
+      </main>
+    )
+  }
   if (subject === null) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
