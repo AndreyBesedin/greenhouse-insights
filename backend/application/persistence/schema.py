@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, Integer, MetaData, String, Table
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, MetaData, String, Table
 
 metadata = MetaData()
 
@@ -143,4 +143,38 @@ sensors = Table(
     Column("nominal_mounting", String, nullable=True),
     Column("source_type", String, nullable=False),
     Column("source_id", String, nullable=True),
+)
+
+organizations = Table(
+    "organizations",
+    metadata,
+    Column("organization_id", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("slug", String, nullable=False, unique=True),
+    Column("created_at", String, nullable=False),
+)
+
+users = Table(
+    "users",
+    metadata,
+    Column("user_id", String, primary_key=True),
+    Column("auth_subject", String, nullable=False, unique=True),
+    Column("email", String, nullable=False),
+    Column("display_name", String, nullable=True),
+    Column("is_platform_admin", Boolean, nullable=False),
+    Column("created_at", String, nullable=False),
+)
+
+organization_memberships = Table(
+    "organization_memberships",
+    metadata,
+    Column("user_id", String, ForeignKey("users.user_id"), primary_key=True),
+    Column(
+        "organization_id",
+        String,
+        ForeignKey("organizations.organization_id"),
+        primary_key=True,
+    ),
+    Column("role", String, nullable=False),
+    Column("created_at", String, nullable=False),
 )
