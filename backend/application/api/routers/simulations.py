@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from application.api.auth import get_actor
 from application.api.dependencies import get_simulation_service
+from application.auth.actor import ActorContext
 from application.greenhouse_service import SimulationSummary
 from application.simulation_service import PendingRecommendationsExist, SimulationService
 from domain.management_progress import ManagementProgress
@@ -11,9 +13,11 @@ router = APIRouter(prefix="/simulations", tags=["simulations"])
 
 @router.post("/{simulation_id}/run")
 async def run_simulation(
-    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+    simulation_id: str,
+    service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> SimulationSummary:
-    definition = await service.start_simulation(simulation_id)
+    definition = await service.start_simulation(actor, simulation_id)
     if definition is None:
         raise HTTPException(status_code=404, detail="simulation not found")
     return _to_summary(definition)
@@ -24,10 +28,11 @@ async def advance_simulation_one_day(
     simulation_id: str,
     confirm_dismiss_remaining: bool = False,
     service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> SimulationSummary:
     try:
         definition = await service.advance_one_day(
-            simulation_id, confirm_dismiss_remaining=confirm_dismiss_remaining
+            actor, simulation_id, confirm_dismiss_remaining=confirm_dismiss_remaining
         )
     except PendingRecommendationsExist as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -38,16 +43,20 @@ async def advance_simulation_one_day(
 
 @router.get("/{simulation_id}/management-progress")
 def get_management_progress(
-    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+    simulation_id: str,
+    service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> ManagementProgress | None:
-    return service.get_management_progress(simulation_id)
+    return service.get_management_progress(actor, simulation_id)
 
 
 @router.get("/{simulation_id}/status")
 def get_simulation_status(
-    simulation_id: str, service: SimulationService = Depends(get_simulation_service)
+    simulation_id: str,
+    service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> SimulationSummary:
-    definition = service.get_status(simulation_id)
+    definition = service.get_status(actor, simulation_id)
     if definition is None:
         raise HTTPException(status_code=404, detail="simulation not found")
     return _to_summary(definition)

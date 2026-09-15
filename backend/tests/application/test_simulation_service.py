@@ -33,6 +33,7 @@ from simulation.definitions import SimulationDefinition
 from simulation.runner import SimulationRunner
 from simulation.scenarios import SCENARIO_REGISTRY
 from simulation.world_builder import initialize_world
+from tests.application.support import ROOT
 
 PLANT_ID = "gh_test_plant_001"
 
@@ -107,14 +108,14 @@ def test_start_simulation_runs_it_to_completion_exactly_once(engine: Engine) -> 
     service = SimulationService(engine, step_delay_seconds=0)
 
     async def scenario() -> None:
-        await service.start_simulation("sim_test")
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
+        await service.start_simulation(ROOT, "sim_test")
         task = service._tasks["sim_test"]
         await task
 
     asyncio.run(scenario())
 
-    final = service.get_status("sim_test")
+    final = service.get_status(ROOT, "sim_test")
     assert final is not None
     assert final.status == SimulationStatus.COMPLETED
     assert final.current_step == 3
@@ -125,9 +126,9 @@ def test_start_simulation_reuses_the_in_flight_task(engine: Engine) -> None:
     service = SimulationService(engine, step_delay_seconds=0.05)
 
     async def scenario() -> tuple[object, object]:
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
         first_task = service._tasks["sim_test"]
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
         second_task = service._tasks["sim_test"]
         await first_task
         return first_task, second_task
@@ -141,12 +142,12 @@ def test_start_simulation_is_a_noop_when_already_completed(engine: Engine) -> No
     service = SimulationService(engine, step_delay_seconds=0)
 
     async def scenario() -> None:
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
 
     asyncio.run(scenario())
 
     assert not service.is_running("sim_test")
-    final = service.get_status("sim_test")
+    final = service.get_status(ROOT, "sim_test")
     assert final is not None
     assert final.current_step == 3
 
@@ -154,7 +155,7 @@ def test_start_simulation_is_a_noop_when_already_completed(engine: Engine) -> No
 def test_get_status_returns_none_for_unknown_simulation(engine: Engine) -> None:
     service = SimulationService(engine)
 
-    assert service.get_status("does_not_exist") is None
+    assert service.get_status(ROOT, "does_not_exist") is None
 
 
 def test_cancel_stops_an_in_flight_simulation(engine: Engine) -> None:
@@ -162,7 +163,7 @@ def test_cancel_stops_an_in_flight_simulation(engine: Engine) -> None:
     service = SimulationService(engine, step_delay_seconds=5)
 
     async def scenario() -> None:
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
         assert service.is_running("sim_test")
         service.cancel("sim_test")
         await asyncio.sleep(0)
@@ -183,7 +184,7 @@ def test_advance_one_day_advances_exactly_one_step(engine: Engine) -> None:
     service = SimulationService(engine)
 
     async def scenario() -> SimulationDefinition | None:
-        return await service.advance_one_day("sim_test")
+        return await service.advance_one_day(ROOT, "sim_test")
 
     result = asyncio.run(scenario())
 
@@ -201,9 +202,9 @@ def test_advance_one_day_called_repeatedly_stops_at_each_day(engine: Engine) -> 
         # advancing, not about reviewing whatever the deterministic policy
         # happened to propose along the way.
         return [
-            await service.advance_one_day("sim_test"),
-            await service.advance_one_day("sim_test", confirm_dismiss_remaining=True),
-            await service.advance_one_day("sim_test", confirm_dismiss_remaining=True),
+            await service.advance_one_day(ROOT, "sim_test"),
+            await service.advance_one_day(ROOT, "sim_test", confirm_dismiss_remaining=True),
+            await service.advance_one_day(ROOT, "sim_test", confirm_dismiss_remaining=True),
         ]
 
     results = asyncio.run(scenario())
@@ -218,7 +219,7 @@ def test_advance_one_day_is_a_noop_once_completed(engine: Engine) -> None:
     service = SimulationService(engine)
 
     async def scenario() -> SimulationDefinition | None:
-        return await service.advance_one_day("sim_test")
+        return await service.advance_one_day(ROOT, "sim_test")
 
     result = asyncio.run(scenario())
 
@@ -231,7 +232,7 @@ def test_advance_one_day_returns_none_for_unknown_simulation(engine: Engine) -> 
     service = SimulationService(engine)
 
     async def scenario() -> SimulationDefinition | None:
-        return await service.advance_one_day("does_not_exist")
+        return await service.advance_one_day(ROOT, "does_not_exist")
 
     assert asyncio.run(scenario()) is None
 
@@ -240,7 +241,7 @@ def test_get_management_progress_returns_none_when_nothing_is_in_flight(engine: 
     _seed(engine, total_steps=3)
     service = SimulationService(engine)
 
-    assert service.get_management_progress("sim_test") is None
+    assert service.get_management_progress(ROOT, "sim_test") is None
 
 
 def test_advance_one_day_clears_progress_once_the_day_is_proposed(engine: Engine) -> None:
@@ -248,13 +249,13 @@ def test_advance_one_day_clears_progress_once_the_day_is_proposed(engine: Engine
     service = SimulationService(engine)
 
     async def scenario() -> SimulationDefinition | None:
-        return await service.advance_one_day("sim_test")
+        return await service.advance_one_day(ROOT, "sim_test")
 
     result = asyncio.run(scenario())
 
     assert result is not None
     assert result.current_step == 1
-    assert service.get_management_progress("sim_test") is None
+    assert service.get_management_progress(ROOT, "sim_test") is None
 
 
 def test_advance_one_day_is_a_noop_while_auto_run_is_in_flight(engine: Engine) -> None:
@@ -262,9 +263,9 @@ def test_advance_one_day_is_a_noop_while_auto_run_is_in_flight(engine: Engine) -
     service = SimulationService(engine, step_delay_seconds=5)
 
     async def scenario() -> SimulationDefinition | None:
-        await service.start_simulation("sim_test")
+        await service.start_simulation(ROOT, "sim_test")
         assert service.is_running("sim_test")
-        return await service.advance_one_day("sim_test")
+        return await service.advance_one_day(ROOT, "sim_test")
 
     result = asyncio.run(scenario())
 
@@ -284,7 +285,7 @@ def test_advance_one_day_raises_when_the_current_day_has_pending_recommendations
     service = SimulationService(engine)
 
     async def scenario() -> None:
-        await service.advance_one_day("sim_test")
+        await service.advance_one_day(ROOT, "sim_test")
 
     with pytest.raises(PendingRecommendationsExist):
         asyncio.run(scenario())
@@ -298,7 +299,7 @@ def test_advance_one_day_dismisses_pending_recommendations_when_confirmed(engine
     service = SimulationService(engine)
 
     async def scenario() -> SimulationDefinition | None:
-        return await service.advance_one_day("sim_test", confirm_dismiss_remaining=True)
+        return await service.advance_one_day(ROOT, "sim_test", confirm_dismiss_remaining=True)
 
     result = asyncio.run(scenario())
 
@@ -318,7 +319,7 @@ def test_approve_recommendation_executes_it_and_marks_it_executed(engine: Engine
     service = SimulationService(engine)
 
     async def scenario() -> Recommendation | None:
-        return await service.approve_recommendation("rec_1")
+        return await service.approve_recommendation(ROOT, "rec_1")
 
     result = asyncio.run(scenario())
 
@@ -341,7 +342,7 @@ def test_approve_recommendation_rejects_an_invalid_action_via_validator(engine: 
     service = SimulationService(engine)
 
     async def scenario() -> Recommendation | None:
-        return await service.approve_recommendation("rec_1")
+        return await service.approve_recommendation(ROOT, "rec_1")
 
     result = asyncio.run(scenario())
 
@@ -388,7 +389,9 @@ def test_approve_all_pending_executes_every_pending_recommendation_for_the_day(
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
+        return await service.approve_all_pending(
+            ROOT, _MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC)
+        )
 
     results = asyncio.run(scenario())
 
@@ -416,7 +419,9 @@ def test_approve_all_pending_handles_a_mix_of_accepted_and_rejected(engine: Engi
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
+        return await service.approve_all_pending(
+            ROOT, _MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC)
+        )
 
     results = asyncio.run(scenario())
     by_id = {r.recommendation_id: r for r in results}
@@ -433,7 +438,9 @@ def test_approve_all_pending_returns_an_empty_list_when_nothing_is_pending(
     service = SimulationService(engine)
 
     async def scenario() -> list[Recommendation]:
-        return await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
+        return await service.approve_all_pending(
+            ROOT, _MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC)
+        )
 
     assert asyncio.run(scenario()) == []
 
@@ -469,12 +476,12 @@ def test_advance_one_day_waits_for_an_in_flight_approve_all(
     order: list[str] = []
 
     async def run_approve_all() -> None:
-        await service.approve_all_pending(_MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
+        await service.approve_all_pending(ROOT, _MANUAL_GH_ID, datetime(2026, 1, 1, tzinfo=UTC))
         order.append("approve_all_done")
 
     async def run_advance() -> None:
         await asyncio.sleep(0.01)  # let approve-all acquire the lock first
-        await service.advance_one_day(_MANUAL_SIM_ID)
+        await service.advance_one_day(ROOT, _MANUAL_SIM_ID)
         order.append("advance_done")
 
     async def scenario() -> None:
@@ -503,7 +510,7 @@ def test_dismiss_recommendation_marks_it_dismissed_without_executing(engine: Eng
     service = SimulationService(engine)
 
     async def scenario() -> Recommendation | None:
-        return await service.dismiss_recommendation("rec_1")
+        return await service.dismiss_recommendation(ROOT, "rec_1")
 
     result = asyncio.run(scenario())
 
@@ -524,7 +531,7 @@ def test_approve_returns_none_for_unknown_recommendation(engine: Engine) -> None
     service = SimulationService(engine)
 
     async def scenario() -> Recommendation | None:
-        return await service.approve_recommendation("does_not_exist")
+        return await service.approve_recommendation(ROOT, "does_not_exist")
 
     assert asyncio.run(scenario()) is None
 
@@ -533,7 +540,7 @@ def test_dismiss_returns_none_for_unknown_recommendation(engine: Engine) -> None
     service = SimulationService(engine)
 
     async def scenario() -> Recommendation | None:
-        return await service.dismiss_recommendation("does_not_exist")
+        return await service.dismiss_recommendation(ROOT, "does_not_exist")
 
     assert asyncio.run(scenario()) is None
 
@@ -546,8 +553,8 @@ def test_approve_an_already_reviewed_recommendation_raises(engine: Engine) -> No
     service = SimulationService(engine)
 
     async def scenario() -> None:
-        await service.dismiss_recommendation("rec_1")
-        await service.approve_recommendation("rec_1")
+        await service.dismiss_recommendation(ROOT, "rec_1")
+        await service.approve_recommendation(ROOT, "rec_1")
 
     with pytest.raises(RecommendationAlreadyReviewed):
         asyncio.run(scenario())
@@ -561,8 +568,8 @@ def test_dismiss_an_already_reviewed_recommendation_raises(engine: Engine) -> No
     service = SimulationService(engine)
 
     async def scenario() -> None:
-        await service.approve_recommendation("rec_1")
-        await service.dismiss_recommendation("rec_1")
+        await service.approve_recommendation(ROOT, "rec_1")
+        await service.dismiss_recommendation(ROOT, "rec_1")
 
     with pytest.raises(RecommendationAlreadyReviewed):
         asyncio.run(scenario())
@@ -616,7 +623,7 @@ def test_submit_manual_action_executes_and_records_provenance(engine: Engine) ->
     action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
 
     async def scenario() -> Recommendation:
-        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+        return await service.submit_manual_action(ROOT, _MANUAL_GH_ID, action)
 
     result = asyncio.run(scenario())
 
@@ -644,7 +651,7 @@ def test_submit_manual_action_records_a_validator_rejection(engine: Engine) -> N
     action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=0)
 
     async def scenario() -> Recommendation:
-        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+        return await service.submit_manual_action(ROOT, _MANUAL_GH_ID, action)
 
     result = asyncio.run(scenario())
 
@@ -660,7 +667,7 @@ def test_submit_manual_action_raises_before_the_simulation_has_started(engine: E
     action = WaterPlantAction(plant_id=_MANUAL_PLANT_ID, amount_ml=500)
 
     async def scenario() -> Recommendation:
-        return await service.submit_manual_action(_MANUAL_GH_ID, action)
+        return await service.submit_manual_action(ROOT, _MANUAL_GH_ID, action)
 
     with pytest.raises(ManualActionNotAllowed):
         asyncio.run(scenario())
@@ -671,7 +678,7 @@ def test_submit_manual_action_raises_for_an_unknown_greenhouse(engine: Engine) -
     action = WaterPlantAction(plant_id="does_not_exist", amount_ml=500)
 
     async def scenario() -> Recommendation:
-        return await service.submit_manual_action("does_not_exist", action)
+        return await service.submit_manual_action(ROOT, "does_not_exist", action)
 
     with pytest.raises(LookupError):
         asyncio.run(scenario())

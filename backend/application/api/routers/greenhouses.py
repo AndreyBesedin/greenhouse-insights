@@ -136,9 +136,13 @@ def get_recommendations(
     greenhouse_id: str,
     at: datetime,
     simulation_service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> list[Recommendation]:
     """Recommendations made against the state snapshot taken at `at`."""
-    return simulation_service.list_recommendations(greenhouse_id, at)
+    try:
+        return simulation_service.list_recommendations(actor, greenhouse_id, at)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/{greenhouse_id}/recommendations/approve-all")
@@ -146,8 +150,12 @@ async def approve_all_recommendations(
     greenhouse_id: str,
     at: datetime,
     simulation_service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> list[Recommendation]:
-    return await simulation_service.approve_all_pending(greenhouse_id, at)
+    try:
+        return await simulation_service.approve_all_pending(actor, greenhouse_id, at)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/{greenhouse_id}/plants/{plant_id}/actions", status_code=201)
@@ -156,11 +164,12 @@ async def submit_manual_action(
     plant_id: str,
     action: RequestedAction,
     simulation_service: SimulationService = Depends(get_simulation_service),
+    actor: ActorContext = Depends(get_actor),
 ) -> Recommendation:
     if action.plant_id != plant_id:
         raise HTTPException(status_code=422, detail="action plant_id must match the URL")
     try:
-        return await simulation_service.submit_manual_action(greenhouse_id, action)
+        return await simulation_service.submit_manual_action(actor, greenhouse_id, action)
     except ManualActionNotAllowed as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except LookupError as exc:

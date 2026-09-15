@@ -5,6 +5,10 @@ from uuid import uuid4
 
 from sqlalchemy import Engine
 
+from application.auth.actor import ActorContext
+from application.auth.authorizer import Action, Authorizer
+from application.persistence.greenhouse_repository import GreenhouseRepository
+from application.persistence.membership_repository import MembershipRepository
 from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.simulation_repository import SimulationRepository
 from application.recommendation_builder import build_recommendation
@@ -56,9 +60,19 @@ class ManualActionNotAllowed(Exception):
 
 
 class SimulationService:
+    """Runs and steers simulations. One instance serves every request
+    (it owns the per-simulation locks and background tasks), so unlike
+    GreenhouseService it is not built for an actor: each operation takes
+    the actor and authorizes it against the simulation's greenhouse. A
+    simulation the actor may not read is reported as absent (None or
+    LookupError, a 404 over HTTP); an operation their role does not permit
+    raises Forbidden."""
+
     def __init__(self, engine: Engine, *, step_delay_seconds: float = 1.0) -> None:
         self._simulations = SimulationRepository(engine)
         self._recommendations = RecommendationRepository(engine)
+        self._greenhouses = GreenhouseRepository(engine)
+        self._authorizer = Authorizer(MembershipRepository(engine))
         self._runner = SimulationRunner(engine, step_delay_seconds=step_delay_seconds)
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._progress: dict[str, ManagementProgress] = {}
@@ -77,6 +91,37 @@ class SimulationService:
             self._locks[simulation_id] = lock
         return lock
 
+    def _authorize(self, actor: ActorContext, action: Action, greenhouse_id: str) -> bool:
+        """False if the greenhouse does not exist or the actor may not
+        read it (callers report absence); raises Forbidden if it is
+        visible but `action` is beyond the actor's role."""
+        greenhouse = self._greenhouses.get(greenhouse_id)
+        if greenhouse is None:
+            return False
+        organization_id = greenhouse.organization_id
+        if not self._authorizer.can(actor, Action.GREENHOUSE_READ, organization_id):
+            return False
+        self._authorizer.require(actor, action, organization_id)
+        return True
+
+    def _authorize_simulation(
+        self, actor: ActorContext, action: Action, simulation_id: str
+    ) -> SimulationDefinition | None:
+        definition = self._simulations.get(simulation_id)
+        if definition is None or not self._authorize(actor, action, definition.greenhouse_id):
+            return None
+        return definition
+
+    def _authorize_recommendation(
+        self, actor: ActorContext, action: Action, recommendation_id: str
+    ) -> Recommendation | None:
+        recommendation = self._recommendations.get(recommendation_id)
+        if recommendation is None:
+            return None
+        if not self._authorize(actor, action, recommendation.greenhouse_id):
+            return None
+        return recommendation
+
     def _simulation_id_for(self, recommendation: Recommendation) -> str:
         """Every recommendation today is simulation-produced (the only
         ActionExecutorType is SIMULATED_OPERATOR), so its source.source_id
@@ -91,8 +136,10 @@ class SimulationService:
             )
         return simulation_id
 
-    async def start_simulation(self, simulation_id: str) -> SimulationDefinition | None:
-        definition = self._simulations.get(simulation_id)
+    async def start_simulation(
+        self, actor: ActorContext, simulation_id: str
+    ) -> SimulationDefinition | None:
+        definition = self._authorize_simulation(actor, Action.GREENHOUSE_WRITE, simulation_id)
         if definition is None or definition.status == SimulationStatus.COMPLETED:
             return definition
 
@@ -102,20 +149,27 @@ class SimulationService:
             )
         return definition
 
-    def get_status(self, simulation_id: str) -> SimulationDefinition | None:
-        return self._simulations.get(simulation_id)
+    def get_status(self, actor: ActorContext, simulation_id: str) -> SimulationDefinition | None:
+        return self._authorize_simulation(actor, Action.GREENHOUSE_READ, simulation_id)
 
     def is_running(self, simulation_id: str) -> bool:
         task = self._tasks.get(simulation_id)
         return task is not None and not task.done()
 
     def cancel(self, simulation_id: str) -> None:
+        """Stops a background run. Not authorized here: it only makes
+        sense as part of deleting the greenhouse, which GreenhouseService
+        authorizes."""
         task = self._tasks.pop(simulation_id, None)
         if task is not None and not task.done():
             task.cancel()
 
     async def advance_one_day(
-        self, simulation_id: str, *, confirm_dismiss_remaining: bool = False
+        self,
+        actor: ActorContext,
+        simulation_id: str,
+        *,
+        confirm_dismiss_remaining: bool = False,
     ) -> SimulationDefinition | None:
         """Advances exactly one simulated day: evolves the world and asks
         the management policy what it would propose, persisting those
@@ -129,6 +183,8 @@ class SimulationService:
         unreviewed recommendations and confirm_dismiss_remaining is False;
         pass True to dismiss them and proceed.
         """
+        if self._authorize_simulation(actor, Action.GREENHOUSE_WRITE, simulation_id) is None:
+            return None
         async with self._lock_for(simulation_id):
             definition = self._simulations.get(simulation_id)
             if definition is None or definition.status == SimulationStatus.COMPLETED:
@@ -185,19 +241,28 @@ class SimulationService:
 
         return report
 
-    def get_management_progress(self, simulation_id: str) -> ManagementProgress | None:
+    def get_management_progress(
+        self, actor: ActorContext, simulation_id: str
+    ) -> ManagementProgress | None:
         """The latest high-level progress for an in-flight agentic day
         analysis, or None if nothing is currently in progress for this
         simulation - polled by the frontend while a next-day request is
         outstanding (section 14)."""
+        if self._authorize_simulation(actor, Action.GREENHOUSE_READ, simulation_id) is None:
+            return None
         return self._progress.get(simulation_id)
 
-    def list_recommendations(self, greenhouse_id: str, at: datetime) -> list[Recommendation]:
-        """Recommendations made against the state snapshot taken at `at`."""
+    def list_recommendations(
+        self, actor: ActorContext, greenhouse_id: str, at: datetime
+    ) -> list[Recommendation]:
+        """Recommendations made against the state snapshot taken at `at`.
+        Raises LookupError if the greenhouse is absent or not visible."""
+        if not self._authorize(actor, Action.GREENHOUSE_READ, greenhouse_id):
+            raise LookupError(f"greenhouse {greenhouse_id!r} not found")
         return self._recommendations.list_for_context(greenhouse_id, at)
 
     async def submit_manual_action(
-        self, greenhouse_id: str, action: RequestedAction
+        self, actor: ActorContext, greenhouse_id: str, action: RequestedAction
     ) -> Recommendation:
         """Lets an operator act on a plant directly on the current day,
         without waiting for (or regardless of) any policy proposal. Recorded
@@ -210,6 +275,8 @@ class SimulationService:
         Raises ManualActionNotAllowed if the simulation has not started yet
         (current_step == 0, so no world snapshot exists to act against).
         """
+        if not self._authorize(actor, Action.GREENHOUSE_WRITE, greenhouse_id):
+            raise LookupError(f"greenhouse {greenhouse_id!r} not found")
         definition = self._simulations.get_by_greenhouse(greenhouse_id)
         if definition is None:
             raise LookupError(f"no simulation found for greenhouse {greenhouse_id!r}")
@@ -252,8 +319,12 @@ class SimulationService:
                 await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
             return recommendation
 
-    async def approve_recommendation(self, recommendation_id: str) -> Recommendation | None:
-        recommendation = self._recommendations.get(recommendation_id)
+    async def approve_recommendation(
+        self, actor: ActorContext, recommendation_id: str
+    ) -> Recommendation | None:
+        recommendation = self._authorize_recommendation(
+            actor, Action.GREENHOUSE_WRITE, recommendation_id
+        )
         if recommendation is None:
             return None
 
@@ -284,7 +355,9 @@ class SimulationService:
             await asyncio.to_thread(self._runner.refresh_day_state, simulation_id, day)
             return updated
 
-    async def approve_all_pending(self, greenhouse_id: str, at: datetime) -> list[Recommendation]:
+    async def approve_all_pending(
+        self, actor: ActorContext, greenhouse_id: str, at: datetime
+    ) -> list[Recommendation]:
         """Approves and executes every PENDING recommendation made against
         the state snapshot at `at` in
         one go (docs/archive/design-history/demo_readiness_plan.md section 6: a
@@ -296,6 +369,8 @@ class SimulationService:
         of once per recommendation - approving many actions on a large
         greenhouse was previously O(pending count) world round-trips.
         """
+        if not self._authorize(actor, Action.GREENHOUSE_WRITE, greenhouse_id):
+            raise LookupError(f"greenhouse {greenhouse_id!r} not found")
         definition = self._simulations.get_by_greenhouse(greenhouse_id)
         if definition is None:
             raise LookupError(f"no simulation definition found for greenhouse {greenhouse_id!r}")
@@ -351,8 +426,12 @@ class SimulationService:
             }
         )
 
-    async def dismiss_recommendation(self, recommendation_id: str) -> Recommendation | None:
-        recommendation = self._recommendations.get(recommendation_id)
+    async def dismiss_recommendation(
+        self, actor: ActorContext, recommendation_id: str
+    ) -> Recommendation | None:
+        recommendation = self._authorize_recommendation(
+            actor, Action.GREENHOUSE_WRITE, recommendation_id
+        )
         if recommendation is None:
             return None
 
