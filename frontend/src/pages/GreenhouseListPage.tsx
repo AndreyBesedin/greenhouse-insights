@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
+import { isPlatformAdmin } from '../auth/access'
+import { useSession } from '../auth/SessionContext'
 import { AppShell } from '../components/AppShell'
 import { CropIcon } from '../components/CropIcon'
 import type { components } from '../../generated/schema'
@@ -25,6 +27,7 @@ const RECORDED_BADGE = { label: 'Recorded history', cls: 'bg-brand/10 text-brand
 
 function GreenhouseCard({
   greenhouse,
+  canDelete,
   isConfirmingDelete,
   isDeleting,
   onRequestDelete,
@@ -32,6 +35,7 @@ function GreenhouseCard({
   onConfirmDelete,
 }: {
   greenhouse: GreenhouseListItem
+  canDelete: boolean
   isConfirmingDelete: boolean
   isDeleting: boolean
   onRequestDelete: () => void
@@ -153,17 +157,19 @@ function GreenhouseCard({
       ) : (
         <div className="mt-4 flex items-center justify-between">
           <span className="text-xs font-medium text-brand">Open greenhouse →</span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onRequestDelete()
-            }}
-            className="rounded-md px-2 py-1 text-[11px] text-mist transition-colors hover:text-terra"
-          >
-            Delete
-          </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onRequestDelete()
+              }}
+              className="rounded-md px-2 py-1 text-[11px] text-mist transition-colors hover:text-terra"
+            >
+              Delete
+            </button>
+          )}
         </div>
       )}
     </Link>
@@ -171,6 +177,8 @@ function GreenhouseCard({
 }
 
 export function GreenhouseListPage() {
+  const { user, organizationId } = useSession()
+  const canCreate = isPlatformAdmin(user)
   const [greenhouses, setGreenhouses] = useState<GreenhouseListItem[] | null>(null)
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -201,6 +209,13 @@ export function GreenhouseListPage() {
     setGreenhouses((current) => current?.filter((g) => g.greenhouse_id !== greenhouseId) ?? null)
   }
 
+  const visible =
+    greenhouses === null
+      ? null
+      : organizationId === null
+        ? greenhouses
+        : greenhouses.filter((g) => g.organization_id === organizationId)
+
   return (
     <AppShell>
       <main className="mx-auto max-w-[1440px] px-6 py-10">
@@ -211,27 +226,35 @@ export function GreenhouseListPage() {
             </h1>
             <p className="mt-1 text-sm text-mist">
               Monitor your growing environments and daily operations
-              {greenhouses ? ` · ${greenhouses.length} greenhouses` : ''}
+              {visible ? ` · ${visible.length} greenhouses` : ''}
             </p>
           </div>
-          <Link
-            to="/greenhouses/new"
-            className="inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90"
-          >
-            New greenhouse
-          </Link>
+          {canCreate && (
+            <Link
+              to="/greenhouses/new"
+              className="inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90"
+            >
+              New greenhouse
+            </Link>
+          )}
         </div>
 
         {error && <p className="mb-4 text-xs text-terra">{error}</p>}
 
-        {greenhouses === null ? (
+        {visible === null ? (
           <p className="text-sm text-mist">Loading greenhouses…</p>
+        ) : visible.length === 0 ? (
+          <p className="text-sm text-mist">
+            No greenhouses to show. Ask an administrator to add you to an organization that owns
+            one.
+          </p>
         ) : (
           <div className="grid gap-4 md:grid-cols-3">
-            {greenhouses.map((greenhouse) => (
+            {visible.map((greenhouse) => (
               <GreenhouseCard
                 key={greenhouse.greenhouse_id}
                 greenhouse={greenhouse}
+                canDelete={canCreate}
                 isConfirmingDelete={confirmingDeleteId === greenhouse.greenhouse_id}
                 isDeleting={deletingId === greenhouse.greenhouse_id}
                 onRequestDelete={() => setConfirmingDeleteId(greenhouse.greenhouse_id)}

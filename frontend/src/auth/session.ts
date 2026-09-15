@@ -9,6 +9,7 @@
 export type AuthMode = 'dev'
 
 const STORAGE_KEY = 'greenhouse-insights.dev-subject'
+const ORGANIZATION_KEY = 'greenhouse-insights.organization'
 
 export function authMode(): AuthMode {
   const mode = import.meta.env.VITE_AUTH_MODE ?? 'dev'
@@ -37,4 +38,20 @@ export function signOut(): void {
 export function authHeaders(): Record<string, string> {
   const subject = currentSubject()
   return subject ? { 'X-Dev-Subject': subject } : {}
+}
+
+export function selectedOrganization(): string | null {
+  try {
+    return window.localStorage.getItem(ORGANIZATION_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function rememberOrganization(organizationId: string | null): void {
+  if (organizationId === null) {
+    window.localStorage.removeItem(ORGANIZATION_KEY)
+  } else {
+    window.localStorage.setItem(ORGANIZATION_KEY, organizationId)
+  }
 }

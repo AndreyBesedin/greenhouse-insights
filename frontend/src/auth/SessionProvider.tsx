@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
-import { currentSubject, signIn as storeSubject, signOut as clearSubject } from './session'
+import {
+  currentSubject,
+  rememberOrganization,
+  selectedOrganization,
+  signIn as storeSubject,
+  signOut as clearSubject,
+} from './session'
 import { SessionContext, useSession, type CurrentUser } from './SessionContext'
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -12,6 +18,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // loading rather than briefly as the previous user.
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const loading = subject !== null && loadedFor !== subject
+  const [organizationId, setOrganizationId] = useState<string | null>(() => selectedOrganization())
 
   useEffect(() => {
     if (subject === null) {
@@ -36,13 +43,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     clearSubject()
+    rememberOrganization(null)
     setSubject(null)
     setUser(null)
     setLoadedFor(null)
+    setOrganizationId(null)
   }, [])
 
+  const selectOrganization = useCallback((next: string | null) => {
+    rememberOrganization(next)
+    setOrganizationId(next)
+  }, [])
+
+  // A remembered organization the user can no longer reach is dropped.
+  const reachable =
+    organizationId === null ||
+    user === null ||
+    user.organizations.some((o) => o.organization_id === organizationId)
+  const effectiveOrganizationId = reachable ? organizationId : null
+
   return (
-    <SessionContext.Provider value={{ subject, user, loading, signIn, signOut }}>
+    <SessionContext.Provider
+      value={{
+        subject,
+        user,
+        loading,
+        organizationId: effectiveOrganizationId,
+        selectOrganization,
+        signIn,
+        signOut,
+      }}
+    >
       {children}
     </SessionContext.Provider>
   )

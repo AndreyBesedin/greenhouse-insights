@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
+import { canWrite } from '../auth/access'
+import { useSession } from '../auth/SessionContext'
 import { AppShell } from '../components/AppShell'
 import { DayNavigator } from '../components/DayNavigator'
 import { GreenhouseMap } from '../components/GreenhouseMap'
@@ -146,6 +148,10 @@ function DashboardContent({
   simulation: SimulationSummary
 }) {
   const { greenhouse } = detail
+  const { user } = useSession()
+  // Viewers browse; editors and above operate. UX only: the backend
+  // refuses the same operations for a viewer regardless.
+  const canOperate = canWrite(user, greenhouse.organization_id)
   const {
     status,
     isAdvancing,
@@ -336,15 +342,21 @@ function DashboardContent({
               {greenhouse.plants.length.toLocaleString()} plants · {greenhouse.layout.rows} row
               {greenhouse.layout.rows > 1 ? 's' : ''}
             </div>
-            <button
-              type="button"
-              onClick={handleNextDay}
-              disabled={isAdvancing || isFinished || isReviewBusy}
-              title={isReviewBusy ? 'Wait for the current review action to finish' : undefined}
-              className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isAdvancing ? 'Advancing…' : isReviewBusy ? 'Reviewing…' : 'Next day →'}
-            </button>
+            {canOperate ? (
+              <button
+                type="button"
+                onClick={handleNextDay}
+                disabled={isAdvancing || isFinished || isReviewBusy}
+                title={isReviewBusy ? 'Wait for the current review action to finish' : undefined}
+                className="mt-2 inline-flex items-center gap-2 rounded-md bg-brand px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isAdvancing ? 'Advancing…' : isReviewBusy ? 'Reviewing…' : 'Next day →'}
+              </button>
+            ) : (
+              <div className="mt-2 text-[11px] text-mist" data-testid="view-only">
+                View only
+              </div>
+            )}
           </div>
         </div>
 
@@ -431,7 +443,7 @@ function DashboardContent({
           <div className="mt-4">
             <ManagementPanel
               recommendations={recommendations}
-              interactive={isViewingCurrentDay}
+              interactive={isViewingCurrentDay && canOperate}
               busyId={busyRecommendationId}
               onApprove={handleApprove}
               onDismiss={handleDismiss}
@@ -455,7 +467,7 @@ function DashboardContent({
             detail={plantDetail}
             history={plantHistory}
             recommendations={recommendations}
-            interactive={isViewingCurrentDay}
+            interactive={isViewingCurrentDay && canOperate}
             isSubmittingAction={isSubmittingAction}
             onSubmitAction={handleSubmitManualAction}
           />

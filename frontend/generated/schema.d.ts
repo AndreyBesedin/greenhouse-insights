@@ -823,6 +823,8 @@ export interface components {
         GreenhouseListItem: {
             /** Greenhouse Id */
             greenhouse_id: string;
+            /** Organization Id */
+            organization_id: string;
             /** Name */
             name: string;
             /** Description */

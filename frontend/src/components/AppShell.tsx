@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { canAdminister, isPlatformAdmin } from '../auth/access'
 import { useSession } from '../auth/SessionContext'
 import { CropIcon } from './CropIcon'
 
@@ -13,9 +14,13 @@ function initials(label: string): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, signOut } = useSession()
+  const { user, signOut, organizationId, selectOrganization } = useSession()
   const navigate = useNavigate()
   const label = user?.display_name ?? user?.email ?? null
+  const organizations = user?.organizations ?? []
+  const showSwitcher = organizations.length > 1
+  const membersOrganizationId =
+    organizationId ?? (organizations.length === 1 ? organizations[0]!.organization_id : null)
   return (
     <div className="min-h-screen bg-ink font-sans text-paper">
       <header className="border-b border-white/[0.06]">
@@ -32,8 +37,39 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link to="/" className="rounded-md px-3 py-1.5 font-medium text-paper">
               Greenhouses
             </Link>
+            {membersOrganizationId !== null && canAdminister(user, membersOrganizationId) && (
+              <Link
+                to={`/organizations/${membersOrganizationId}/members`}
+                className="rounded-md px-3 py-1.5 text-mist transition-colors hover:text-paper"
+              >
+                Members
+              </Link>
+            )}
+            {isPlatformAdmin(user) && (
+              <Link
+                to="/admin"
+                className="rounded-md px-3 py-1.5 text-mist transition-colors hover:text-paper"
+              >
+                Admin
+              </Link>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            {showSwitcher && (
+              <select
+                aria-label="Organization"
+                value={organizationId ?? ''}
+                onChange={(event) => selectOrganization(event.target.value || null)}
+                className="rounded-md bg-ink-800 px-2.5 py-1.5 text-xs text-paper outline-1 -outline-offset-1 outline-white/[0.07] focus:outline-brand/50"
+              >
+                <option value="">All organizations</option>
+                {organizations.map((o) => (
+                  <option key={o.organization_id} value={o.organization_id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            )}
             {label !== null && (
               <span className="hidden text-xs text-mist sm:inline" data-testid="current-user">
                 {label}

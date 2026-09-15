@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { apiClient } from '../api/client'
+import { memberOf, PLATFORM_ADMIN, withSession } from '../test/session'
 import { GreenhouseListPage } from './GreenhouseListPage'
 
 vi.mock('../api/client', () => ({
@@ -16,6 +17,7 @@ const mockedDelete = vi.mocked(apiClient.DELETE)
 const GREENHOUSES = [
   {
     greenhouse_id: 'gh_001',
+    organization_id: 'org_serrapulse_internal',
     name: 'Simulation Greenhouse 001',
     description: 'Primary demo greenhouse',
     source_type: 'SIMULATION',
@@ -29,6 +31,7 @@ const GREENHOUSES = [
   },
   {
     greenhouse_id: 'gh_002',
+    organization_id: 'org_serrapulse_internal',
     name: 'Longitudinal Plant Demo',
     description: 'Single-plant longitudinal demo',
     source_type: 'SIMULATION',
@@ -42,6 +45,7 @@ const GREENHOUSES = [
   },
   {
     greenhouse_id: 'gh_demo',
+    organization_id: 'org_serrapulse_internal',
     name: 'Agentic Demo Greenhouse',
     description: 'Recommended walkthrough greenhouse',
     source_type: 'SIMULATION',
@@ -55,6 +59,7 @@ const GREENHOUSES = [
   },
   {
     greenhouse_id: 'wur_agc4_2024',
+    organization_id: 'org_serrapulse_internal',
     name: 'WUR AGC4 2024',
     description: 'Recorded history of six compartments.',
     source_type: 'IMPORTED_DATA',
@@ -73,12 +78,16 @@ beforeEach(() => {
   mockedDelete.mockReset()
 })
 
-function renderList() {
+function renderList(user = PLATFORM_ADMIN, organizationId: string | null = null) {
   mockedGet.mockResolvedValue({ data: GREENHOUSES, error: undefined, response: new Response() })
   return render(
-    <MemoryRouter>
-      <GreenhouseListPage />
-    </MemoryRouter>,
+    withSession(
+      <MemoryRouter>
+        <GreenhouseListPage />
+      </MemoryRouter>,
+      user,
+      { organizationId },
+    ),
   )
 }
 
@@ -159,5 +168,27 @@ describe('GreenhouseListPage', () => {
 
     expect(await screen.findByText(/could not delete/i)).toBeInTheDocument()
     expect(screen.getByText('Simulation Greenhouse 001')).toBeInTheDocument()
+  })
+
+  it('hides creation and deletion from a viewer', async () => {
+    renderList(memberOf('VIEWER'))
+
+    expect(await screen.findByText('Simulation Greenhouse 001')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /new greenhouse/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('hides deletion from an editor too - only platform admins delete', async () => {
+    renderList(memberOf('EDITOR'))
+
+    expect(await screen.findByText('Simulation Greenhouse 001')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('shows only the selected organization when one is chosen', async () => {
+    renderList(PLATFORM_ADMIN, 'org_acme')
+
+    expect(await screen.findByText(/no greenhouses to show/i)).toBeInTheDocument()
+    expect(screen.queryByText('Simulation Greenhouse 001')).not.toBeInTheDocument()
   })
 })

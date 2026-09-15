@@ -31,6 +31,7 @@ from simulation.scenarios.config import ScenarioConfig
 
 class GreenhouseListItem(BaseModel):
     greenhouse_id: str
+    organization_id: str
     name: str
     description: str
     source_type: SourceType
@@ -400,6 +401,7 @@ def _list_item(
 ) -> GreenhouseListItem:
     return GreenhouseListItem(
         greenhouse_id=greenhouse.greenhouse_id,
+        organization_id=greenhouse.organization_id,
         name=greenhouse.name,
         description=greenhouse.description,
         source_type=greenhouse.source_type,

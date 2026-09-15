@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { apiClient } from '../api/client'
+import { useSession } from '../auth/SessionContext'
 import { AppShell } from '../components/AppShell'
 import type { components } from '../../generated/schema'
 
@@ -22,8 +23,15 @@ const MANAGEMENT_POLICY_OPTIONS: { value: ManagementPolicyType; label: string }[
   { value: 'AGENTIC', label: 'Agentic' },
 ]
 
+const INTERNAL_ORGANIZATION_ID = 'org_serrapulse_internal'
+
 export function NewGreenhousePage() {
   const navigate = useNavigate()
+  const { user, organizationId: selectedOrganizationId } = useSession()
+  const organizations = user?.organizations ?? []
+  const [organizationId, setOrganizationId] = useState(
+    selectedOrganizationId ?? INTERNAL_ORGANIZATION_ID,
+  )
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [sourceType, setSourceType] = useState<SourceType>('SIMULATION')
@@ -58,6 +66,7 @@ export function NewGreenhousePage() {
       body: {
         name,
         description,
+        organization_id: organizationId,
         source_type: sourceType,
         crop,
         rows,
@@ -102,6 +111,26 @@ export function NewGreenhousePage() {
             onChange={(event) => setName(event.target.value)}
             className="mb-4 w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] focus:outline-brand/50"
           />
+
+          <label htmlFor="organization" className="mb-1.5 block text-xs text-mist">
+            Organization
+          </label>
+          <select
+            id="organization"
+            value={organizationId}
+            onChange={(event) => setOrganizationId(event.target.value)}
+            className="mb-4 w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] focus:outline-brand/50"
+          >
+            {organizations.length === 0 ? (
+              <option value={INTERNAL_ORGANIZATION_ID}>SerraPulse Internal</option>
+            ) : (
+              organizations.map((o) => (
+                <option key={o.organization_id} value={o.organization_id}>
+                  {o.name}
+                </option>
+              ))
+            )}
+          </select>
 
           <label htmlFor="description" className="mb-1.5 block text-xs text-mist">
             Description

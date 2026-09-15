@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { apiClient } from '../api/client'
+import { memberOf, PLATFORM_ADMIN, withSession } from '../test/session'
 import { GreenhouseDashboardPage } from './GreenhouseDashboardPage'
 
 vi.mock('../api/client', () => ({
@@ -23,6 +24,7 @@ function notFound() {
 const DETAIL = {
   greenhouse: {
     greenhouse_id: 'gh_001',
+    organization_id: 'org_serrapulse_internal',
     name: 'Simulation Greenhouse 001',
     description: 'Primary demo greenhouse',
     source_type: 'SIMULATION',
@@ -127,17 +129,38 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function renderDashboard() {
+function renderDashboard(user = PLATFORM_ADMIN) {
   return render(
-    <MemoryRouter initialEntries={['/greenhouses/gh_001']}>
-      <Routes>
-        <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
-      </Routes>
-    </MemoryRouter>,
+    withSession(
+      <MemoryRouter initialEntries={['/greenhouses/gh_001']}>
+        <Routes>
+          <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
+        </Routes>
+      </MemoryRouter>,
+      user,
+    ),
   )
 }
 
 describe('GreenhouseDashboardPage', () => {
+  it('gives a viewer a read-only dashboard with no next-day control', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+
+    renderDashboard(memberOf('VIEWER'))
+
+    expect(await screen.findByText('Simulation Greenhouse 001')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next day →' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('view-only')).toBeInTheDocument()
+  })
+
+  it('lets an editor advance the day', async () => {
+    mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
+
+    renderDashboard(memberOf('EDITOR'))
+
+    expect(await screen.findByRole('button', { name: 'Next day →' })).toBeEnabled()
+  })
+
   it('shows the greenhouse name and current progress out of total steps', async () => {
     mockedGet.mockImplementation((path: string) => mockGetImplementation(path))
 
@@ -602,6 +625,7 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
   const RECORDED_DETAIL = {
     greenhouse: {
       greenhouse_id: 'wur_agc4_2024',
+      organization_id: 'org_serrapulse_internal',
       name: 'WUR AGC4 2024',
       description: 'Recorded history of six compartments.',
       source_type: 'IMPORTED_DATA',
@@ -678,11 +702,13 @@ describe('GreenhouseDashboardPage for a recorded greenhouse', () => {
 
   function renderRecorded() {
     return render(
-      <MemoryRouter initialEntries={['/greenhouses/wur_agc4_2024']}>
-        <Routes>
-          <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
-        </Routes>
-      </MemoryRouter>,
+      withSession(
+        <MemoryRouter initialEntries={['/greenhouses/wur_agc4_2024']}>
+          <Routes>
+            <Route path="/greenhouses/:greenhouseId" element={<GreenhouseDashboardPage />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
     )
   }
 
