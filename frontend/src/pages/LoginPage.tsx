@@ -1,16 +1,23 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
+import { useSession } from '../auth/SessionContext'
 import { CropIcon } from '../components/CropIcon'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const location = useLocation()
+  const { signIn } = useSession()
+  const [subject, setSubject] = useState('dev-admin')
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   function onSubmit(event: FormEvent) {
     event.preventDefault()
-    navigate('/')
+    if (!subject.trim()) {
+      return
+    }
+    signIn(subject)
+    navigate(from, { replace: true })
   }
 
   return (
@@ -40,35 +47,23 @@ export function LoginPage() {
           onSubmit={onSubmit}
           className="w-full max-w-sm rounded-lg bg-ink-850 p-6 outline-1 -outline-offset-1 outline-white/[0.06]"
         >
-          <div className="mb-4 text-sm font-medium">Sign in to your greenhouse</div>
-          <label htmlFor="email" className="mb-1.5 block text-xs text-mist">
-            Email
+          <div className="mb-1 text-sm font-medium">Sign in to your greenhouse</div>
+          <p className="mb-4 text-xs text-mist">
+            Development mode: the API trusts whatever identity you type here. Use the subject listed
+            in GREENHOUSE_PLATFORM_ADMIN_SUBJECTS to sign in as a platform admin.
+          </p>
+          <label htmlFor="subject" className="mb-1.5 block text-xs text-mist">
+            Identity subject
           </label>
           <input
-            id="email"
-            type="email"
+            id="subject"
+            type="text"
             required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="mb-4 w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] placeholder:text-mist focus:outline-brand/50"
+            autoFocus
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+            className="mb-5 w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] placeholder:text-mist focus:outline-brand/50"
           />
-          <label htmlFor="password" className="mb-1.5 block text-xs text-mist">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="••••••••••"
-            className="mb-2 w-full rounded-md bg-ink-800 px-3.5 py-2.5 text-sm text-paper outline-1 -outline-offset-1 outline-white/[0.07] placeholder:text-mist focus:outline-brand/50"
-          />
-          <div className="mb-5 text-right">
-            <button type="button" className="text-xs text-mist transition-colors hover:text-paper">
-              Forgot password?
-            </button>
-          </div>
           <button
             type="submit"
             className="block w-full rounded-md bg-brand py-2.5 text-center text-sm font-medium text-ink transition-colors hover:bg-brand/90"

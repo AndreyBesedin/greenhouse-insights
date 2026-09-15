@@ -1,9 +1,21 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
+import { useSession } from '../auth/SessionContext'
 import { CropIcon } from './CropIcon'
 
+function initials(label: string): string {
+  const parts = label.split(/[\s@._-]+/).filter(Boolean)
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('')
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
+  const { user, signOut } = useSession()
+  const navigate = useNavigate()
+  const label = user?.display_name ?? user?.email ?? null
   return (
     <div className="min-h-screen bg-ink font-sans text-paper">
       <header className="border-b border-white/[0.06]">
@@ -22,13 +34,28 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <Link
-              to="/login"
+            {label !== null && (
+              <span className="hidden text-xs text-mist sm:inline" data-testid="current-user">
+                {label}
+                {user?.is_platform_admin && (
+                  <span className="ml-2 rounded-sm bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand outline-1 -outline-offset-1 outline-brand/30">
+                    Platform admin
+                  </span>
+                )}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                signOut()
+                navigate('/login')
+              }}
               className="grid size-8 place-items-center rounded-full bg-ink-700 text-xs font-medium text-paper outline-1 -outline-offset-1 outline-white/10"
               title="Sign out"
+              aria-label="Sign out"
             >
-              GI
-            </Link>
+              {label !== null ? initials(label) : 'GI'}
+            </button>
           </div>
         </div>
       </header>
