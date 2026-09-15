@@ -11,6 +11,7 @@ from application.greenhouse_service import (
     GreenhouseService,
     PlantDetail,
     TimelineSummary,
+    UnknownOrganization,
 )
 from application.simulation_service import ManualActionNotAllowed, SimulationService
 from domain.management_trace import ManagementTrace
@@ -36,7 +37,10 @@ def list_greenhouses(
 def create_greenhouse(
     request: CreateGreenhouseRequest, service: GreenhouseService = Depends(_get_service)
 ) -> GreenhouseDetail:
-    return service.create_greenhouse(request)
+    try:
+        return service.create_greenhouse(request)
+    except UnknownOrganization as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{greenhouse_id}")

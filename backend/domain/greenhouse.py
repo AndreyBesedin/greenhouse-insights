@@ -48,6 +48,12 @@ class Compartment(BaseModel):
 
 class Greenhouse(BaseModel):
     greenhouse_id: str
+    # The tenant this greenhouse belongs to. Mandatory: internal, demo and
+    # research greenhouses belong to the SerraPulse internal organization
+    # rather than being unowned, so every greenhouse is reached through the
+    # same tenancy check (docs/design/authentication_authorization_plan.md,
+    # "Greenhouse ownership").
+    organization_id: str
     name: str
     description: str
     source_type: SourceType

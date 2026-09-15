@@ -19,6 +19,7 @@ class GreenhouseRepository:
     def save(self, greenhouse: Greenhouse) -> None:
         row = {
             "greenhouse_id": greenhouse.greenhouse_id,
+            "organization_id": greenhouse.organization_id,
             "name": greenhouse.name,
             "description": greenhouse.description,
             "source_type": greenhouse.source_type.value,
@@ -63,6 +64,7 @@ def _optional_isoformat(value: Any) -> str | None:
 def _row_to_greenhouse(mapping: RowMapping) -> Greenhouse:
     return Greenhouse(
         greenhouse_id=mapping["greenhouse_id"],
+        organization_id=mapping["organization_id"],
         name=mapping["name"],
         description=mapping["description"],
         source_type=mapping["source_type"],

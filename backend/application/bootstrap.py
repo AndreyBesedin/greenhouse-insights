@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
@@ -29,6 +30,7 @@ def bootstrap_greenhouses(engine: Engine) -> None:
 def _greenhouse_from_config(config: ScenarioConfig) -> Greenhouse:
     return Greenhouse(
         greenhouse_id=config.greenhouse_id,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name=config.name,
         description=config.description,
         source_type=SourceType.SIMULATION,

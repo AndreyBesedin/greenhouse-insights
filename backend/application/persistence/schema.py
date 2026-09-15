@@ -6,6 +6,13 @@ greenhouses = Table(
     "greenhouses",
     metadata,
     Column("greenhouse_id", String, primary_key=True),
+    Column(
+        "organization_id",
+        String,
+        ForeignKey("organizations.organization_id"),
+        nullable=False,
+        index=True,
+    ),
     Column("name", String, nullable=False),
     Column("description", String, nullable=False),
     Column("source_type", String, nullable=False),

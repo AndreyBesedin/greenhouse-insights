@@ -22,6 +22,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from domain.event import Event
 from domain.greenhouse import Greenhouse
 from domain.observation import Observation
@@ -64,7 +65,12 @@ class CanonicalGreenhouse:
         return self.directory.name
 
     def greenhouse(self) -> Greenhouse:
-        return Greenhouse.model_validate_json((self.directory / GREENHOUSE_FILE).read_text())
+        record = json.loads((self.directory / GREENHOUSE_FILE).read_text())
+        # Canonical records prepared before greenhouse ownership existed
+        # carry no organization; a recorded research dataset is internal by
+        # definition, so fill that in rather than forcing a re-prepare.
+        record.setdefault("organization_id", SERRAPULSE_INTERNAL_ORGANIZATION_ID)
+        return Greenhouse.model_validate(record)
 
     def provenance(self) -> CanonicalProvenance:
         return CanonicalProvenance.model_validate_json(

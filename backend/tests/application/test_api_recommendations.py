@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 
 from application.api.dependencies import get_engine, get_simulation_service
 from application.api.main import app
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
@@ -26,6 +27,7 @@ DAY_2 = "2026-01-02T00:00:00+00:00"
 def _seed(engine: Engine) -> None:
     greenhouse = Greenhouse(
         greenhouse_id="gh_test",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Test Greenhouse",
         description="A test greenhouse",
         source_type=SourceType.SIMULATION,

@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 import pytest
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
@@ -45,6 +46,7 @@ def _seed(
 ) -> None:
     greenhouse = Greenhouse(
         greenhouse_id="gh_test",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Test Greenhouse",
         description="A test greenhouse",
         source_type=SourceType.SIMULATION,
@@ -576,6 +578,7 @@ def _seed_manual(
 ) -> None:
     greenhouse = Greenhouse(
         greenhouse_id=_MANUAL_GH_ID,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Manual Action Greenhouse",
         description="",
         source_type=SourceType.SIMULATION,

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.greenhouse_service import GreenhouseService
 from domain.enums import ObservationType, PlantHealth, SourceType
 from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
@@ -91,6 +92,7 @@ def test_loaded_compartment_plants_have_detail_and_history(tmp_path: Path, engin
     unmeasured = Plant(plant_id="p47b", variety="cherry", row=10, position_in_row=2)
     greenhouse = Greenhouse(
         greenhouse_id="gh",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Recorded",
         description="A recorded greenhouse with compartment plants",
         source_type=SourceType.IMPORTED_DATA,

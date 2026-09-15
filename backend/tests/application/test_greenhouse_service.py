@@ -4,12 +4,18 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID, Organization
 from application.bootstrap import bootstrap_greenhouses
-from application.greenhouse_service import CreateGreenhouseRequest, GreenhouseService
+from application.greenhouse_service import (
+    CreateGreenhouseRequest,
+    GreenhouseService,
+    UnknownOrganization,
+)
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.organization_repository import OrganizationRepository
 from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
@@ -475,6 +481,7 @@ def test_list_greenhouses_reports_the_crop_of_a_compartment_without_plants(
     GreenhouseRepository(engine).save(
         Greenhouse(
             greenhouse_id="wur_c306",
+            organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
             name="Compartment 3.06",
             description="Recorded WUR compartment",
             source_type=SourceType.IMPORTED_DATA,
@@ -499,6 +506,7 @@ def test_list_greenhouses_counts_compartments_and_the_plants_inside_them(
     GreenhouseRepository(engine).save(
         Greenhouse(
             greenhouse_id="wur_agc4_2024",
+            organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
             name="WUR AGC4 2024",
             description="Six recorded compartments",
             source_type=SourceType.IMPORTED_DATA,
@@ -533,6 +541,7 @@ def test_plant_detail_and_history_find_plants_inside_compartments(engine: Engine
     GreenhouseRepository(engine).save(
         Greenhouse(
             greenhouse_id="wur_agc4_2023",
+            organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
             name="WUR AGC4 2023 pre-trial",
             description="Recorded pre-trial",
             source_type=SourceType.IMPORTED_DATA,
@@ -566,3 +575,66 @@ def test_plant_detail_and_history_find_plants_inside_compartments(engine: Engine
     assert detail.state == state
     assert service.get_plant_history("wur_agc4_2023", "wur23_p41", up_to=at) == [state]
     assert service.get_plant_detail("wur_agc4_2023", "wur23_p99", at=None) is None
+
+
+def test_create_greenhouse_records_the_owning_organization(engine: Engine) -> None:
+    OrganizationRepository(engine).save(
+        Organization(
+            organization_id="org_acme",
+            name="Acme Growers",
+            slug="acme",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    service = GreenhouseService(engine)
+
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Acme north wing",
+            organization_id="org_acme",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+            duration_days=3,
+        )
+    )
+
+    stored = GreenhouseRepository(engine).get(detail.greenhouse.greenhouse_id)
+    assert stored is not None
+    assert stored.organization_id == "org_acme"
+
+
+def test_create_greenhouse_defaults_to_the_internal_organization(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    detail = service.create_greenhouse(
+        CreateGreenhouseRequest(
+            name="Demo",
+            source_type=SourceType.SIMULATION,
+            crop="cherry_tomato",
+            rows=1,
+            columns=1,
+            duration_days=3,
+        )
+    )
+
+    assert detail.greenhouse.organization_id == SERRAPULSE_INTERNAL_ORGANIZATION_ID
+
+
+def test_create_greenhouse_rejects_an_unknown_organization(engine: Engine) -> None:
+    service = GreenhouseService(engine)
+
+    with pytest.raises(UnknownOrganization):
+        service.create_greenhouse(
+            CreateGreenhouseRequest(
+                name="Orphan",
+                organization_id="org_nope",
+                source_type=SourceType.SIMULATION,
+                crop="cherry_tomato",
+                rows=1,
+                columns=1,
+                duration_days=3,
+            )
+        )
+    assert all(gh.name != "Orphan" for gh in GreenhouseRepository(engine).list())

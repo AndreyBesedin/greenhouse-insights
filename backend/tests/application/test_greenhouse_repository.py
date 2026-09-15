@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from domain.enums import SourceType
 from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
@@ -10,6 +11,7 @@ from domain.greenhouse import Compartment, Greenhouse, GreenhouseLayout, Plant
 def _make_greenhouse(greenhouse_id: str = "gh_001") -> Greenhouse:
     return Greenhouse(
         greenhouse_id=greenhouse_id,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Simulation Greenhouse 001",
         description="Primary demo greenhouse",
         source_type=SourceType.SIMULATION,
@@ -81,6 +83,7 @@ def test_a_compartment_greenhouse_without_plants_round_trips(engine: Engine) -> 
     repo = GreenhouseRepository(engine)
     compartment = Greenhouse(
         greenhouse_id="wur_c306",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Compartment 3.06",
         description="Recorded WUR compartment",
         source_type=SourceType.IMPORTED_DATA,
@@ -99,6 +102,7 @@ def test_compartments_and_their_plants_round_trip(engine: Engine) -> None:
     repo = GreenhouseRepository(engine)
     greenhouse = Greenhouse(
         greenhouse_id="wur_agc4_2024",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="WUR AGC4 2024",
         description="Six recorded compartments",
         source_type=SourceType.IMPORTED_DATA,

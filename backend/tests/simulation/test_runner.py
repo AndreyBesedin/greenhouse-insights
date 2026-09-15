@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
@@ -27,6 +28,7 @@ def _seed_greenhouse_and_simulation(
 ) -> None:
     greenhouse = Greenhouse(
         greenhouse_id="gh_test",
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="Test Greenhouse",
         description="A test greenhouse",
         source_type=SourceType.SIMULATION,

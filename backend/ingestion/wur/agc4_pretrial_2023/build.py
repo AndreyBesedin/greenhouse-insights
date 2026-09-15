@@ -10,6 +10,7 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from domain.enums import SourceType
 from domain.greenhouse import Greenhouse, GreenhouseLayout, Plant
 from domain.observation import Observation
@@ -73,6 +74,7 @@ def _greenhouse(observations: list[Observation], plants: list[Plant]) -> Greenho
     recording_start = min(o.timestamp for o in observations) if observations else datetime.now(UTC)
     return Greenhouse(
         greenhouse_id=GREENHOUSE_ID,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="WUR AGC4 2023 pre-trial",
         description=(
             "Recorded history of the 4th Autonomous Greenhouse Challenge pre-trial (2023) at "

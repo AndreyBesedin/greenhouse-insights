@@ -16,6 +16,7 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
@@ -41,6 +42,7 @@ CONFIG = SCENARIO_REGISTRY["gh_002"].model_copy(
 def _seed(engine: Engine) -> None:
     greenhouse = Greenhouse(
         greenhouse_id=GREENHOUSE_ID,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="End-to-end eval greenhouse",
         description="",
         source_type=SourceType.SIMULATION,

@@ -5,10 +5,12 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Engine
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from application.persistence.event_repository import EventRepository
 from application.persistence.greenhouse_repository import GreenhouseRepository
 from application.persistence.management_trace_repository import ManagementTraceRepository
 from application.persistence.observation_repository import ObservationRepository
+from application.persistence.organization_repository import OrganizationRepository
 from application.persistence.recommendation_repository import RecommendationRepository
 from application.persistence.scenario_config_repository import ScenarioConfigRepository
 from application.persistence.simulation_repository import SimulationRepository
@@ -75,9 +77,18 @@ MAX_AGENTIC_DURATION_DAYS = 30
 MAX_AGENTIC_PLANT_COUNT = 25
 
 
+class UnknownOrganization(LookupError):
+    def __init__(self, organization_id: str) -> None:
+        self.organization_id = organization_id
+        super().__init__(f"organization {organization_id!r} does not exist")
+
+
 class CreateGreenhouseRequest(BaseModel):
     name: str
     description: str = ""
+    # The owning tenant. None means the internal organization, until the
+    # UI lets a platform admin pick one; the field becomes required then.
+    organization_id: str | None = None
     source_type: SourceType
     crop: str
     rows: int = Field(gt=0, le=50)
@@ -121,6 +132,7 @@ class GreenhouseService:
         self._events = EventRepository(engine)
         self._worlds = WorldRepository(engine)
         self._recommendations = RecommendationRepository(engine)
+        self._organizations = OrganizationRepository(engine)
 
     def list_greenhouses(self) -> list[GreenhouseListItem]:
         return [
@@ -139,9 +151,13 @@ class GreenhouseService:
         )
 
     def create_greenhouse(self, request: CreateGreenhouseRequest) -> GreenhouseDetail:
+        organization_id = request.organization_id or SERRAPULSE_INTERNAL_ORGANIZATION_ID
+        if self._organizations.get(organization_id) is None:
+            raise UnknownOrganization(organization_id)
         greenhouse_id = f"gh_{uuid4().hex[:8]}"
         greenhouse = Greenhouse(
             greenhouse_id=greenhouse_id,
+            organization_id=organization_id,
             name=request.name,
             description=request.description,
             source_type=request.source_type,

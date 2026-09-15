@@ -59,6 +59,7 @@ def test_plant_requires_plant_id() -> None:
 def _make_greenhouse(**overrides: object) -> Greenhouse:
     defaults: dict[str, object] = dict(
         greenhouse_id="gh_001",
+        organization_id="org_test",
         name="Simulation Greenhouse 001",
         description="Primary demo greenhouse",
         source_type=SourceType.SIMULATION,

@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from application.auth.models import SERRAPULSE_INTERNAL_ORGANIZATION_ID
 from domain.enums import SourceType
 from domain.event import Event
 from domain.greenhouse import Greenhouse, GreenhouseLayout
@@ -126,6 +127,7 @@ def _greenhouse(observations: list[Observation]) -> Greenhouse:
     recording_start = min(o.timestamp for o in observations) if observations else datetime.now(UTC)
     return Greenhouse(
         greenhouse_id=GREENHOUSE_ID,
+        organization_id=SERRAPULSE_INTERNAL_ORGANIZATION_ID,
         name="WUR AGC4 2024",
         description=(
             "Recorded history of the 4th Autonomous Greenhouse Challenge (2024) at the WUR "

@@ -396,6 +396,8 @@ export interface components {
              * @default
              */
             description: string;
+            /** Organization Id */
+            organization_id?: string | null;
             source_type: components["schemas"]["SourceType"];
             /** Crop */
             crop: string;
@@ -419,6 +421,8 @@ export interface components {
         Greenhouse: {
             /** Greenhouse Id */
             greenhouse_id: string;
+            /** Organization Id */
+            organization_id: string;
             /** Name */
             name: string;
             /** Description */
